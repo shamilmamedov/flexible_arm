@@ -1,5 +1,8 @@
 # Visual Studio Code folder
 .vscode/
 
+# C++ build folder
+cpp/build/
+
 # Cache
 __pycache__/
