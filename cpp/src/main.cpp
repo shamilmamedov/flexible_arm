@@ -83,7 +83,7 @@ int main()
     casadi::Function eval_aba("eval_aba",
                               casadi::SXVector {cs_q, cs_v, cs_tau},
                               casadi::SXVector {cs_ddq});
-    eval_aba.save("aba.casadi");
+    eval_aba.save("../../models/aba.casadi");
 
     // Evaluate forward dynamics and compare with numerical solution
     std::vector<double> q_vec((size_t)model.nq);
