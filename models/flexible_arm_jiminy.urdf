@@ -23,7 +23,7 @@
     <child link="link1"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0 0 0" rpy="1.57 0 0"/>
-    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
   </joint>
 
   <link name="link2">
@@ -40,12 +40,12 @@
     </inertial>
   </link>
 
-  <joint name="link1_to_link2" type="revolute">
+  <joint name="link1_to_link2" type="fixed">
     <parent link="link1"/>
     <child link="link2"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
   </joint>
 
   <link name="link3">
@@ -62,12 +62,12 @@
     </inertial>
   </link>
 
-  <joint name="link2_to_link3" type="revolute">
+  <joint name="link2_to_link3" type="fixed">
     <parent link="link2"/>
     <child link="link3"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
   </joint>
 
   <link name="link4">
@@ -84,12 +84,12 @@
     </inertial>
   </link>
 
-  <joint name="link3_to_link4" type="revolute">
+  <joint name="link3_to_link4" type="fixed">
     <parent link="link3"/>
     <child link="link4"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
   </joint>
 
   <link name="link5">
@@ -106,12 +106,12 @@
     </inertial>
   </link>
 
-  <joint name="link4_to_link5" type="revolute">
+  <joint name="link4_to_link5" type="fixed">
     <parent link="link4"/>
     <child link="link5"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
   </joint>
 
   <link name="load">

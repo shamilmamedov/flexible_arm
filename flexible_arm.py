@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import pinocchio as pin
 import matplotlib.pyplot as plt
+import casadi as cs
+import pinocchio as pin
+
 
 class FlexibleArm:
     """ Implements flexible arm robot by dividing a link into
@@ -66,7 +68,12 @@ class FlexibleArm:
     def forward_dynamics(self, q, dq, tau):
         """ Computes forward dynamics of the robot
         """
-        return pin.aba(self.model, self.data, q, dq, tau)
+        # Compute torque due to flexibility
+        q_virt = q[1:,:]
+        dq_virt = dq[1:,:]
+        tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
+        tau_total = np.vstack((tau, tau_flexibility))
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
@@ -80,11 +87,7 @@ class FlexibleArm:
         """
         q = x[0:self.nq,:]
         dq = x[self.nq:,:]
-        q_virt = q[1:,:]
-        dq_virt = dq[1:,:]
-        tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
-        tau_total = np.vstack((tau, tau_flexibility))
-        return np.vstack((dq, pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)))
+        return np.vstack((dq, self.forward_dynamics(q, dq, tau)))
 
     def fk_for_visualization(self, q):
         # Perform forward kinematics and get joint positions
@@ -112,3 +115,63 @@ class FlexibleArm:
         ax.set_ylim([-0.55, 0.55])
         plt.tight_layout()
         plt.show()
+
+
+class SymbolicFlexibleArm:
+    """ The class implements a model of the flexible arm in symbolic form
+    using casadi. It is mainly intended to be used in MPC formulation.
+
+    NOTE for time being majority of the parameters are fixed (HARDCODED)
+    """
+    def __init__(self, K=None, D=None) -> None:
+        # Process stiffness parameters
+        if K is None:
+            self.K = np.diag([100.]*4)
+        else:
+            assert(K.size==4)
+            self.K = np.diag(K)
+
+        # Process dampig parameters
+        if D is None:
+            self.D = np.diag([5.]*4)
+        else:
+            assert(D.size==4)
+            self.D = np.diag(D)
+
+        # Number of joints, states and controls
+        self.nq = 5
+        self.nx = 10
+        self.nu = 1
+
+        # Symbolic variables for joint positions, velocities and controls
+        q = cs.MX.sym("q", self.nq)
+        dq = cs.MX.sym("dq", self.nq)
+        u = cs.MX.sym("u", self.nu)
+
+        # Load the forward dynamics alogirthm function ABA
+        casadi_aba = cs.Function.load('models/aba.casadi')
+
+        # Compute torques of passive joints due to joint flexibility
+        # Keep in mind only the first joint is active
+        tau_p = -self.K @ q[1:] - self.D @ dq[1:]
+        tau = cs.vertcat(u, tau_p)
+        
+        # Compute forward dynamics
+        ddq = casadi_aba(q, dq, tau)
+
+        # Compute right hand side of the system ODE
+        rhs = cs.vertcat(dq, ddq)
+
+        self.x = cs.vertcat(q,dq)
+        self.u = u
+        self.rhs = rhs
+        self.ode = cs.Function('ode', [self.x, self.u], [self.rhs], 
+                                ['x', 'u'], ['dx'])
+
+
+
+if __name__ == "__main__":
+    arm = FlexibleArm()
+    print(arm.nq)
+
+    sarm = SymbolicFlexibleArm()
