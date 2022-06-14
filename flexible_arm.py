@@ -15,6 +15,7 @@ class FlexibleArm:
 
     NOTE for now the number of virtual joints and links are fixed
     """
+
     def __init__(self, K=None, D=None) -> None:
         """ Class constructor
         :parameter K: an array of stiffnesses of passive virtual joints
@@ -22,20 +23,20 @@ class FlexibleArm:
         """
         # Process stiffness parameters
         if K is None:
-            self.K = np.diag([100.]*4)
+            self.K = np.diag([100.] * 4)
         else:
-            assert(K.size==4)
+            assert (K.size == 4)
             self.K = np.diag(K)
 
         # Process dampig parameters
         if D is None:
-            self.D = np.diag([5.]*4)
+            self.D = np.diag([5.] * 4)
         else:
-            assert(D.size==4)
+            assert (D.size == 4)
             self.D = np.diag(D)
 
         path_to_urdf = 'models/flexible_arm_v1.urdf'
-        
+
         # Try to load model from urdf file
         try:
             self.model = pin.buildModelFromUrdf(path_to_urdf)
@@ -43,7 +44,7 @@ class FlexibleArm:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
         # EE frame ID || 'load'
-        self.ee_frame_id = self.model.getFrameId('link5_to_load') 
+        self.ee_frame_id = self.model.getFrameId('link5_to_load')
 
         # Create data required for the algorithms
         self.data = self.model.createData()
@@ -63,17 +64,17 @@ class FlexibleArm:
         """ Computes gravity vector of the robot
         """
         t1 = np.zeros_like(q)
-        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1,1)
+        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1, 1)
 
     def forward_dynamics(self, q, dq, tau):
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:,:]
-        dq_virt = dq[1:,:]
+        q_virt = q[1:, :]
+        dq_virt = dq[1:, :]
         tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
         tau_total = np.vstack((tau, tau_flexibility))
-        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1, 1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
@@ -85,20 +86,20 @@ class FlexibleArm:
         :parameter x: [10x1] vector of robot states
         :parameter tau: [1x1] vector of an active joint torque
         """
-        q = x[0:self.nq,:]
-        dq = x[self.nq:,:]
+        q = x[0:self.nq, :]
+        dq = x[self.nq:, :]
         return np.vstack((dq, self.forward_dynamics(q, dq, tau)))
 
     def fk_for_visualization(self, q):
         # Perform forward kinematics and get joint positions
         pin.forwardKinematics(self.model, self.data, q)
-        p_joints = np.zeros((self.model.njoints+1,3))
+        p_joints = np.zeros((self.model.njoints + 1, 3))
         for k, oMi in enumerate(self.data.oMi):
-            p_joints[k,:] = oMi.translation
-        
+            p_joints[k, :] = oMi.translation
+
         # Get also end-effector position
         pin.updateFramePlacement(self.model, self.data, self.ee_frame_id)
-        p_joints[-1,:] = self.data.oMf[self.ee_frame_id].translation
+        p_joints[-1, :] = self.data.oMf[self.ee_frame_id].translation
         return p_joints
 
     def visualize(self, q):
@@ -107,8 +108,8 @@ class FlexibleArm:
 
         # Plot the robot
         _, ax = plt.subplots()
-        ax.plot(p_joints[:,0], p_joints[:,2], 'o-', lw=2, color='k')
-        ax.scatter(p_joints[:-1,0], p_joints[:-1,2])
+        ax.plot(p_joints[:, 0], p_joints[:, 2], 'o-', lw=2, color='k')
+        ax.scatter(p_joints[:-1, 0], p_joints[:-1, 2])
         ax.set_xlabel("X (m)")
         ax.set_ylabel("Z (m)")
         ax.set_xlim([-0.55, 0.55])
@@ -123,19 +124,20 @@ class SymbolicFlexibleArm:
 
     NOTE for time being majority of the parameters are fixed (HARDCODED)
     """
+
     def __init__(self, K=None, D=None) -> None:
         # Process stiffness parameters
         if K is None:
-            self.K = np.diag([100.]*4)
+            self.K = np.diag([100.] * 4)
         else:
-            assert(K.size==4)
+            assert (K.size == 4)
             self.K = np.diag(K)
 
         # Process dampig parameters
         if D is None:
-            self.D = np.diag([5.]*4)
+            self.D = np.diag([5.] * 4)
         else:
-            assert(D.size==4)
+            assert (D.size == 4)
             self.D = np.diag(D)
 
         # Number of joints, states and controls
@@ -155,19 +157,18 @@ class SymbolicFlexibleArm:
         # Keep in mind only the first joint is active
         tau_p = -self.K @ q[1:] - self.D @ dq[1:]
         tau = cs.vertcat(u, tau_p)
-        
+
         # Compute forward dynamics
         ddq = casadi_aba(q, dq, tau)
 
         # Compute right hand side of the system ODE
         rhs = cs.vertcat(dq, ddq)
 
-        self.x = cs.vertcat(q,dq)
+        self.x = cs.vertcat(q, dq)
         self.u = u
         self.rhs = rhs
-        self.ode = cs.Function('ode', [self.x, self.u], [self.rhs], 
-                                ['x', 'u'], ['dx'])
-
+        self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
+                               ['x', 'u'], ['dx'])
 
 
 if __name__ == "__main__":
