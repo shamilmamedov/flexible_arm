@@ -44,8 +44,8 @@ class FlexibleArm:
         except ValueError:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
-        # EE frame ID || 'load'
-        self.ee_frame_id = self.model.getFrameId('link5_to_load')
+        # EE frame ID || 'load'  || 'link5' || 'link5_to_load'
+        self.ee_frame_id = self.model.getFrameId('link5')
 
         # Create data required for the algorithms
         self.data = self.model.createData()
@@ -65,31 +65,32 @@ class FlexibleArm:
         """ Computes gravity vector of the robot
         """
         t1 = np.zeros_like(q)
-        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1, 1)
+        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1,1)
 
-    def forward_dynamics(self, q, dq, tau):
+    def forward_dynamics(self, q, dq, tau_a):
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:, :]
-        dq_virt = dq[1:, :]
+        q_virt = q[1:,:]
+        dq_virt = dq[1:,:]
         tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
-        tau_total = np.vstack((tau, tau_flexibility))
-        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1, 1)
+        tau_total = np.vstack((tau_a, tau_flexibility))
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
         """
         return pin.rnea(self.model, self.data, q, dq, ddq)
 
-    def ode(self, x, tau):
+    def ode(self, x, tau_a):
         """ Computes ode of the robot
         :parameter x: [10x1] vector of robot states
-        :parameter tau: [1x1] vector of an active joint torque
+        :parameter tau_a: [1x1] vector of an active joint torque
         """
-        q = x[0:self.nq, :]
-        dq = x[self.nq:, :]
-        return np.vstack((dq, self.forward_dynamics(q, dq, tau)))
+        assert(tau_a.size==1 and x.size==self.nx)
+        q = x[:self.nq,:]
+        dq = x[self.nq:,:]
+        return np.vstack((dq, self.forward_dynamics(q, dq, tau_a)))
 
     def fk_for_visualization(self, q):
         # Perform forward kinematics and get joint positions
