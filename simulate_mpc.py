@@ -10,8 +10,8 @@ from simulation import simulate_closed_loop
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    fa = FlexibleArm()
-    fa_sym = SymbolicFlexibleArm()
+    fa = FlexibleArm(K=[10.] * 4)
+    fa_sym = SymbolicFlexibleArm(K=[10.] * 4)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)

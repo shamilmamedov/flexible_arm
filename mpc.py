@@ -42,8 +42,9 @@ class Mpc(BaseController):
         # OCP parameter adjustment
         nx = model.x.size()[0]
         nu = model.u.size()[0]
-        ny = nx + nu
-        ny_e = nx
+        nz = model.z.size()[0]
+        ny = nx + nu + nz
+        ny_e = nx + nz
 
         # set dimensions
         ocp.dims.N = options.n
@@ -55,12 +56,14 @@ class Mpc(BaseController):
         q_diag = np.zeros((nx, 1))
         q_diag[0:int(nx / 2)] = 1
 
-        Q = 100 * np.diagflat(q_diag)
-        Q_e = 2000 * Q
-        R = 2 * np.diagflat(1e-5 * np.ones((nu, 1)))
+        Q = 0 * np.diagflat(q_diag)
+        Q_e = 0 * Q
+        R = np.diagflat(1e-3 * np.ones((nu, 1)))
+        Z = 1e2 * np.diagflat(np.ones((nz, 1)))
+        Z_e = 10 * Z
 
-        ocp.cost.W = scipy.linalg.block_diag(Q, R)
-        ocp.cost.W_e = Q_e
+        ocp.cost.W = scipy.linalg.block_diag(Q, R, Z)
+        ocp.cost.W_e = scipy.linalg.block_diag(Q_e, Z_e)
 
         ocp.cost.Vx = np.zeros((ny, nx))
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
@@ -69,14 +72,26 @@ class Mpc(BaseController):
         Vu[nx:nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
-        ocp.cost.Vx_e = np.eye(nx)
+        Vz = np.zeros((ny, nz))
+        Vz[nx + nu:, :] = np.eye(nz)
+        ocp.cost.Vz = Vz
+
+        ocp.cost.Vx_e = np.zeros((ny_e, nx))
+        ocp.cost.Vx_e[:nx, :nx] = np.ones(nx)
+
+        # Vz_e = np.zeros((ny_e, nz))
+        # Vz_e[nx:, :] = np.eye(nz)
+        # ocp.cost.Vz_e = Vz_e
 
         # todo: reference position is hardcoded here for now
         x_goal = np.zeros((nx, 1))
         x_goal[0] = np.pi / 4
-        yref = np.vstack((x_goal, np.zeros((nu, 1)))).flatten()
-        ocp.cost.yref = yref
-        ocp.cost.yref_e = x_goal.flatten()
+        phi =  np.pi / 4
+        x_cartesian = np.cos(phi) * 0.4
+        y_cartesian = np.sin(phi) * 0.4
+        x_goal_cartesian = np.expand_dims(np.array([x_cartesian, y_cartesian]), 1)
+        ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
+        ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
         # set constraints
         umax = self.u_max * np.ones((nu,))

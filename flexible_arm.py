@@ -26,14 +26,14 @@ class FlexibleArm:
         if K is None:
             self.K = np.diag([100.] * 4)
         else:
-            assert (K.size == 4)
+            assert (len(K) == 4)
             self.K = np.diag(K)
 
         # Process dampig parameters
         if D is None:
             self.D = np.diag([5.] * 4)
         else:
-            assert (D.size == 4)
+            assert (len(D) == 4)
             self.D = np.diag(D)
 
         path_to_urdf = 'models/flexible_arm_v1.urdf'
@@ -65,17 +65,17 @@ class FlexibleArm:
         """ Computes gravity vector of the robot
         """
         t1 = np.zeros_like(q)
-        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1,1)
+        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1, 1)
 
     def forward_dynamics(self, q, dq, tau_a):
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:,:]
-        dq_virt = dq[1:,:]
+        q_virt = q[1:, :]
+        dq_virt = dq[1:, :]
         tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
         tau_total = np.vstack((tau_a, tau_flexibility))
-        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1, 1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
@@ -87,9 +87,9 @@ class FlexibleArm:
         :parameter x: [10x1] vector of robot states
         :parameter tau_a: [1x1] vector of an active joint torque
         """
-        assert(tau_a.size==1 and x.size==self.nx)
-        q = x[:self.nq,:]
-        dq = x[self.nq:,:]
+        assert (tau_a.size == 1 and x.size == self.nx)
+        q = x[:self.nq, :]
+        dq = x[self.nq:, :]
         return np.vstack((dq, self.forward_dynamics(q, dq, tau_a)))
 
     def fk_for_visualization(self, q):
@@ -132,28 +132,31 @@ class SymbolicFlexibleArm:
         if K is None:
             self.K = np.diag([100.] * 4)
         else:
-            assert (K.size == 4)
+            assert (len(K) == 4)
             self.K = np.diag(K)
 
         # Process dampig parameters
         if D is None:
             self.D = np.diag([5.] * 4)
         else:
-            assert (D.size == 4)
+            assert (len(D) == 4)
             self.D = np.diag(D)
 
         # Number of joints, states and controls
         self.nq = 5
         self.nx = 2 * self.nq
         self.nu = 1
+        self.nz = 2  # algebraic states
+        self.length = 0.4  # todo Shamil: get length of model
 
-        # constraints #todo Shamil: add constraints appropriately
+        # constraints # todo Shamil: add constraints appropriately
         self.maximum_input_torque = 100  # Nm
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
         u = cs.MX.sym("u", self.nu)
+        z = cs.MX.sym("z", self.nz)
 
         # Symbolic variables for dot values (needed for acados)
         x_dot = cs.MX.sym('xdot', self.nx)
@@ -172,20 +175,27 @@ class SymbolicFlexibleArm:
         # Compute right hand side of the system ODE
         rhs = cs.vertcat(dq, ddq)
 
+        # compute positions
+        self.rhs_impl = cs.vertcat(self.length * cs.cos(q[0]),
+                                   self.length * cs.sin(q[0]))
+        self.rhs_impl = cs.vertcat(self.length/4 * (cs.cos(q[0]) + cs.cos(q[0]+q[1])+ cs.cos(q[0]+q[1]+q[2])+ cs.cos(q[0]+q[1]+q[2]+q[3])),
+                                   self.length/4 * (cs.sin(q[0]) + cs.sin(q[0]+q[1])+ cs.sin(q[0]+q[1]+q[2])+ cs.sin(q[0]+q[1]+q[2]+q[3])))
         self.x = cs.vertcat(q, dq)
         self.x_dot = x_dot
         self.u = u
+        self.z = z
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
 
     def get_acados_model(self) -> AcadosModel:
         model = AcadosModel()
-
-        model.f_impl_expr = self.x_dot - self.rhs
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
         model.f_expl_expr = self.rhs
         model.x = self.x
         model.xdot = self.x_dot
+        model.z = self.z
         model.u = self.u
         # model.p = w  # Not used right now
         model.name = "flexible_arm_nq" + str(self.nq)
