@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 
 import numpy as np
@@ -53,8 +54,9 @@ class Mpc(BaseController):
 
         q_diag = np.zeros((nx, 1))
         q_diag[0:int(nx / 2)] = 1
+
         Q = 100 * np.diagflat(q_diag)
-        Q_e = 200 * Q
+        Q_e = 2000 * Q
         R = 2 * np.diagflat(1e-5 * np.ones((nu, 1)))
 
         ocp.cost.W = scipy.linalg.block_diag(Q, R)
@@ -71,7 +73,7 @@ class Mpc(BaseController):
 
         # todo: reference position is hardcoded here for now
         x_goal = np.zeros((nx, 1))
-        x_goal[0] = np.pi / 2
+        x_goal[0] = np.pi / 4
         yref = np.vstack((x_goal, np.zeros((nu, 1)))).flatten()
         ocp.cost.yref = yref
         ocp.cost.yref_e = x_goal.flatten()
