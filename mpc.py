@@ -4,7 +4,7 @@ import numpy as np
 import scipy
 
 from controller import BaseController
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 
 # Avoid circular imports with type checking
@@ -121,5 +121,10 @@ class Mpc(BaseController):
         u_output = self.acados_ocp_solver.get(0, "u")
         return u_output
 
-    def get_timing_statistics(self):
-        return self.debug_timings
+    def get_timing_statistics(self) -> Tuple[float, float, float, float]:
+        timing_array = np.array(self.debug_timings)
+        t_mean = float(np.mean(timing_array))
+        t_std = float(np.std(timing_array))
+        t_max = float(np.max(timing_array))
+        t_min = float(np.min(timing_array))
+        return t_mean, t_std, t_min, t_max

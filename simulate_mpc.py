@@ -2,7 +2,7 @@
 
 import numpy as np
 import pinocchio as pin
-from scipy.integrate import solve_ivp
+from utils import plot_result, print_timings
 from flexible_arm import FlexibleArm, SymbolicFlexibleArm
 from animation import Animator
 from mpc import MpcOptions, Mpc
@@ -28,6 +28,13 @@ if __name__ == "__main__":
     ts = 0.01
     n_iter = 150
     x, u = simulate_closed_loop(ts, n_iter, fa, controller, x0.flatten())
+
+    # Timing
+    t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
+    print_timings(t_mean, t_std, t_min, t_max)
+
+    # Plot result
+    plot_result(x=x, u=u, t=np.arange(0, (n_iter+1)*ts, ts))
 
     # Parse joint positions
     q = x[:, :fa.nq]
