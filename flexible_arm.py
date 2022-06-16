@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 import pinocchio as pin
+from acados_template import AcadosModel
 
 
 class FlexibleArm:
@@ -142,13 +143,19 @@ class SymbolicFlexibleArm:
 
         # Number of joints, states and controls
         self.nq = 5
-        self.nx = 10
+        self.nx = 2 * self.nq
         self.nu = 1
+
+        # constraints #todo Shamil: add constraints appropriately
+        self.maximum_input_torque = 100  # Nm
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
         u = cs.MX.sym("u", self.nu)
+
+        # Symbolic variables for dot values (needed for acados)
+        x_dot = cs.MX.sym('xdot', self.nx)
 
         # Load the forward dynamics alogirthm function ABA
         casadi_aba = cs.Function.load('models/aba.casadi')
@@ -165,10 +172,24 @@ class SymbolicFlexibleArm:
         rhs = cs.vertcat(dq, ddq)
 
         self.x = cs.vertcat(q, dq)
+        self.x_dot = x_dot
         self.u = u
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
+
+    def get_acados_model(self) -> AcadosModel:
+        model = AcadosModel()
+
+        model.f_impl_expr = self.x_dot - self.rhs
+        model.f_expl_expr = self.rhs
+        model.x = self.x
+        model.xdot = self.x_dot
+        model.u = self.u
+        # model.p = w  # Not used right now
+        model.name = "flexible_arm_nq" + str(self.nq)
+
+        return model
 
 
 if __name__ == "__main__":
@@ -176,3 +197,5 @@ if __name__ == "__main__":
     print(arm.nq)
 
     sarm = SymbolicFlexibleArm()
+    acados_model = sarm.get_acados_model()
+    print(acados_model.name)

@@ -6,3 +6,6 @@ cpp/build/
 
 # Cache
 __pycache__/
+
+# json files
+/*.json

@@ -35,7 +35,7 @@ def simulate_closed_loop(ts, n_iter, robot, controller, x0):
         qk = x[[k], :robot.nq].T
         dqk = x[[k], robot.nq:].T
 
-        tau = controller.compute_torques(qk[0], dqk[0])
+        tau = controller.compute_torques(qk, dqk)
         u[[k], :] = tau
 
         sol = solve_ivp(robot_ode, [0, ts], x[k, :], args=(robot, tau), vectorized=True)
