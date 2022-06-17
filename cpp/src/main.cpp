@@ -54,8 +54,10 @@ int main()
     q = pin::randomConfiguration(model);
     std::cout << "q: " << q.transpose() << std::endl;
     TangentVector v(TangentVector::Random(model.nv));
+    TangentVector a(TangentVector::Random(model.nv));
     TangentVector tau(TangentVector::Random(model.nv));
 
+    // Run ABA for a numerical model
     pin::aba(model,data,q,v,tau);
 
     // Define symbolic model and symbolic variables
@@ -69,6 +71,11 @@ int main()
     casadi::SX cs_v = casadi::SX::sym("v", model.nv);
     TangentVectorAD v_ad(model.nv);
     v_ad = Eigen::Map<TangentVectorAD>(static_cast< std::vector<ADScalar> >(cs_v).data(),model.nv,1);
+
+    casadi::SX cs_a = casadi::SX::sym("a", model.nv);
+    TangentVectorAD a_ad(model.nv);
+    a_ad = Eigen::Map<TangentVectorAD>(static_cast< std::vector<ADScalar> >(cs_a).data(),model.nv,1);
+    // pinocchio::casadi::copy(cs_a,a_ad);
     
     casadi::SX cs_tau = casadi::SX::sym("tau", model.nv);
     TangentVectorAD tau_ad(model.nv);
@@ -102,39 +109,54 @@ int main()
     std::cout << "ddq numerical = " << data.ddq << std::endl;
     std::cout << "ddq casadi = " << ddq_mat << std::endl;
 
-    // // Perform the forward kinematics over the kinematic tree
-    // pin::forwardKinematics(model, data, q);
-    // pin::updateFramePlacement(model, data, ee_frame_id);
+
+    // Perform the forward kinematics over the kinematic tree
+    pin::forwardKinematics(model, data, q);
+    pin::updateFramePlacement(model, data, ee_frame_id);
  
-    // Eigen::VectorXd p_ee = data.oMf[ee_frame_id].translation();
-    // std::cout << "EE position: " << p_ee.transpose() << std::endl;
+    Eigen::VectorXd p_ee = data.oMf[ee_frame_id].translation();
+    auto v_ee =  pin::getFrameVelocity(model, data, 
+                            ee_frame_id, pin::LOCAL_WORLD_ALIGNED);
 
-    // // Compute Jacobians
-    // pin::computeJointJacobians(model, data, q);
-    // pin::updateFramePlacement(model, data, ee_frame_id);
-    // pin::Data::Matrix6x Jee_0(6, model.nv);
-    // pin::getFrameJacobian(model, data, ee_frame_id, pin::LOCAL_WORLD_ALIGNED, Jee_0);
-    // std::cout << Jee_0 << std::endl;
+    std::cout << "EE position: " << p_ee.transpose() << std::endl;
+    std::cout << "EE velocity num: " << v_ee.linear().transpose()  << std::endl;
 
-    // // FK with casadi
-    // ADModel ad_model = model.cast<ADScalar>();
-    // ADData ad_data(ad_model);
+    // Compute Jacobians
+    pin::computeJointJacobians(model, data, q);
+    pin::updateFramePlacement(model, data, ee_frame_id);
+    pin::Data::Matrix6x Jee_0(6, model.nv);
+    pin::getFrameJacobian(model, data, ee_frame_id, pin::LOCAL_WORLD_ALIGNED, Jee_0);
+    std::cout << Jee_0 << std::endl;
 
-    // casadi::SX cs_q = casadi::SX::sym("q", model.nq);
-    // ConfigVectorAD q_ad(model.nq);
-    // pin::casadi::copy(cs_q, q_ad);
+    // Forward kinematics with symbolic model
+    pin::forwardKinematics(ad_model, ad_data, q_ad, v_ad, a_ad);
+    pinocchio::updateGlobalPlacements(ad_model, ad_data);
+    pinocchio::updateFramePlacements(ad_model, ad_data);
 
-    // pin::forwardKinematics(ad_model, ad_data, q_ad);
-    // pinocchio::updateGlobalPlacements(ad_model, ad_data);
-    // pinocchio::updateFramePlacements(ad_model, ad_data);
+    auto ad_v_ee =  pin::getFrameVelocity(ad_model, ad_data, 
+                          ee_frame_id, pin::LOCAL_WORLD_ALIGNED);
 
-    // casadi::SX cs_p_ee(3,1);
-    // for(Eigen::DenseIndex k = 0; k < 3; ++k)
-    //     cs_p_ee(k) = ad_data.oMf[ee_frame_id].translation()[k];
+    // Get a symbolic expression for kinematic variables
+    casadi::SX cs_p_ee(2,1);
+    casadi::SX cs_v_ee(2,1);
+    for(Eigen::DenseIndex k = 0; k < 2; ++k){
+        cs_p_ee(k) = ad_data.oMf[ee_frame_id].translation()[2*k];
+        cs_v_ee(k) = ad_v_ee.linear()[2*k];
+    }
 
-    // casadi::Function eval_fkp("eval_fkp",
-    //                         casadi::SXVector {cs_q},
-    //                         casadi::SXVector {cs_p_ee});
+    // Create casadi functions for evaluating kinematics
+    casadi::Function eval_fkp("eval_fkp",
+                            casadi::SXVector {cs_q},
+                            casadi::SXVector {cs_p_ee});
+    eval_fkp.save("../../models/fkp.casadi");
+
+    casadi::Function eval_vee("eval_vee",
+                            casadi::SXVector {cs_q, cs_v},
+                            casadi::SXVector {cs_v_ee});
+    eval_vee.save("../../models/fkv.casadi");
+
+    std::cout << "EE position sym: " << eval_fkp(casadi::DMVector {q_vec}) << std::endl;
+    std::cout << "EE velocity sym: " << eval_vee(casadi::DMVector {q_vec, v_vec}) << std::endl;
 
     // ConfigVector qq(model.nq);
     // qq << 0.0, 0.0, 0.0, 0.0, 0.0;

@@ -45,6 +45,45 @@ def test_casadi_ode():
         sym_ode = np.array(sym_arm.ode(x, tau))
         np.testing.assert_allclose(num_ode, sym_ode)
 
+def test_casadi_fk():
+    """ Tests a casadi function for computing forward kinematics by
+    comparing it to the numerical pinocchio values
+    """
+    # Load casadi function for evaluating forward kinematics
+    casadi_fkp = cs.Function.load('models/fkp.casadi')
+
+    # Load flexible arm instance 
+    arm = FlexibleArm()
+
+    for _ in range(15):
+        # Random position, velocity and torques
+        q = -np.pi + 2*np.pi*np.random.rand(arm.nq,1)
+
+        # Compute acclerations and compare
+        pee_casadi = np.array(casadi_fkp(q))
+        pee_num = arm.fk_ee(q)[1] 
+        np.testing.assert_allclose(pee_casadi, pee_num[[0,2],:])
+
+def test_casadi_vee():
+    """ Tests a casadi function for computing ee velocity
+    """
+    # Load casadi function for evaluating forward kinematics
+    casadi_fkp = cs.Function.load('models/fkv.casadi')
+
+    # Load flexible arm instance 
+    arm = FlexibleArm()
+
+    for _ in range(15):
+        # Random position, velocity and torques
+        q = -np.pi + 2*np.pi*np.random.rand(arm.nq,1)
+        dq = -2*np.pi + 4*np.pi*np.random.rand(arm.nq,1)
+
+        # Compute acclerations and compare
+        vee_casadi = np.array(casadi_fkp(q, dq))
+        vee_num = arm.ee_velocity(q, dq)[:3,:] 
+        np.testing.assert_allclose(vee_casadi, vee_num[[0,2],:])
+
+
 def test_casadi_forward_simulation():
     """ Test casadi model based forward simulation of the flexible
     arm robot by comparing it to a forward simulation using 
@@ -52,3 +91,6 @@ def test_casadi_forward_simulation():
     """
     pass
 
+if __name__ == "__main__":
+    test_casadi_fk()
+    test_casadi_vee()

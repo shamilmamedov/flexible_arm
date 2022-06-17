@@ -53,8 +53,43 @@ class FlexibleArm:
         self.nq = self.model.nq
         self.nu = 1
 
+    def fk(self, q, frame_id):
+        """ Computes forward kinematics for a given frame
+
+        :parameter q: a vector of joint configurations
+        :parameter frame_id: an id of a desored frame
+        """
+        pin.forwardKinematics(self.model, self.data, q)
+        pin.updateFramePlacements(self.model, self.data)
+        # pin.updateFramePlacement(self.model, self.data, frame_id)
+        T_EE_O = self.data.oMf[frame_id]
+        R_EE_O = T_EE_O.rotation
+        p_EE_O = T_EE_O.translation
+        return R_EE_O, p_EE_O.reshape(-1,1)
+
     def fk_ee(self, q):
-        pass
+        """ Computes forward kinematics for EE frame in base frame
+        """
+        return self.fk(q, self.ee_frame_id)
+
+    def frame_velocity(self, q, dq, frame_id):
+        """ Computes end-effector velocity for a given frame
+
+        :parameter q: joint configurations
+        :parameter dq: joint velocities
+        :parameter frame_id: an id of a desired frame
+        """
+        pin.forwardKinematics(self.model, self.data, q, dq)
+        pin.updateFramePlacements(self.model, self.data)
+        v = pin.getFrameVelocity(self.model, self.data, 
+                    frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+
+        return np.hstack((v.linear, v.angular)).reshape(-1,1)
+
+    def ee_velocity(self, q, dq):
+        """ Computes end-effector velocity
+        """
+        return self.frame_velocity(q, dq, self.ee_frame_id)
 
     def jacobian_ee(self, q):
         pass
@@ -122,6 +157,15 @@ class SymbolicFlexibleArm:
     using casadi. It is mainly intended to be used in MPC formulation.
 
     NOTE for time being majority of the parameters are fixed (HARDCODED)
+
+    Class attributes
+        x - a vector of symbolic variables for states
+        u - a vector of symbolic variables for controls
+        rhs - a symbolic expression for the right-hand side of ODE
+        ode - a casadi function for evaluating rhs
+        p_ee - a casadi function for evaluating forward kinematics (ee position)
+        v_ee - a casadi function for evaluating ee velocity
+
     """
     def __init__(self, K=None, D=None) -> None:
         # Process stiffness parameters
@@ -167,7 +211,9 @@ class SymbolicFlexibleArm:
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs], 
                                 ['x', 'u'], ['dx'])
-
+        self.p_ee = cs.Function.load('models/fkp.casadi')
+        self.v_ee = cs.Function.load('models/fkv.casadi')
+        
 
 
 if __name__ == "__main__":
