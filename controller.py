@@ -15,7 +15,7 @@ class BaseController(ABC):
         ...
 
 
-class DummyController:
+class DummyController(BaseController):
     """ Controller that always returns zero torque
     """
 
@@ -24,6 +24,20 @@ class DummyController:
 
     def compute_torques(self, q, dq):
         return np.zeros((self.n_joints, 1))
+
+
+class ConstantController(BaseController):
+    """ Controller that always returns constant torque
+    """
+
+    def __init__(self, n_joints=1, constant=0) -> None:
+        self.n_joints = n_joints
+        self.constant = constant
+
+    def compute_torques(self, q, dq):
+        output = np.zeros((self.n_joints, 1))
+        output[0] = self.constant
+        return output
 
 
 class PDController(BaseController):

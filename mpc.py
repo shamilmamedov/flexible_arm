@@ -58,7 +58,7 @@ class Mpc(BaseController):
 
         Q = 0 * np.diagflat(q_diag)
         Q_e = 0 * Q
-        R = np.diagflat(1e-3 * np.ones((nu, 1)))
+        R = np.diagflat(1e-2 * np.ones((nu, 1)))
         Z = 1e2 * np.diagflat(np.ones((nz, 1)))
         Z_e = 10 * Z
 
@@ -86,7 +86,7 @@ class Mpc(BaseController):
         # todo: reference position is hardcoded here for now
         x_goal = np.zeros((nx, 1))
         x_goal[0] = np.pi / 4
-        phi =  np.pi / 4
+        phi =  np.pi / 2 + 0.3
         x_cartesian = np.cos(phi) * 0.4
         y_cartesian = np.sin(phi) * 0.4
         x_goal_cartesian = np.expand_dims(np.array([x_cartesian, y_cartesian]), 1)

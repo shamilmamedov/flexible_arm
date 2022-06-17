@@ -7,11 +7,12 @@ from flexible_arm import FlexibleArm, SymbolicFlexibleArm
 from animation import Animator
 from mpc import MpcOptions, Mpc
 from simulation import simulate_closed_loop
+from controller import ConstantController
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    fa = FlexibleArm(K=[10.] * 4)
-    fa_sym = SymbolicFlexibleArm(K=[10.] * 4)
+    fa = FlexibleArm(K=[7.] * 4)
+    fa_sym = SymbolicFlexibleArm(K=[7.] * 4)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)
