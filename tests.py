@@ -118,6 +118,21 @@ def test_casadi_forward_simulation():
     """
     pass
 
+def test_SymbolicFlexibleArm():
+    """ Tests Symbolic Flexible Arm class, very basic
+    """
+    n_segs = [3, 5, 10]
+
+    for n_seg in n_segs:
+        sarm = SymbolicFlexibleArm(n_seg)
+        q = np.random.rand(sarm.nq)
+        dq = np.pi*np.random.rand(sarm.nq)
+        pee = sarm.p_ee(q)
+        vee = sarm.v_ee(q, dq)
+
+
+
+
 if __name__ == "__main__":
     test_casadi_fk()
     test_casadi_vee()
