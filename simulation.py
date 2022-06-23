@@ -13,42 +13,38 @@ from controller import DummyController, PDController
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
+    def __init__(self, robot, controller, integrator) -> None:
+        self.robot = robot
+        self.controller = controller
+        self.integrator = integrator
 
-    def __init__(self) -> None:
-        pass
-
-    def __ode(self, t, x):
+    @staticmethod
+    def ode_wrapper(t, x, robot, tau):
         """ Wraps ode of the FlexibleArm to match scipy notation
         """
+        return robot.ode(x, tau)
 
+    def simulate(self, x0, ts, n_iter):
+        x = np.zeros((n_iter+1, self.robot.nx))
+        u = np.zeros((n_iter, self.robot.nu))
+        x[0,:] = x0
+        for k in range(n_iter):
+            qk = x[[k],:self.robot.nq].T
+            dqk = x[[k],self.robot.nq:].T
 
-def robot_ode(t, x, robot, tau):
-    """ Wrapper on ode of the robot class
-    """
-    return robot.ode(x, tau)
+            tau = controller.compute_torques(qk[0], dqk[0])
+            u[[k],:] = tau
 
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), vectorized=True)
+            x[k+1,:] = sol.y[:,-1]
 
-def simulate_closed_loop(ts, n_iter, robot, controller, x0):
-    x = np.zeros((n_iter + 1, robot.nx))
-    u = np.zeros((n_iter, robot.nu))
-    x[0, :] = x0
-    for k in range(n_iter):
-        qk = x[[k], :robot.nq].T
-        dqk = x[[k], robot.nq:].T
-
-        tau = controller.compute_torques(qk, dqk)
-        u[[k], :] = tau
-
-        sol = solve_ivp(robot_ode, [0, ts], x[k,:], args=(robot, tau), vectorized=True,
-                        atol=1e-5, rtol=0.0001)
-        x[k+1,:] = sol.y[:,-1]
-
-    return x, u
+        return x, u
 
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    fa = FlexibleArm()
+    n_seg = 3
+    fa = FlexibleArm(n_seg)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)
@@ -60,11 +56,13 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     # controller = DummyController()
-    controller = PDController(Kp=150, Kd=5, q_ref=np.array([np.pi / 2]))
+    controller = PDController(Kp=150, Kd=1, q_ref=np.array([np.pi/4]))
 
     ts = 0.01
     n_iter = 150
-    x, u = simulate_closed_loop(ts, n_iter, fa, controller, x0.flatten())
+
+    sim = Simulator(fa, controller, 'rk45')
+    x, u = sim.simulate(x0.flatten(), ts, 150)
 
     # Parse joint positions
     q = x[:,:fa.nq]
