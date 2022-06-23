@@ -16,8 +16,13 @@ if TYPE_CHECKING:
 @dataclass
 class MpcOptions:
     n: int = 30  # number of discretization points
-    tf: float = 2  # time horizon
+    tf: float = 3  # time horizon
     nlp_iter: int = 100  # number of iterations of the nonlinear solver
+    q_diag: np.ndarray = np.array([1] * 5 + [0] * 5) * 0
+    q_e_diag: np.ndarray = np.array([1] * 5 + [0] * 5) * 0
+    z_diag: np.ndarray = np.array([1] * 2) * 1e3
+    z_e_diag: np.ndarray = np.array([1] * 2) * 1e4
+    r_diag: np.ndarray = np.array([1e-2])
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -28,6 +33,7 @@ class Mpc(BaseController):
                  x0: np.ndarray,
                  options: MpcOptions = MpcOptions()):
         self.u_max = model.maximum_input_torque
+        self.fa_model = model
         model = model.get_acados_model()
         self.model = model
         self.options = options
@@ -46,6 +52,11 @@ class Mpc(BaseController):
         ny = nx + nu + nz
         ny_e = nx + nz
 
+        # some checks
+        assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
+        assert (nu == options.r_diag.shape[0])
+        assert (nz == options.z_diag.shape[0] == options.z_e_diag.shape[0])
+
         # set dimensions
         ocp.dims.N = options.n
 
@@ -53,14 +64,11 @@ class Mpc(BaseController):
         ocp.cost.cost_type = 'LINEAR_LS'
         ocp.cost.cost_type_e = 'LINEAR_LS'
 
-        q_diag = np.zeros((nx, 1))
-        q_diag[0:int(nx / 2)] = 1
-
-        Q = 0 * np.diagflat(q_diag)
-        Q_e = 0 * Q
-        R = np.diagflat(1e-2 * np.ones((nu, 1)))
-        Z = 1e2 * np.diagflat(np.ones((nz, 1)))
-        Z_e = 10 * Z
+        Q = np.diagflat(options.q_diag)
+        Q_e = np.diagflat(options.q_e_diag)
+        R = np.diagflat(options.r_diag)
+        Z = np.diagflat(options.z_diag)
+        Z_e = np.diagflat(options.z_e_diag)
 
         ocp.cost.W = scipy.linalg.block_diag(Q, R, Z)
         ocp.cost.W_e = scipy.linalg.block_diag(Q_e, Z_e)
@@ -83,12 +91,11 @@ class Mpc(BaseController):
         # Vz_e[nx:, :] = np.eye(nz)
         # ocp.cost.Vz_e = Vz_e
 
-        # todo: reference position is hardcoded here for now
         x_goal = np.zeros((nx, 1))
-        x_goal[0] = np.pi / 4
-        phi =  np.pi / 2 + 0.3
-        x_cartesian = np.cos(phi) * 0.4
-        y_cartesian = np.sin(phi) * 0.4
+        x_goal[0] = -np.pi / 2
+        phi = -np.pi / 2
+        x_cartesian = np.cos(phi) * self.fa_model.length
+        y_cartesian = np.sin(phi) * self.fa_model.length
         x_goal_cartesian = np.expand_dims(np.array([x_cartesian, y_cartesian]), 1)
         ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
@@ -121,6 +128,15 @@ class Mpc(BaseController):
     def reset(self):
         self.debug_timings = []
         self.iteration_counter = 0
+
+    def set_reference_cartesian(self, x: float, y: float, u: float):
+        x_goal = np.zeros((self.fa_model.nx, 1))
+        x_goal_cartesian = np.expand_dims(np.array([x, y]), 1)
+        yref = np.vstack((x_goal, u * np.ones((self.fa_model.nu, 1)), x_goal_cartesian)).flatten()
+        yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
+        for stage in range(self.options.n):
+            self.acados_ocp_solver.cost_set(stage, "yref", yref)
+        self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
     def compute_torques(self, q: np.ndarray, dq: np.ndarray):
         xcurrent = np.vstack((q, dq))

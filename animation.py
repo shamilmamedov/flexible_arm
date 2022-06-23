@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import animation
 
 
 class Animator:
-    def __init__(self, robot, q) -> None:
+    def __init__(self, robot, q, pos_ref: np.ndarray = None) -> None:
         self.robot = robot
         self.q = q
         self.frames = q.shape[0]
@@ -13,6 +14,9 @@ class Animator:
         self.fig = plt.figure(figsize=(5, 4))
         self.ax = self.fig.add_subplot(autoscale_on=False, xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
         self.ax.set_aspect('equal')
+
+        if pos_ref is not None:
+            self.ax.plot(pos_ref[0], pos_ref[1],'o', color="darkred")
 
         self.line, = self.ax.plot([], [], 'o-', lw=2, color='k')
 

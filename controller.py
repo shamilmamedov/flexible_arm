@@ -55,4 +55,4 @@ class PDController(BaseController):
         self.q_ref = q_ref
 
     def compute_torques(self, q, dq):
-        return self.Kp * (self.q_ref - q) - self.Kd * dq
+        return self.Kp * (self.q_ref - q[0]) - self.Kd * dq[0]
