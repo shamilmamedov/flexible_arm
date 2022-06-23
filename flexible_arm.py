@@ -45,7 +45,7 @@ class FlexibleArm:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
         # EE frame ID || 'load'
-        self.ee_frame_id = self.model.getFrameId('link5_to_load') 
+        self.ee_frame_id = self.model.getFrameId('link5')
 
         # Create data required for the algorithms
         self.data = self.model.createData()
