@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <map>
 
 #include "pinocchio/algorithm/joint-configuration.hpp"
 #include "pinocchio/algorithm/frames.hpp"
@@ -33,19 +34,28 @@ int main()
     typedef ADModel::TangentVectorType TangentVectorAD;
 
     // Path to URDF file
-    const std::string urdf_filename = "/home/shamil/Desktop/phd/code/"
-                                    "flexible_arm/models/flexible_arm_v1.urdf";
+    std::map<int,std::string> my_map = {
+        {3, "three"},
+        {5, "five"},
+        {10, "ten"}
+    };
+
+    int n_seg = 10;
+    const std::string model_folder = "/home/shamil/Desktop/phd/code/"
+                                    "flexible_arm/models/" + my_map.at(n_seg) + "_segments/";
+
+    const std::string urdf_path = model_folder + "flexible_arm_1dof_" + std::to_string(n_seg) + "s.urdf";
 
     // Load the urdf model
     Model model;
-    pin::urdf::buildModel(urdf_filename, model);
+    pin::urdf::buildModel(urdf_path, model);
     std::cout << "model name: " << model.name << std::endl;
 
     // Create data required by the algorithms
     Data data(model);
 
     // Get EE frame ID for forward kinematics
-    const std::string ee_link_name = "link5_to_load";
+    const std::string ee_link_name = "virtual_link" + std::to_string(n_seg) + "_to_load";
     Model::Index ee_frame_id = model.getFrameId(ee_link_name);
     std::cout << "EE frame ID: " << ee_frame_id << std::endl;
 
@@ -90,7 +100,7 @@ int main()
     casadi::Function eval_aba("eval_aba",
                               casadi::SXVector {cs_q, cs_v, cs_tau},
                               casadi::SXVector {cs_ddq});
-    eval_aba.save("../../models/aba.casadi");
+    eval_aba.save(model_folder + "aba.casadi");
 
     // Evaluate forward dynamics and compare with numerical solution
     std::vector<double> q_vec((size_t)model.nq);
@@ -148,12 +158,12 @@ int main()
     casadi::Function eval_fkp("eval_fkp",
                             casadi::SXVector {cs_q},
                             casadi::SXVector {cs_p_ee});
-    eval_fkp.save("../../models/fkp.casadi");
+    eval_fkp.save(model_folder + "fkp.casadi");
 
     casadi::Function eval_vee("eval_vee",
                             casadi::SXVector {cs_q, cs_v},
                             casadi::SXVector {cs_v_ee});
-    eval_vee.save("../../models/fkv.casadi");
+    eval_vee.save(model_folder + "fkv.casadi");
 
     std::cout << "EE position sym: " << eval_fkp(casadi::DMVector {q_vec}) << std::endl;
     std::cout << "EE velocity sym: " << eval_vee(casadi::DMVector {q_vec, v_vec}) << std::endl;

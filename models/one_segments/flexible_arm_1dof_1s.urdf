@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<robot name="flexible_arm">
+  <!-- world -->
+  <link name="world"/>
+
+  <!-- flexible arm modeled using virtual link method -->
+  <link name="link1">
+    <visual>
+      <geometry>
+        <box size="0.5 0.025 0.01"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz ="0.25 0 0"/>
+    </visual>
+    <inertial>
+      <origin xyz="0.25 0 0" rpy="0 0 0"/>
+      <mass value="4" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+
+  <joint name="active_joint" type="revolute">
+    <parent link="world"/>
+    <child link="link1"/>
+    <axis xyz="0 0 1"/>
+    <origin xyz="0 0 0" rpy="1.57 0 0"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
+  </joint>
+
+
+  <link name="load">
+    <visual>
+      <geometry>
+        <box size="0.025 0.04 0.01"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
+    </visual>
+    <inertial>
+      <origin xyz="0.0125 0 0" rpy="0 0 0"/>
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+  </link>
+
+  <joint name="link1_to_load" type="fixed">
+    <parent link="link1"/>
+    <child link="load"/>
+    <axis xyz="0 0 1"/>
+    <origin xyz="0.5 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>
