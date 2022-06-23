@@ -44,8 +44,8 @@ class FlexibleArm:
         except ValueError:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
-        # EE frame ID || 'load'  || 'link5' || 'link5_to_load'
-        self.ee_frame_id = self.model.getFrameId('link5')
+        # EE frame ID || 'load'
+        self.ee_frame_id = self.model.getFrameId('link5_to_load') 
 
         # Create data required for the algorithms
         self.data = self.model.createData()
@@ -55,8 +55,43 @@ class FlexibleArm:
         self.nq = self.model.nq
         self.nu = 1
 
+    def fk(self, q, frame_id):
+        """ Computes forward kinematics for a given frame
+
+        :parameter q: a vector of joint configurations
+        :parameter frame_id: an id of a desored frame
+        """
+        pin.forwardKinematics(self.model, self.data, q)
+        pin.updateFramePlacements(self.model, self.data)
+        # pin.updateFramePlacement(self.model, self.data, frame_id)
+        T_EE_O = self.data.oMf[frame_id]
+        R_EE_O = T_EE_O.rotation
+        p_EE_O = T_EE_O.translation
+        return R_EE_O, p_EE_O.reshape(-1,1)
+
     def fk_ee(self, q):
-        pass
+        """ Computes forward kinematics for EE frame in base frame
+        """
+        return self.fk(q, self.ee_frame_id)
+
+    def frame_velocity(self, q, dq, frame_id):
+        """ Computes end-effector velocity for a given frame
+
+        :parameter q: joint configurations
+        :parameter dq: joint velocities
+        :parameter frame_id: an id of a desired frame
+        """
+        pin.forwardKinematics(self.model, self.data, q, dq)
+        pin.updateFramePlacements(self.model, self.data)
+        v = pin.getFrameVelocity(self.model, self.data,
+                    frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+
+        return np.hstack((v.linear, v.angular)).reshape(-1,1)
+
+    def ee_velocity(self, q, dq):
+        """ Computes end-effector velocity
+        """
+        return self.frame_velocity(q, dq, self.ee_frame_id)
 
     def jacobian_ee(self, q):
         pass
@@ -67,30 +102,29 @@ class FlexibleArm:
         t1 = np.zeros_like(q)
         return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1, 1)
 
-    def forward_dynamics(self, q, dq, tau_a):
+    def forward_dynamics(self, q, dq, tau):
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:, :]
-        dq_virt = dq[1:, :]
+        q_virt = q[1:,:]
+        dq_virt = dq[1:,:]
         tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
-        tau_total = np.vstack((tau_a, tau_flexibility))
-        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1, 1)
+        tau_total = np.vstack((tau, tau_flexibility))
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
         """
         return pin.rnea(self.model, self.data, q, dq, ddq)
 
-    def ode(self, x, tau_a):
+    def ode(self, x, tau):
         """ Computes ode of the robot
         :parameter x: [10x1] vector of robot states
-        :parameter tau_a: [1x1] vector of an active joint torque
+        :parameter tau: [1x1] vector of an active joint torque
         """
-        assert (tau_a.size == 1 and x.size == self.nx)
-        q = x[:self.nq, :]
-        dq = x[self.nq:, :]
-        return np.vstack((dq, self.forward_dynamics(q, dq, tau_a)))
+        q = x[0:self.nq,:]
+        dq = x[self.nq:,:]
+        return np.vstack((dq, self.forward_dynamics(q, dq, tau)))
 
     def fk_for_visualization(self, q):
         # Perform forward kinematics and get joint positions
@@ -187,6 +221,8 @@ class SymbolicFlexibleArm:
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
+        self.p_ee = cs.Function.load('models/fkp.casadi')
+        self.v_ee = cs.Function.load('models/fkv.casadi')
 
     def get_acados_model(self) -> AcadosModel:
         model = AcadosModel()
