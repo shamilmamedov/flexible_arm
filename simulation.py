@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+import matplotlib
 import numpy as np
 import pinocchio as pin
+import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
 
@@ -31,10 +33,11 @@ class Simulator:
             qk = x[[k],:self.robot.nq].T
             dqk = x[[k],self.robot.nq:].T
             
-            tau = controller.compute_torques(qk[0], dqk[0])
+            tau = self.controller.compute_torques(qk[0], dqk[0])
             u[[k],:] = tau
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), vectorized=True)
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), 
+                            vectorized=True, rtol=1e-3, atol=1e-6)
             x[k+1,:] = sol.y[:,-1]
 
         return x, u
@@ -55,16 +58,22 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     # controller = DummyController()
-    controller = PDController(Kp=150, Kd=1, q_ref=np.array([np.pi/4]))
+    controller = PDController(Kp=150, Kd=5, q_ref=np.array([np.pi/4]))
 
     ts = 0.01
-    n_iter = 150
+    n_iter = 100
 
     sim = Simulator(fa, controller, 'rk45')
-    x, u = sim.simulate(x0.flatten(), ts, 150)
+    x, u = sim.simulate(x0.flatten(), ts, n_iter)
+    t = np.arange(0, n_iter+1)*ts
 
     # Parse joint positions
     q = x[:,:fa.nq]
+
+    _, ax = plt.subplots()
+    ax.plot(t, q[:,1])
+    plt.show()
+    
 
     # Animate simulated motion
     anim = Animator(fa, q).animate()

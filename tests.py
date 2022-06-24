@@ -4,8 +4,12 @@ import os
 import numpy as np
 import casadi as cs
 import pinocchio as pin
+import pandas as pd
+import matplotlib.pyplot as plt 
 
 from flexible_arm import FlexibleArm, SymbolicFlexibleArm
+from controller import PDController
+from simulation import Simulator
 
 def test_casadi_aba():
     """ Test a casadi function for computing forward kinematics
@@ -131,8 +135,75 @@ def test_SymbolicFlexibleArm():
         vee = sarm.v_ee(q, dq)
 
 
+def compare_sim_against_matlab():
+    """ Test simulator (integrator) against a matlab simulation
+    that uses a multibody model built from a URDF with flexbility
+    parameters that were inserted manually. 
+    NOTE flexibility parameters in the matlab model were hardcoded
+            K = [100., 100.] and D = [5., 5.]. For comparison set
+            the same parameters in your simulation
+    """
+    # Create FlexibleArm instance
+    n_seg = 3
+    fa = FlexibleArm(n_seg)
+
+    # Flexibility parameter checks
+    np.testing.assert_equal(np.diag(fa.K), np.array([100., 100.]))
+    np.testing.assert_equal(np.diag(fa.D), np.array([5., 5.]))
+
+    # Initial state for simulation
+    q = np.zeros((fa.nq, 1))
+    dq = np.zeros_like(q)
+    x0 = np.vstack((q, dq))
+
+    # Controller
+    controller = PDController(Kp=150, Kd=5, q_ref=np.array([np.pi/4]))
+
+    # Simulator params
+    ts = 0.01
+    n_iter = 100
+
+    sim = Simulator(fa, controller, 'rk45')
+    x, u = sim.simulate(x0.flatten(), ts, n_iter)
+    t = np.arange(0, n_iter+1)*ts
+
+    # Parse joint positions
+    q = x[:,:fa.nq]
+    dq = x[:,fa.nq:]
+
+    # Load a simulatio results from matlab
+    df = pd.read_csv('data/matlab_sim_3s.csv')
+    t_matlab = df['t'].to_numpy()
+    q_cols = [f'q{x+1}' for x in range(3)]
+    dq_cols = [f'dq{x+1}' for x in range(3)]
+    q_matlab = df[q_cols].to_numpy(dtype=np.double)
+    dq_matlab = df[dq_cols].to_numpy(dtype=np.double)
+    tau_matlab = df['tau'].to_numpy(dtype=np.double).reshape(-1,1)
+
+    print(f"|tau_ours - tau_matlab| = {np.linalg.norm(u - tau_matlab[:n_iter,:]):.5f}")
+    print(f"|q_ours - q_matlab| = {np.linalg.norm(q - q_matlab):.5f}")
+    print(f"|dq_ours - dq_matlab| = {np.linalg.norm(dq - dq_matlab):.5f}")
+
+    # Plot matlab and our simulation results against each other
+    _, ax_tau = plt.subplots()
+    ax_tau.plot(t[:-1], u, lw=2, label='ours')
+    ax_tau.plot(t_matlab, tau_matlab, '--', lw=2, label='matlab')
+    ax_tau.legend()
+    ax_tau.set_xlabel(r'$t$ (s)')
+    ax_tau.set_ylabel(r'$\tau$ (Nm)')
+    plt.tight_layout()
+
+    _, ax_qp = plt.subplots()
+    ax_qp.plot(t, q[:,1], lw=2, label='qp1 ours')
+    ax_qp.plot(t, q[:,2], lw=2, label='qp2 ours')
+    ax_qp.plot(t_matlab, q_matlab[:,1], '--', lw=2, label='qp1 matlab')
+    ax_qp.plot(t_matlab, q_matlab[:,2], '--', lw=2, label='qp2 matlab')
+    ax_qp.legend()
+    ax_qp.set_xlabel(r'$t$ (s)')
+    ax_qp.set_ylabel(r'$q_p$ (rad)')
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
-    test_casadi_fk()
-    test_casadi_vee()
+    compare_sim_against_matlab()
