@@ -32,7 +32,7 @@ class Simulator:
             qk = x[[k],:self.robot.nq].T
             dqk = x[[k],self.robot.nq:].T
 
-            tau = controller.compute_torques(qk[0], dqk[0])
+            tau = self.controller.compute_torques(qk, dqk)
             u[[k],:] = tau
 
             sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), vectorized=True)

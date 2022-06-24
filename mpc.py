@@ -15,14 +15,15 @@ if TYPE_CHECKING:
 
 @dataclass
 class MpcOptions:
-    n: int = 30  # number of discretization points
+    n_links: int = 10
+    n: int = 100  # number of discretization points
     tf: float = 3  # time horizon
     nlp_iter: int = 100  # number of iterations of the nonlinear solver
-    q_diag: np.ndarray = np.array([1] * 5 + [0] * 5) * 0
-    q_e_diag: np.ndarray = np.array([1] * 5 + [0] * 5) * 0
+    q_diag: np.ndarray = np.array([1] * n_links + [0] * n_links) * 0
+    q_e_diag: np.ndarray = np.array([1] * n_links + [0] * n_links) * 0
     z_diag: np.ndarray = np.array([1] * 2) * 1e3
     z_e_diag: np.ndarray = np.array([1] * 2) * 1e4
-    r_diag: np.ndarray = np.array([1e-2])
+    r_diag: np.ndarray = np.array([1e-3])
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n

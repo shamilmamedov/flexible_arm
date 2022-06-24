@@ -2,19 +2,20 @@
 
 import numpy as np
 import pinocchio as pin
-
 from compute_equilibria import EquilibriaWrapper
 from utils import plot_result, print_timings
 from flexible_arm import FlexibleArm, SymbolicFlexibleArm
 from animation import Animator
 from mpc import MpcOptions, Mpc
-from simulation import simulate_closed_loop
+from simulation import Simulator
 from controller import ConstantController, PDController
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    fa = FlexibleArm(K=[5.] * 4)
-    fa_sym = SymbolicFlexibleArm(K=[5.] * 4)
+    # Create FlexibleArm instance
+    n_seg = 10
+    fa = FlexibleArm(n_seg)
+    fa_sym = SymbolicFlexibleArm(n_seg)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)
@@ -26,18 +27,19 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
-    u_equi = 1
+    u_equi = -7
     x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
     #equi_wrapper.plot()
 
-    mpc_options = MpcOptions()
+    mpc_options = MpcOptions(n_links=n_seg)
     controller = Mpc(model=fa_sym, x0=x0, options=mpc_options)
     index_equi = 0  # index of equilibrium, since there are two with the simple arm
-    controller.set_reference_cartesian(x=x_equis[index_equi, 0], y=x_equis[index_equi, 1], u=0)
+    controller.set_reference_cartesian(x=x_equis[index_equi, 0], y=x_equis[index_equi, 1], u=u_equi)
 
     ts = 0.01
     n_iter = 150
-    x, u = simulate_closed_loop(ts, n_iter, fa, controller, x0.flatten())
+    sim = Simulator(fa, controller, 'rk45')
+    x, u = sim.simulate(x0.flatten(), ts, 150)
 
     # Timing
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()

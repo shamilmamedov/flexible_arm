@@ -7,22 +7,20 @@ import scipy.interpolate
 
 from flexible_arm import SymbolicFlexibleArm, FlexibleArm
 import casadi as cs
-from controller import ConstantController
-from simulation import simulate_closed_loop
 from warnings import warn
 
 
-def compute_equilibria(model: SymbolicFlexibleArm, torque_max: float = 7.5) -> [np.ndarray, np.ndarray]:
+def compute_equilibria(model: SymbolicFlexibleArm, torque_max: float) -> [np.ndarray, np.ndarray]:
     # K=7 => torque_max=8.401
     # definition of variables and parameters
     n_disc = 100
-    u_equi = np.linspace(0, torque_max, n_disc)
+    u_equi = np.linspace(-torque_max, torque_max, n_disc)
     x_equi = np.zeros((2, model.nx, n_disc))
     u_equi_out = np.vstack((u_equi, u_equi))
 
     x = cs.MX.sym("x", int(model.nx))
     for i_starting_point, initial_state in enumerate([np.pi / 2, -np.pi / 2]):
-        ini_vec = [0.0] * 10
+        ini_vec = [0.0] * model.nx
         ini_vec[0] = initial_state
         for i, u in enumerate(u_equi):
             res = model.ode(x, u)
@@ -73,7 +71,7 @@ def plot_equilibria(x_equi: np.ndarray, model: SymbolicFlexibleArm):
 
 
 class EquilibriaWrapper:
-    def __init__(self, model_sym: SymbolicFlexibleArm, model: FlexibleArm, guess_max_torque: float = 7.7):
+    def __init__(self, model_sym: SymbolicFlexibleArm, model: FlexibleArm, guess_max_torque: float = 9.5):
         self.model_symbolic = model_sym
         self.model = model
         self.torque_max = guess_max_torque
@@ -100,8 +98,9 @@ class EquilibriaWrapper:
 
 
 if __name__ == "__main__":
-    fa_sym = SymbolicFlexibleArm(K=[5] * 4)
-    fa = FlexibleArm(K=[5.] * 4)
+    n_links = 10
+    fa_sym = SymbolicFlexibleArm(n_links)
+    fa = FlexibleArm(n_links)
     equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
     print(equi_wrapper.get_equilibrium_cartesian_states(input_u=0))
     equi_wrapper.plot()

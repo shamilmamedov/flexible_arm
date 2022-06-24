@@ -28,6 +28,9 @@ class Animator:
         return self.line,
 
     def animate(self):
+        f = r"animation.mp4"
+        writervideo = animation.FFMpegWriter(fps=20)
         self.anim = animation.FuncAnimation(self.fig, self.update, self.frames,
                                             interval=100, blit=True)
+        self.anim.save(f, writer=writervideo)
         plt.show()
