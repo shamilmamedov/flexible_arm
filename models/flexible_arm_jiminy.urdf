@@ -3,13 +3,17 @@
   <!-- world -->
   <link name="world"/>
 
-  <!-- flexible arm modeled using virtual link method -->
+  <!-- Flexible arm modeled using virtual link method (finite segment method) -->
+  <!-- Mass parameter of the (whole) link is taken from KUKA IIWA 14 link_1 -->
   <link name="link1">
     <visual>
+      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
       <geometry>
         <box size="0.1 0.025 0.01"/>
       </geometry>
-      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+      <material name="">
+        <color rgba="1.0 0.0 0.0 1.0"/>
+      </material>
     </visual>
     <inertial>
       <origin xyz="0.05 0 0" rpy="0 0 0"/>
@@ -22,16 +26,19 @@
     <parent link="world"/>
     <child link="link1"/>
     <axis xyz="0 0 1"/>
-    <origin xyz="0 0 0" rpy="1.57 0 0"/>
-    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
+    <origin xyz="0 0 0" rpy="1.57079632679489661923 0 0"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
   </joint>
 
   <link name="link2">
     <visual>
+      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
       <geometry>
         <box size="0.1 0.025 0.01"/>
       </geometry>
-      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+      <material name="">
+        <color rgba="0.0 1.0 0.0 1.0"/>
+      </material>
     </visual>
     <inertial>
       <origin xyz="0.05 0 0" rpy="0 0 0"/>
@@ -45,15 +52,18 @@
     <child link="link2"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
   </joint>
 
   <link name="link3">
     <visual>
+      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
       <geometry>
         <box size="0.1 0.025 0.01"/>
       </geometry>
-      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+      <material name="">
+        <color rgba="0.0 0.0 1.0 1.0"/>
+      </material>
     </visual>
     <inertial>
       <origin xyz="0.05 0 0" rpy="0 0 0"/>
@@ -67,15 +77,18 @@
     <child link="link3"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
   </joint>
 
   <link name="link4">
     <visual>
+      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
       <geometry>
         <box size="0.1 0.025 0.01"/>
       </geometry>
-      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+      <material name="">
+        <color rgba="1.0 0.0 1.0 1.0"/>
+      </material>
     </visual>
     <inertial>
       <origin xyz="0.05 0 0" rpy="0 0 0"/>
@@ -89,15 +102,18 @@
     <child link="link4"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
   </joint>
 
   <link name="link5">
     <visual>
+      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
       <geometry>
         <box size="0.1 0.025 0.01"/>
       </geometry>
-      <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+      <material name="">
+        <color rgba="1.0 1.0 1.0 0.0"/>
+      </material>
     </visual>
     <inertial>
       <origin xyz="0.05 0 0" rpy="0 0 0"/>
@@ -111,10 +127,10 @@
     <child link="link5"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-    <limit effort="100.0" lower="0.0" upper="1.0" velocity="0.5"/>
+    <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
   </joint>
 
-  <link name="load">
+  <!-- <link name="load">
     <visual>
       <geometry>
         <box size="0.025 0.04 0.01"/>
@@ -133,6 +149,6 @@
     <child link="load"/>
     <axis xyz="0 0 1"/>
     <origin xyz="0.1 0 0" rpy="0 0 0"/>
-  </joint>
+  </joint> -->
 
 </robot>

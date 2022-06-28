@@ -16,7 +16,7 @@ def test_casadi_aba():
     # Path to a folder with model description
     n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating aba
@@ -33,7 +33,7 @@ def test_casadi_aba():
 
             # Compute acclerations and compare
             ddq_casadi = np.array(casadi_aba(q, dq, tau))
-            ddq_num = pin.aba(arm.model, arm.data, q, dq, tau).reshape(-1,1) 
+            ddq_num = pin.aba(arm.model, arm.data, q, dq, tau).reshape(-1,1)
             np.testing.assert_allclose(ddq_casadi, ddq_num)
 
 def test_casadi_ode():
@@ -43,7 +43,7 @@ def test_casadi_ode():
     n_segs = [3, 5, 10]
 
     # Instantiate numerial and symbolic arm models
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         sym_arm = SymbolicFlexibleArm(n_seg)
         num_arm = FlexibleArm(n_seg)
 
@@ -66,13 +66,13 @@ def test_casadi_fk():
     # Path to a folder with model description
     n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating forward kinematics
         casadi_fkp = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
 
-        # Load flexible arm instance 
+        # Load flexible arm instance
         arm = FlexibleArm(n_seg)
 
         for _ in range(15):
@@ -81,7 +81,7 @@ def test_casadi_fk():
 
             # Compute acclerations and compare
             pee_casadi = np.array(casadi_fkp(q))
-            pee_num = arm.fk_ee(q)[1] 
+            pee_num = arm.fk_ee(q)[1]
             np.testing.assert_allclose(pee_casadi, pee_num[[0,2],:])
 
 def test_casadi_vee():
@@ -90,15 +90,15 @@ def test_casadi_vee():
     n_segs = [3, 5, 10]
 
     # Path to a folder with model description
-    n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
+    n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating forward kinematics
         casadi_fkp = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
 
-        # Load flexible arm instance 
+        # Load flexible arm instance
         arm = FlexibleArm(n_seg)
 
         for _ in range(15):
@@ -108,7 +108,7 @@ def test_casadi_vee():
 
             # Compute acclerations and compare
             vee_casadi = np.array(casadi_fkp(q, dq))
-            vee_num = arm.ee_velocity(q, dq)[:3,:] 
+            vee_num = arm.ee_velocity(q, dq)[:3,:]
             np.testing.assert_allclose(vee_casadi, vee_num[[0,2],:])
 
 def test_casadi_forward_simulation():
