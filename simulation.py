@@ -14,10 +14,12 @@ from controller import DummyController, PDController
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
-    def __init__(self, robot, controller, integrator) -> None:
+    def __init__(self, robot, controller, integrator, rtol=1e-6, atol=1e-8) -> None:
         self.robot = robot
         self.controller = controller
         self.integrator = integrator
+        self.rtol = rtol
+        self.atol = atol
 
     @staticmethod
     def ode_wrapper(t, x, robot, tau):
@@ -37,7 +39,7 @@ class Simulator:
             u[[k],:] = tau
 
             sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), 
-                            vectorized=True, rtol=1e-3, atol=1e-6)
+                            vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
             x[k+1,:] = sol.y[:,-1]
 
         return x, u
@@ -45,7 +47,7 @@ class Simulator:
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    n_seg = 3
+    n_seg = 10
     fa = FlexibleArm(n_seg)
 
     # Sample a random configuration
@@ -58,20 +60,20 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     # controller = DummyController()
-    controller = PDController(Kp=150, Kd=5, q_ref=np.array([np.pi/4]))
+    controller = PDController(Kp=10, Kd=0.25, q_ref=np.array([np.pi/8]))
 
-    ts = 0.01
-    n_iter = 100
+    ts = 0.001
+    n_iter = 1000
 
-    sim = Simulator(fa, controller, 'rk45')
+    sim = Simulator(fa, controller, 'LSODA')
     x, u = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter+1)*ts
 
     # Parse joint positions
-    q = x[:,:fa.nq]
+    q = x[::10,:fa.nq]
 
     _, ax = plt.subplots()
-    ax.plot(t, q[:,1])
+    ax.plot(t[::10], q[:,0])
     plt.show()
     
 

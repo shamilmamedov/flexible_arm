@@ -22,6 +22,9 @@ class FlexibleArm:
         a urdf file and flexbility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
+
+        TODO:
+            1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
         assert(n_seg in [3, 5, 10])
@@ -40,7 +43,7 @@ class FlexibleArm:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
         # EE frame ID || 'load'
-        ee_frame_name = 'virtual_link' + str(n_seg) + '_to_load'
+        ee_frame_name = 'virtual_link' + str(n_seg+1) + '_to_load'
         if self.model.existFrame(ee_frame_name):
             self.ee_frame_id = self.model.getFrameId(ee_frame_name)
         else:
@@ -62,11 +65,12 @@ class FlexibleArm:
                 flexibility_params = yaml.safe_load(f)
 
         # Additional sanity checks
-        assert(len(flexibility_params['K'])==self.nq-1 & 
-                len(flexibility_params['D'])==self.nq-1)
+        # assert(len(flexibility_params['K'])==self.nq-1 & 
+        #         len(flexibility_params['D'])==self.nq-1)
 
-        self.K = np.diag(flexibility_params['K'])
-        self.D = np.diag(flexibility_params['D'])
+        # !!!!!!!!! We ignore the flexibility of the first small link
+        self.K = np.diag(flexibility_params['K'][1:])
+        self.D = np.diag(flexibility_params['D'][1:])
         
 
     def random_q(self):
@@ -179,6 +183,9 @@ class SymbolicFlexibleArm:
 
     NOTE for time being majority of the parameters are fixed (HARDCODED)
 
+    TODO:
+        1. Joint flexibility in the first actated joint
+
     Class attributes
         x - a vector of symbolic variables for states
         u - a vector of symbolic variables for controls
@@ -199,8 +206,8 @@ class SymbolicFlexibleArm:
         model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Number of joints, states and controls
-        self.nq = n_seg
-        self.nx = 2*n_seg
+        self.nq = n_seg + 1
+        self.nx = 2*(n_seg + 1)
         self.nu = 1
         
         # Process flexibility parameters
@@ -211,11 +218,11 @@ class SymbolicFlexibleArm:
                 flexibility_params = yaml.safe_load(f)
 
         # Additional sanity checks
-        assert(len(flexibility_params['K'])==self.nq-1 & 
-                len(flexibility_params['D'])==self.nq-1)
+        # assert(len(flexibility_params['K'])==self.nq-1 & 
+        #         len(flexibility_params['D'])==self.nq-1)
 
-        self.K = np.diag(flexibility_params['K'])
-        self.D = np.diag(flexibility_params['D'])
+        self.K = np.diag(flexibility_params['K'][1:])
+        self.D = np.diag(flexibility_params['D'][1:])
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
@@ -247,7 +254,7 @@ class SymbolicFlexibleArm:
 
 
 if __name__ == "__main__":
-    n_seg = 5
+    n_seg = 3
     arm = FlexibleArm(n_seg)
     q = np.zeros((arm.nq, 1))
     R, p = arm.fk_ee(q)

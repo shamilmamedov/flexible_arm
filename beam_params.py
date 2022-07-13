@@ -83,8 +83,19 @@ if __name__ == "__main__":
     print(f"damping = {d}")
 
     # Consider 3 segments
-    
-    rfe_lengths = [L/6, L/3, L/3, L/6]
+    # rfe_lengths = [L/6, L/3, L/3, L/6]
+    # rfe_inertial_params = [inertial_params_rectangle(a, h, x, rho) for x in rfe_lengths]
+    # rfe_m = [x[0] for x in rfe_inertial_params]
+    # rfe_rc = [x[1] for x in rfe_inertial_params]
+    # rfe_I = [x[2] for x in rfe_inertial_params]
+    # sde_k = [spring_params_rectangle(a, h, x, E, G) for x in rfe_lengths]
+    # rfe_wn = [np.sqrt(k/m) for k, m in zip(sde_k, rfe_m)]
+    # sde_d = [2*zeta*wn for wn in rfe_wn]
+    # print(sde_d)
+
+    # Consider 5 segments
+    n_seg = 10
+    rfe_lengths = [L/(2*n_seg)] + [L/n_seg]*(n_seg-1) +  [L/(2*n_seg)] #[L/6, L/3, L/3, L/6]
     rfe_inertial_params = [inertial_params_rectangle(a, h, x, rho) for x in rfe_lengths]
     rfe_m = [x[0] for x in rfe_inertial_params]
     rfe_rc = [x[1] for x in rfe_inertial_params]
@@ -93,4 +104,8 @@ if __name__ == "__main__":
     rfe_wn = [np.sqrt(k/m) for k, m in zip(sde_k, rfe_m)]
     sde_d = [2*zeta*wn for wn in rfe_wn]
     print(sde_d)
+
+    
+
+
 

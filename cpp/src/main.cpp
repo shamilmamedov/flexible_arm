@@ -40,7 +40,7 @@ int main()
         {10, "ten"}
     };
 
-    int n_seg = 10;
+    int n_seg = 5;
     const std::string model_folder = "/home/shamil/Desktop/phd/code/"
                                     "flexible_arm/models/" + my_map.at(n_seg) + "_segments/";
 
@@ -55,7 +55,7 @@ int main()
     Data data(model);
 
     // Get EE frame ID for forward kinematics
-    const std::string ee_link_name = "virtual_link" + std::to_string(n_seg) + "_to_load";
+    const std::string ee_link_name = "virtual_link" + std::to_string(n_seg+1) + "_to_load";
     Model::Index ee_frame_id = model.getFrameId(ee_link_name);
     std::cout << "EE frame ID: " << ee_frame_id << std::endl;
 
