@@ -21,7 +21,7 @@ def test_casadi_aba():
     n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 
     for n_seg in n_segs: 
-        model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
+        model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating aba
         casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
@@ -71,7 +71,7 @@ def test_casadi_fk():
     n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 
     for n_seg in n_segs: 
-        model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
+        model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating forward kinematics
         casadi_fkp = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
@@ -97,7 +97,7 @@ def test_casadi_vee():
     n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
 
     for n_seg in n_segs: 
-        model_folder = 'models/' + n_seg_int2str[n_seg] + '_segments/'
+        model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Load casadi function for evaluating forward kinematics
         casadi_fkp = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))

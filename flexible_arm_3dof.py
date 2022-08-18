@@ -8,7 +8,7 @@ import casadi as cs
 import pinocchio as pin
 
 
-class FlexibleArm:
+class FlexibleArm3DOF:
     """ Implements flexible arm robot by dividing a link into
     a several smaller virtual links with virtual joint in between. Joints
     are passive, but have stiffness and damping.
@@ -27,13 +27,13 @@ class FlexibleArm:
             1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert(n_seg == 10)
 
         # Build urdf path
         n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
 
-        model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
-        urdf_file = 'flexible_arm_1dof_' + str(n_seg) + 's.urdf'
+        model_folder = 'models/three_dof/' + n_seg_int2str[n_seg] + '_segments/'
+        urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
         urdf_path = os.path.join(model_folder, urdf_file)
 
         # Try to load model from urdf file
@@ -43,7 +43,7 @@ class FlexibleArm:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
         # EE frame ID || 'load'
-        ee_frame_name = 'virtual_link' + str(n_seg+1) + '_to_load'
+        ee_frame_name = 'load'
         if self.model.existFrame(ee_frame_name):
             self.ee_frame_id = self.model.getFrameId(ee_frame_name)
         else:
@@ -53,9 +53,10 @@ class FlexibleArm:
         self.data = self.model.createData()
 
         # Useful model parameters
+        self.n_seg = n_seg
         self.nx = self.model.nq + self.model.nv
         self.nq = self.model.nq
-        self.nu = 1
+        self.nu = 3
 
         # Process flexibility parameters
         params_file = 'flexibility_params.yml'
@@ -65,12 +66,10 @@ class FlexibleArm:
                 flexibility_params = yaml.safe_load(f)
 
         # Additional sanity checks
-        # assert(len(flexibility_params['K'])==self.nq-1 & 
-        #         len(flexibility_params['D'])==self.nq-1)
-
-        # !!!!!!!!! We ignore the flexibility of the first small link
-        self.K = np.diag(flexibility_params['K'][1:])
-        self.D = np.diag(flexibility_params['D'][1:])
+        self.K2 = np.diag(flexibility_params['K2'][1:])
+        self.K3 = np.diag(flexibility_params['K3'][1:])
+        self.D2 = np.diag(flexibility_params['D2'][1:])
+        self.D3 = np.diag(flexibility_params['D3'][1:])
         
     def random_q(self):
         """ Returns a random configuration
@@ -128,10 +127,14 @@ class FlexibleArm:
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:,:]
-        dq_virt = dq[1:,:]
-        tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
-        tau_total = np.vstack((tau, tau_flexibility))
+        qp_link2 = q[2:2+self.n_seg]
+        qp_link3 = q[2+self.n_seg+1:]
+        dqp_link2 = dq[2:2+self.n_seg]
+        dqp_link3 = dq[2+self.n_seg+1:]
+        taup_link2 = -self.K2 @ qp_link2 - self.D2 @ dqp_link2
+        taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
+        tau_total = np.vstack((tau[:2,:], taup_link2, tau[2,:], taup_link3))
+
         return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
 
     def inverse_dynamics(self, q, dq, ddq):
@@ -176,10 +179,11 @@ class FlexibleArm:
         plt.show()
 
 
-class SymbolicFlexibleArm:
-    """ The class implements a model of a 1dof flexible arm in symbolic form
+class SymbolicFlexibleArm3DOF:
+    """ The class implements a model of a 3dof flexible arm in symbolic form
     using casadi. It is mainly intended to be used in MPC formulation.
-
+    First link is rigid!
+    
     Class attributes
         x - a vector of symbolic variables for states
         u - a vector of symbolic variables for controls
@@ -193,16 +197,16 @@ class SymbolicFlexibleArm:
         """ Class constructor
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert(n_seg == 10)
 
         # Path to a folder with model description
         n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
-        model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
+        model_folder = 'models/three_dof/' + n_seg_int2str[n_seg] + '_segments/'
 
         # Number of joints, states and controls
-        self.nq = n_seg + 1
-        self.nx = 2*(n_seg + 1)
-        self.nu = 1
+        self.nq = 1 + 2*(n_seg + 1)
+        self.nx = 2*self.nq
+        self.nu = 3
         
         # Process flexibility parameters
         params_file = 'flexibility_params.yml'
@@ -211,12 +215,10 @@ class SymbolicFlexibleArm:
         with open(params_path) as f:
                 flexibility_params = yaml.safe_load(f)
 
-        # Additional sanity checks
-        # assert(len(flexibility_params['K'])==self.nq-1 & 
-        #         len(flexibility_params['D'])==self.nq-1)
-
-        self.K = np.diag(flexibility_params['K'][1:])
-        self.D = np.diag(flexibility_params['D'][1:])
+        self.K2 = np.diag(flexibility_params['K2'][1:])
+        self.K3 = np.diag(flexibility_params['K3'][1:])
+        self.D2 = np.diag(flexibility_params['D2'][1:])
+        self.D3 = np.diag(flexibility_params['D3'][1:])
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
@@ -228,8 +230,13 @@ class SymbolicFlexibleArm:
 
         # Compute torques of passive joints due to joint flexibility
         # Keep in mind only the first joint is active
-        tau_p = -self.K @ q[1:] - self.D @ dq[1:]
-        tau = cs.vertcat(u, tau_p)
+        qp_link2 = q[2:2+n_seg]
+        qp_link3 = q[2+n_seg+1:]
+        dqp_link2 = dq[2:2+n_seg]
+        dqp_link3 = dq[2+n_seg+1:]
+        taup_link2 = -self.K2 @ qp_link2 - self.D2 @ dqp_link2
+        taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
+        tau = cs.vertcat(u[:2], taup_link2, u[2], taup_link3)
         
         # Compute forward dynamics
         ddq = casadi_aba(q, dq, tau)
@@ -244,17 +251,17 @@ class SymbolicFlexibleArm:
                                 ['x', 'u'], ['dx'])
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
         self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
-        
 
 
 if __name__ == "__main__":
-    n_seg = 3
-    arm = FlexibleArm(n_seg)
-    q = np.zeros((arm.nq, 1))
-    R, p = arm.fk_ee(q)
-    print(R, p)
+    # n_seg = 3
+    # arm = FlexibleArm(n_seg)
+    # q = np.zeros((arm.nq, 1))
+    # R, p = arm.fk_ee(q)
+    # print(R, p)
 
-    # arm.visualize(q)
+    # # arm.visualize(q)
 
-    sarm = SymbolicFlexibleArm(n_seg)
-    print(sarm.p_ee(q))
+    # sarm = SymbolicFlexibleArm(n_seg)
+    # print(sarm.p_ee(q))
+    sarm = SymbolicFlexibleArm3DOF(n_seg=10)

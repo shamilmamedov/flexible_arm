@@ -6,3 +6,9 @@ cpp/build/
 
 # Cache
 __pycache__/
+
+# Pytest
+.pytest_cache/
+
+# Python notebook
+.ipynb_checkpoints/
