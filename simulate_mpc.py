@@ -31,19 +31,21 @@ if __name__ == "__main__":
     dq_mpc = np.zeros_like(q_mpc)
     x0_mpc = np.vstack((q_mpc, dq_mpc))
 
-    equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
+    #equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
     u_equi = -7
-    x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
+    #x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
     #equi_wrapper.plot()
 
     mpc_options = MpcOptions(n_links=n_seg_mpc)
     controller = Mpc(model=fa_sym, x0=x0_mpc, options=mpc_options)
     index_equi = 0  # index of equilibrium, since there are two with the simple arm
-    controller.set_reference_cartesian(x=x_equis[index_equi, 0], y=x_equis[index_equi, 1], u=u_equi)
+    #p_xy_ref = x_equis[index_equi, :]
+    p_xy_ref=np.array([0.5,0.1])
+    controller.set_reference_cartesian(x=p_xy_ref[0], y=p_xy_ref[1], u=u_equi)
 
     ts = 0.01
     n_iter = 150
-    sim = Simulator(fa, controller, 'rk45')
+    sim = Simulator(fa, controller, 'RK45')
     x, u = sim.simulate(x0.flatten(), ts, 150)
 
     # Timing
@@ -57,4 +59,4 @@ if __name__ == "__main__":
     q = x[:, :fa.nq]
 
     # Animate simulated motion
-    anim = Animator(fa, q, pos_ref=x_equis[index_equi, :]).animate()
+    anim = Animator(fa, q, pos_ref=p_xy_ref).animate()

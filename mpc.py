@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class MpcOptions:
-    n_links: int = 3
+    n_links: int = 3  # n_links corresponds to (n+1)*2 states
     n: int = 100  # number of discretization points
     tf: float = 3  # time horizon
     nlp_iter: int = 100  # number of iterations of the nonlinear solver
-    q_diag: np.ndarray = np.array([1] * n_links + [0] * n_links) * 0
-    q_e_diag: np.ndarray = np.array([1] * n_links + [0] * n_links) * 0
+    q_diag: np.ndarray = np.array([1] * (n_links + 1) + [0] * (n_links + 1)) * 0
+    q_e_diag: np.ndarray = np.array([1] * (n_links + 1) + [0] * (n_links + 1)) * 0
     z_diag: np.ndarray = np.array([1] * 2) * 1e3
     z_e_diag: np.ndarray = np.array([1] * 2) * 1e4
     r_diag: np.ndarray = np.array([1e-3])
