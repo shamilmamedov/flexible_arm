@@ -13,14 +13,14 @@ from controller import ConstantController, PDController
 if __name__ == "__main__":
     # Create FlexibleArm instance
     # Create FlexibleArm instance
-    n_seg = 3
-    n_seg_mpc = 3
+    n_seg = 10
+    n_seg_mpc = 10
     fa = FlexibleArm(n_seg)
     fa_sym = SymbolicFlexibleArm(n_seg_mpc)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)
-    # fa.visualize(q)
+    #fa.visualize(q)
 
     # Simulate
     q = np.zeros((fa.nq, 1))
@@ -31,18 +31,20 @@ if __name__ == "__main__":
     dq_mpc = np.zeros_like(q_mpc)
     x0_mpc = np.vstack((q_mpc, dq_mpc))
 
-    #equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
-    u_equi = -7
-    #x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
-    #equi_wrapper.plot()
+    # Compute an equilibrium in order to find the right set point
+    equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa, guess_max_torque=0.958)
+    u_equi = 0 # the equilibrium is related to a torque value
+    x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
+    # equi_wrapper.plot()  # plots all equilibria
 
     mpc_options = MpcOptions(n_links=n_seg_mpc)
     controller = Mpc(model=fa_sym, x0=x0_mpc, options=mpc_options)
-    index_equi = 0  # index of equilibrium, since there are two with the simple arm
-    #p_xy_ref = x_equis[index_equi, :]
-    p_xy_ref=np.array([0.5,0.1])
+    index_equi = 1  # index of equilibrium, since there are two with the simple arm
+    p_xy_ref = x_equis[index_equi, :]
+    # p_xy_ref=np.array([0.0,0.5])
     controller.set_reference_cartesian(x=p_xy_ref[0], y=p_xy_ref[1], u=u_equi)
 
+    # simulate
     ts = 0.01
     n_iter = 150
     sim = Simulator(fa, controller, 'RK45')

@@ -71,7 +71,7 @@ def plot_equilibria(x_equi: np.ndarray, model: SymbolicFlexibleArm):
 
 
 class EquilibriaWrapper:
-    def __init__(self, model_sym: SymbolicFlexibleArm, model: FlexibleArm, guess_max_torque: float = 9.5):
+    def __init__(self, model_sym: SymbolicFlexibleArm, model: FlexibleArm, guess_max_torque: float = 0.5):
         self.model_symbolic = model_sym
         self.model = model
         self.torque_max = guess_max_torque

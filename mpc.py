@@ -15,15 +15,17 @@ if TYPE_CHECKING:
 
 @dataclass
 class MpcOptions:
-    n_links: int = 3  # n_links corresponds to (n+1)*2 states
-    n: int = 100  # number of discretization points
-    tf: float = 3  # time horizon
-    nlp_iter: int = 100  # number of iterations of the nonlinear solver
-    q_diag: np.ndarray = np.array([1] * (n_links + 1) + [0] * (n_links + 1)) * 0
-    q_e_diag: np.ndarray = np.array([1] * (n_links + 1) + [0] * (n_links + 1)) * 0
-    z_diag: np.ndarray = np.array([1] * 2) * 1e3
-    z_e_diag: np.ndarray = np.array([1] * 2) * 1e4
-    r_diag: np.ndarray = np.array([1e-3])
+
+    def __init__(self, n_links: int):
+        self.n_links: int = n_links  # n_links corresponds to (n+1)*2 states
+        self.n: int = 100  # number of discretization points
+        self.tf: float = 3  # time horizon
+        self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
+        self.q_diag: np.ndarray = np.array([1] * (self.n_links + 1) + [0] * (self.n_links + 1)) * 0
+        self.q_e_diag: np.ndarray = np.array([1] * (self.n_links + 1) + [0] * (self.n_links + 1)) * 0
+        self.z_diag: np.ndarray = np.array([1] * 2) * 1e1
+        self.z_e_diag: np.ndarray = np.array([1] * 2) * 1e3
+        self.r_diag: np.ndarray = np.array([1e-2])
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -32,7 +34,7 @@ class MpcOptions:
 class Mpc(BaseController):
     def __init__(self, model: "SymbolicFlexibleArm",
                  x0: np.ndarray,
-                 options: MpcOptions = MpcOptions()):
+                 options: MpcOptions = MpcOptions(n_links=3)):
         self.u_max = model.maximum_input_torque
         self.fa_model = model
         model = model.get_acados_model()
