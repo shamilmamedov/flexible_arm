@@ -27,7 +27,7 @@ class FlexibleArm3DOF:
             1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert(n_seg in [5, 10])
+        assert(n_seg in [3, 5, 10])
 
         # Build urdf path
         n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
@@ -197,7 +197,7 @@ class SymbolicFlexibleArm3DOF:
         """ Class constructor
         """
         # Sanity checks
-        assert(n_seg in [5, 10])
+        assert(n_seg in [3, 5, 10])
 
         # Path to a folder with model description
         n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 

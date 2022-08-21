@@ -42,7 +42,7 @@ int main()
     };
 
     int n_dof = 3;
-    int n_seg = 5;
+    int n_seg = 3;
     const std::string model_folder = "/home/shamil/Desktop/phd/code/"
                                     "flexible_arm/models/" + my_map.at(n_dof) + "_dof/" 
                                     + my_map.at(n_seg) + "_segments/";

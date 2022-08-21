@@ -7,7 +7,7 @@ import pinocchio as pin
 
 from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
-n_segs = [5, 10]
+n_segs = [3, 5, 10]
 n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'}
 robot_folder = 'models/three_dof/'
 
