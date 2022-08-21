@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class MpcOptions:
-    n_links: int = 10
+    n_links: int = 3
     n: int = 100  # number of discretization points
     tf: float = 3  # time horizon
     nlp_iter: int = 100  # number of iterations of the nonlinear solver

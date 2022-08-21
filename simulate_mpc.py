@@ -14,8 +14,9 @@ if __name__ == "__main__":
     # Create FlexibleArm instance
     # Create FlexibleArm instance
     n_seg = 10
+    n_seg_mpc = 3
     fa = FlexibleArm(n_seg)
-    fa_sym = SymbolicFlexibleArm(n_seg)
+    fa_sym = SymbolicFlexibleArm(n_seg_mpc)
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa.model)
@@ -26,13 +27,17 @@ if __name__ == "__main__":
     dq = np.zeros_like(q)
     x0 = np.vstack((q, dq))
 
+    q_mpc = np.zeros((fa_sym.nq, 1))
+    dq_mpc = np.zeros_like(q_mpc)
+    x0_mpc = np.vstack((q_mpc, dq_mpc))
+
     equi_wrapper = EquilibriaWrapper(model_sym=fa_sym, model=fa)
     u_equi = -7
     x_equis = equi_wrapper.get_equilibrium_cartesian_states(input_u=u_equi)
     #equi_wrapper.plot()
 
-    mpc_options = MpcOptions(n_links=n_seg)
-    controller = Mpc(model=fa_sym, x0=x0, options=mpc_options)
+    mpc_options = MpcOptions(n_links=n_seg_mpc)
+    controller = Mpc(model=fa_sym, x0=x0_mpc, options=mpc_options)
     index_equi = 0  # index of equilibrium, since there are two with the simple arm
     controller.set_reference_cartesian(x=x_equis[index_equi, 0], y=x_equis[index_equi, 1], u=u_equi)
 
