@@ -1,6 +1,0 @@
----
-# Stiffness params
-K: [100., 100.]
-
-# Damping params
-D: [5., 5.]

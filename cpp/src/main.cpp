@@ -35,16 +35,20 @@ int main()
 
     // Path to URDF file
     std::map<int,std::string> my_map = {
+        {1, "one"},
         {3, "three"},
         {5, "five"},
         {10, "ten"}
     };
 
+    int n_dof = 3;
     int n_seg = 10;
     const std::string model_folder = "/home/shamil/Desktop/phd/code/"
-                                    "flexible_arm/models/" + my_map.at(n_seg) + "_segments/";
+                                    "flexible_arm/models/" + my_map.at(n_dof) + "_dof/" 
+                                    + my_map.at(n_seg) + "_segments/";
 
-    const std::string urdf_path = model_folder + "flexible_arm_1dof_" + std::to_string(n_seg) + "s.urdf";
+    const std::string urdf_path = model_folder + "flexible_arm_" + std::to_string(n_dof) 
+                                    + "dof_" + std::to_string(n_seg) + "s.urdf";
 
     // Load the urdf model
     Model model;
@@ -55,7 +59,8 @@ int main()
     Data data(model);
 
     // Get EE frame ID for forward kinematics
-    const std::string ee_link_name = "virtual_link" + std::to_string(n_seg) + "_to_load";
+    // const std::string ee_link_name = "virtual_link" + std::to_string(n_seg+1) + "_to_load";
+    const std::string ee_link_name = "load";
     Model::Index ee_frame_id = model.getFrameId(ee_link_name);
     std::cout << "EE frame ID: " << ee_frame_id << std::endl;
 
@@ -68,7 +73,7 @@ int main()
     TangentVector tau(TangentVector::Random(model.nv));
 
     // Run ABA for a numerical model
-    pin::aba(model,data,q,v,tau);
+    pin::aba(model, data, q, v, tau);
 
     // Define symbolic model and symbolic variables
     ADModel ad_model = model.cast<ADScalar>();
@@ -85,14 +90,13 @@ int main()
     casadi::SX cs_a = casadi::SX::sym("a", model.nv);
     TangentVectorAD a_ad(model.nv);
     a_ad = Eigen::Map<TangentVectorAD>(static_cast< std::vector<ADScalar> >(cs_a).data(),model.nv,1);
-    // pinocchio::casadi::copy(cs_a,a_ad);
     
     casadi::SX cs_tau = casadi::SX::sym("tau", model.nv);
     TangentVectorAD tau_ad(model.nv);
     tau_ad = Eigen::Map<TangentVectorAD>(static_cast< std::vector<ADScalar> >(cs_tau).data(),model.nv,1);
 
     // Compute forward dynamics for symbolic model
-    aba(ad_model,ad_data,q_ad,v_ad,tau_ad);
+    aba(ad_model, ad_data, q_ad, v_ad, tau_ad);
     // Create a casadi function for forward dynamics
     casadi::SX cs_ddq(model.nv,1);
     for(Eigen::DenseIndex k = 0; k < model.nv; ++k)
@@ -147,11 +151,11 @@ int main()
                           ee_frame_id, pin::LOCAL_WORLD_ALIGNED);
 
     // Get a symbolic expression for kinematic variables
-    casadi::SX cs_p_ee(2,1);
-    casadi::SX cs_v_ee(2,1);
-    for(Eigen::DenseIndex k = 0; k < 2; ++k){
-        cs_p_ee(k) = ad_data.oMf[ee_frame_id].translation()[2*k];
-        cs_v_ee(k) = ad_v_ee.linear()[2*k];
+    casadi::SX cs_p_ee(3,1);
+    casadi::SX cs_v_ee(3,1);
+    for(Eigen::DenseIndex k = 0; k < 3; ++k){
+        cs_p_ee(k) = ad_data.oMf[ee_frame_id].translation()[k];
+        cs_v_ee(k) = ad_v_ee.linear()[k];
     }
 
     // Create casadi functions for evaluating kinematics
