@@ -13,7 +13,7 @@ from controller import ConstantController, PDController
 if __name__ == "__main__":
     # Create FlexibleArm instance
     # Create FlexibleArm instance
-    n_seg = 10
+    n_seg = 3
     n_seg_mpc = 3
     fa = FlexibleArm(n_seg)
     fa_sym = SymbolicFlexibleArm(n_seg_mpc)
