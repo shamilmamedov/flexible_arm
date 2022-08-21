@@ -150,7 +150,7 @@
     </inertial>
   </link>
 
-  <joint name="virtual_link6_to_load" type="fixed">
+  <joint name="last_link_to_load" type="fixed">
     <parent link="virtual_link6"/>
     <child link="load"/>
     <axis xyz="0 0 1"/>
