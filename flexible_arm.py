@@ -42,7 +42,7 @@ class FlexibleArm:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
         # EE frame ID || 'load'
-        ee_frame_name = 'virtual_link' + str(n_seg+1) + '_to_load'
+        ee_frame_name = 'last_link_to_load'
         if self.model.existFrame(ee_frame_name):
             self.ee_frame_id = self.model.getFrameId(ee_frame_name)
         else:

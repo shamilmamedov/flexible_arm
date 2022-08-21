@@ -13,7 +13,7 @@ from os.path import dirname, join, abspath
 from pinocchio.visualize import MeshcatVisualizer
  
 # Load the URDF model.
-model_path = 'models/five_segments/'
+model_path = 'models/one_dof/five_segments/'
 urdf_path = join(model_path, 'flexible_arm_1dof_5s.urdf')
 
 model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf_path)
@@ -27,7 +27,7 @@ viz = MeshcatVisualizer(model, collision_model, visual_model)
 # Option open=True pens the visualizer.
 # Note: the visualizer can also be opened seperately by visiting the provided URL.
 try:
-    viz.initViewer()
+    viz.initViewer(open=True)
 except ImportError as err:
     print("Error while initializing the viewer. It seems you should install Python meshcat")
     print(err)
