@@ -1,9 +1,12 @@
 clc; 
 clear all; close all;
 
+ns = 3;
 % path to urdfs
 % path_to_urdf = 'models/five_segments/flexible_arm_v1.urdf';
-path_to_urdf = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf';
+% path_to_urdf = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf';
+% path_to_urdf = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf';
+path_to_urdf = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf';
 
 % Create a robot instance using Matlab Toolbox
 robot = importrobot(path_to_urdf);
@@ -16,7 +19,7 @@ robot.Gravity = [0 0 -9.81];
 % q = -0.1*rand(robot.NumBodies-1,1);
 q = zeros(robot.NumBodies-1,1);
 q(2) = pi/8;
-q(13) = pi/6;
+q(2 + (ns+1)) = pi/6;
 % q = [pi/4, -rand, -rand, -rand, -rand, -rand]';
 
 % Compute gravity and an equilibrium postion of passive joints

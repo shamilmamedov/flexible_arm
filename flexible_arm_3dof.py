@@ -29,10 +29,10 @@ class FlexibleArm3DOF:
             1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert (n_seg == 10)
+        assert(n_seg in [3, 5, 10])
 
         # Build urdf path
-        n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
+        n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
 
         model_folder = 'models/three_dof/' + n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
@@ -195,12 +195,11 @@ class SymbolicFlexibleArm3DOF:
         v_ee - a casadi function for evaluating ee velocity
 
     """
-
     def __init__(self, n_seg) -> None:
         """ Class constructor
         """
         # Sanity checks
-        assert (n_seg == 10)
+        assert(n_seg in [3, 5, 10])
 
         # Path to a folder with model description
         n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
