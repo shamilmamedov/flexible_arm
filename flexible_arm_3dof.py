@@ -29,10 +29,10 @@ class FlexibleArm3DOF:
             1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert (n_seg in [3, 5, 10])
 
         # Build urdf path
-        n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
+        n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
 
         model_folder = 'models/three_dof/' + n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
@@ -128,6 +128,8 @@ class FlexibleArm3DOF:
     def forward_dynamics(self, q, dq, tau):
         """ Computes forward dynamics of the robot
         """
+        if len(tau.shape) < 2:
+            tau = np.expand_dims(tau, 1)
         # Compute torque due to flexibility
         qp_link2 = q[2:2 + self.n_seg]
         qp_link3 = q[2 + self.n_seg + 1:]
@@ -195,11 +197,12 @@ class SymbolicFlexibleArm3DOF:
         v_ee - a casadi function for evaluating ee velocity
 
     """
+
     def __init__(self, n_seg) -> None:
         """ Class constructor
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert (n_seg in [3, 5, 10])
 
         # Path to a folder with model description
         n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}

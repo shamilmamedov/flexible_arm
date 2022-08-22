@@ -25,10 +25,10 @@ class Mpc3dofOptions:
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
                                            [1] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                           [1] * (self.n_links + 1) + [0] * (self.n_links + 1)) * 0
+                                           [1] * (self.n_links + 1) + [0] * (self.n_links + 1))
         self.q_e_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
                                              [1] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                             [1] * (self.n_links + 1) + [0] * (self.n_links + 1)) * 0
+                                             [1] * (self.n_links + 1) + [0] * (self.n_links + 1))
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1e-2, 1e-2, 1e-2])
@@ -40,6 +40,7 @@ class Mpc3dofOptions:
 class Mpc3Dof(BaseController):
     def __init__(self, model: "SymbolicFlexibleArm3DOF",
                  x0: np.ndarray,
+                 x0_ee: np.ndarray,
                  options: Mpc3dofOptions = Mpc3dofOptions(n_links=3)):
         self.u_max = 1e6
         self.fa_model = model
@@ -100,13 +101,8 @@ class Mpc3Dof(BaseController):
         # Vz_e[nx:, :] = np.eye(nz)
         # ocp.cost.Vz_e = Vz_e
 
-        x_goal = np.zeros((nx, 1))
-        x_goal[0] = -np.pi / 2
-        phi = -np.pi / 2
-        x_cartesian = 1.  # todo make propper initialisation
-        y_cartesian = 1.
-        z_cartesian = 1.
-        x_goal_cartesian = np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
+        x_goal = x0
+        x_goal_cartesian = x0_ee  # np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
         ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
@@ -139,11 +135,17 @@ class Mpc3Dof(BaseController):
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def set_reference_cartesian(self, p_cartesian: np.ndarray, u: np.array):
-        x_goal = np.zeros((self.fa_model.nx, 1))
-        x_goal_cartesian = np.expand_dims(p_cartesian, 1)
-        yref = np.vstack((x_goal, u, x_goal_cartesian)).flatten()
-        yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
+    def set_reference_cartesian(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
+        if len(p_ee_ref.shape) < 1:
+            p_ee_ref = np.expand_dims(p_ee_ref, 1)
+        if len(x_ref.shape) < 1:
+            x_ref = np.expand_dims(x_ref, 1)
+        if len(u_ref.shape) < 1:
+            u_ref = np.expand_dims(u_ref, 1)
+
+        yref = np.vstack((x_ref, u_ref, p_ee_ref)).flatten()
+        yref_e = np.vstack((x_ref, p_ee_ref)).flatten()
+
         for stage in range(self.options.n):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
