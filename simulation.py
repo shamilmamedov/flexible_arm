@@ -8,7 +8,7 @@ from scipy.integrate import solve_ivp
 
 
 from flexible_arm import FlexibleArm
-from animation import Animator
+from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController
 
 class Simulator:
@@ -47,7 +47,7 @@ class Simulator:
 
 if __name__ == "__main__":
     # Create FlexibleArm instance
-    n_seg = 10
+    n_seg = 5
     fa = FlexibleArm(n_seg)
 
     # Sample a random configuration
@@ -74,8 +74,11 @@ if __name__ == "__main__":
 
     _, ax = plt.subplots()
     ax.plot(t[::10], q[:,0])
-    plt.show()
+    # plt.show()
     
 
     # Animate simulated motion
-    anim = Animator(fa, q).animate()
+    # anim = Animator(fa, q).play()
+
+    urdf_path = 'models/one_dof/five_segments/flexible_arm_1dof_5s.urdf'
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from re import S
 import numpy as np
 
 
