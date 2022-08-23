@@ -31,7 +31,8 @@ if __name__ == "__main__":
     q_ref[1 + n_seg + 1] += 1
 
     # controller = DummyController()
-    controller = PDController3Dof(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25),n_seg=n_seg, q_ref=q_ref)
+    controller = PDController3Dof(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25),
+                                n_seg=n_seg, q_ref=q_ref)
 
     ts = 0.001
     n_iter = 5000
