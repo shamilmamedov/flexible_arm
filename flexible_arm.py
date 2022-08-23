@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-
 import os
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 import pinocchio as pin
+from acados_template import AcadosModel
+import yaml
 
 
 class FlexibleArm:
@@ -17,20 +18,18 @@ class FlexibleArm:
 
     NOTE for now the number of virtual joints and links are fixed
     """
+
     def __init__(self, n_seg) -> None:
         """ Class constructor. Based on the number of segments, it loads
         a urdf file and flexbility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
-
-        TODO:
-            1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert (n_seg in [3, 5, 10])
 
         # Build urdf path
-        n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
+        n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
 
         model_folder = 'models/one_dof/' + n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_1dof_' + str(n_seg) + 's.urdf'
@@ -62,16 +61,16 @@ class FlexibleArm:
         params_path = os.path.join(model_folder, params_file)
 
         with open(params_path) as f:
-                flexibility_params = yaml.safe_load(f)
+            flexibility_params = yaml.safe_load(f)
 
         # Additional sanity checks
-        # assert(len(flexibility_params['K'])==self.nq-1 & 
+        # assert(len(flexibility_params['K'])==self.nq-1 &
         #         len(flexibility_params['D'])==self.nq-1)
 
         # !!!!!!!!! We ignore the flexibility of the first small link
         self.K = np.diag(flexibility_params['K'][1:])
         self.D = np.diag(flexibility_params['D'][1:])
-        
+
     def random_q(self):
         """ Returns a random configuration
         """
@@ -89,7 +88,7 @@ class FlexibleArm:
         T_EE_O = self.data.oMf[frame_id]
         R_EE_O = T_EE_O.rotation
         p_EE_O = T_EE_O.translation
-        return R_EE_O, p_EE_O.reshape(-1,1)
+        return R_EE_O, p_EE_O.reshape(-1, 1)
 
     def fk_ee(self, q):
         """ Computes forward kinematics for EE frame in base frame
@@ -105,10 +104,10 @@ class FlexibleArm:
         """
         pin.forwardKinematics(self.model, self.data, q, dq)
         pin.updateFramePlacements(self.model, self.data)
-        v = pin.getFrameVelocity(self.model, self.data, 
-                    frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+        v = pin.getFrameVelocity(self.model, self.data,
+                                 frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
-        return np.hstack((v.linear, v.angular)).reshape(-1,1)
+        return np.hstack((v.linear, v.angular)).reshape(-1, 1)
 
     def ee_velocity(self, q, dq):
         """ Computes end-effector velocity
@@ -122,17 +121,17 @@ class FlexibleArm:
         """ Computes gravity vector of the robot
         """
         t1 = np.zeros_like(q)
-        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1,1)
+        return pin.rnea(self.model, self.data, q, t1, t1).reshape(-1, 1)
 
     def forward_dynamics(self, q, dq, tau):
         """ Computes forward dynamics of the robot
         """
         # Compute torque due to flexibility
-        q_virt = q[1:,:]
-        dq_virt = dq[1:,:]
+        q_virt = q[1:, :]
+        dq_virt = dq[1:, :]
         tau_flexibility = -self.K @ q_virt - self.D @ dq_virt
         tau_total = np.vstack((tau, tau_flexibility))
-        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1,1)
+        return pin.aba(self.model, self.data, q, dq, tau_total).reshape(-1, 1)
 
     def inverse_dynamics(self, q, dq, ddq):
         """ Computes inverse dynamics of the robot
@@ -144,20 +143,20 @@ class FlexibleArm:
         :parameter x: [10x1] vector of robot states
         :parameter tau: [1x1] vector of an active joint torque
         """
-        q = x[0:self.nq,:]
-        dq = x[self.nq:,:]
+        q = x[0:self.nq, :]
+        dq = x[self.nq:, :]
         return np.vstack((dq, self.forward_dynamics(q, dq, tau)))
 
     def fk_for_visualization(self, q):
         # Perform forward kinematics and get joint positions
         pin.forwardKinematics(self.model, self.data, q)
-        p_joints = np.zeros((self.model.njoints+1,3))
+        p_joints = np.zeros((self.model.njoints + 1, 3))
         for k, oMi in enumerate(self.data.oMi):
-            p_joints[k,:] = oMi.translation
-        
+            p_joints[k, :] = oMi.translation
+
         # Get also end-effector position
         pin.updateFramePlacement(self.model, self.data, self.ee_frame_id)
-        p_joints[-1,:] = self.data.oMf[self.ee_frame_id].translation
+        p_joints[-1, :] = self.data.oMf[self.ee_frame_id].translation
         return p_joints
 
     def visualize(self, q):
@@ -166,8 +165,8 @@ class FlexibleArm:
 
         # Plot the robot
         _, ax = plt.subplots()
-        ax.plot(p_joints[:,0], p_joints[:,2], 'o-', lw=2, color='k')
-        ax.scatter(p_joints[:-1,0], p_joints[:-1,2])
+        ax.plot(p_joints[:, 0], p_joints[:, 2], 'o-', lw=2, color='k')
+        ax.scatter(p_joints[:-1, 0], p_joints[:-1, 2])
         ax.set_xlabel("X (m)")
         ax.set_ylabel("Z (m)")
         ax.set_xlim([-0.55, 0.55])
@@ -189,11 +188,12 @@ class SymbolicFlexibleArm:
         v_ee - a casadi function for evaluating ee velocity
 
     """
+
     def __init__(self, n_seg) -> None:
         """ Class constructor
         """
         # Sanity checks
-        assert(n_seg in [3, 5, 10])
+        assert (n_seg in [3, 5, 10])
 
         # Path to a folder with model description
         n_seg_int2str = {1:'one', 3:'three', 5:'five', 10:'ten'} 
@@ -203,16 +203,21 @@ class SymbolicFlexibleArm:
         self.nq = n_seg + 1
         self.nx = 2*(n_seg + 1)
         self.nu = 1
-        
+        self.nz = 2  # algebraic states
+        self.length = 0.5  # todo Shamil: get length of model
+
+        # constraints # todo Shamil: add constraints appropriately
+        self.maximum_input_torque = 100  # Nm
+
         # Process flexibility parameters
         params_file = 'flexibility_params.yml'
         params_path = os.path.join(model_folder, params_file)
 
         with open(params_path) as f:
-                flexibility_params = yaml.safe_load(f)
+            flexibility_params = yaml.safe_load(f)
 
         # Additional sanity checks
-        # assert(len(flexibility_params['K'])==self.nq-1 & 
+        # assert(len(flexibility_params['K'])==self.nq-1 &
         #         len(flexibility_params['D'])==self.nq-1)
 
         self.K = np.diag(flexibility_params['K'][1:])
@@ -222,6 +227,10 @@ class SymbolicFlexibleArm:
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
         u = cs.MX.sym("u", self.nu)
+        z = cs.MX.sym("z", self.nz)
+
+        # Symbolic variables for dot values (needed for acados)
+        x_dot = cs.MX.sym('xdot', self.nx)
 
         # Load the forward dynamics alogirthm function ABA
         casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
@@ -230,21 +239,39 @@ class SymbolicFlexibleArm:
         # Keep in mind only the first joint is active
         tau_p = -self.K @ q[1:] - self.D @ dq[1:]
         tau = cs.vertcat(u, tau_p)
-        
+
         # Compute forward dynamics
         ddq = casadi_aba(q, dq, tau)
 
         # Compute right hand side of the system ODE
         rhs = cs.vertcat(dq, ddq)
 
-        self.x = cs.vertcat(q,dq)
-        self.u = u
-        self.rhs = rhs
-        self.ode = cs.Function('ode', [self.x, self.u], [self.rhs], 
-                                ['x', 'u'], ['dx'])
+        # Forward kinematic
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
-        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
-        
+        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
+
+        self.rhs_impl = self.p_ee(q)
+        self.x = cs.vertcat(q, dq)
+        self.x_dot = x_dot
+        self.u = u
+        self.z = z
+        self.rhs = rhs
+        self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
+                               ['x', 'u'], ['dx'])
+
+    def get_acados_model(self) -> AcadosModel:
+        model = AcadosModel()
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
+        model.f_expl_expr = self.rhs
+        model.x = self.x
+        model.xdot = self.x_dot
+        model.z = self.z
+        model.u = self.u
+        # model.p = w  # Not used right now
+        model.name = "flexible_arm_nq" + str(self.nq)
+
+        return model
 
 
 if __name__ == "__main__":

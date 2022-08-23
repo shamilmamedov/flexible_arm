@@ -16,7 +16,7 @@ def test_casadi_aba():
     using Articulated Rigid Body Algorithm (aba)
     """
     # Path to a folder with model description
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = os.path.join(robot_folder, n_seg_int2str[n_seg] + '_segments/')
 
         # Load casadi function for evaluating aba
@@ -60,7 +60,7 @@ def test_casadi_fk():
     comparing it to the numerical pinocchio values
     """
     # Path to a folder with model description
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = os.path.join(robot_folder, n_seg_int2str[n_seg] + '_segments/')
 
         # Load casadi function for evaluating forward kinematics
@@ -81,7 +81,7 @@ def test_casadi_fk():
 def test_casadi_vee():
     """ Tests a casadi function for computing ee velocity
     """
-    for n_seg in n_segs: 
+    for n_seg in n_segs:
         model_folder = os.path.join(robot_folder, n_seg_int2str[n_seg] + '_segments/')
 
         # Load casadi function for evaluating forward kinematics

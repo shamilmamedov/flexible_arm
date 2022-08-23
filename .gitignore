@@ -12,3 +12,5 @@ __pycache__/
 
 # Python notebook
 .ipynb_checkpoints/
+# json files
+/*.json

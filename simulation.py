@@ -6,10 +6,10 @@ import pinocchio as pin
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
-
 from flexible_arm import FlexibleArm
 from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController
+
 
 class Simulator:
     """ Implements a simulator for FlexibleArm
@@ -35,10 +35,10 @@ class Simulator:
             qk = x[[k],:self.robot.nq].T
             dqk = x[[k],self.robot.nq:].T
             
-            tau = self.controller.compute_torques(qk[0], dqk[0])
+            tau = self.controller.compute_torques(qk, dqk)
             u[[k],:] = tau
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau), 
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau),
                             vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
             x[k+1,:] = sol.y[:,-1]
 
