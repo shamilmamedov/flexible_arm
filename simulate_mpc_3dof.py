@@ -5,7 +5,7 @@ import pinocchio as pin
 from compute_equilibria import EquilibriaWrapper
 from utils import plot_result, print_timings
 from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from animation import Animator
+from animation import Animator, Panda3dAnimator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from simulation import Simulator
 from controller import ConstantController, PDController
@@ -37,7 +37,9 @@ if __name__ == "__main__":
     # Compute reference
     q_ref = np.zeros((fa.nq, 1))
     q_ref[0] += 1.
-    q_ref[n_seg+1] += 1
+    q_ref[1] += 0.5
+    q_ref[1 + n_seg + 1] += 1
+
     dq_ref = np.zeros_like(q)
     x_ref = np.vstack((q_ref, dq_ref))
     _, x_ee_ref = fa.fk_ee(q_ref)
@@ -58,10 +60,11 @@ if __name__ == "__main__":
     print_timings(t_mean, t_std, t_min, t_max)
 
     # Plot result
-    plot_result(x=x, u=u, t=np.arange(0, (n_iter + 1) * ts, ts))
+    # plot_result(x=x, u=u, t=np.arange(0, (n_iter + 1) * ts, ts))
 
     # Parse joint positions
-    q = x[:, :fa.nq]
+    q = x[::10, :fa.nq]
 
     # Animate simulated motion
-    # anim = Animator(fa, q, pos_ref=p_xy_ref).animate()
+    urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)

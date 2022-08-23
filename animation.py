@@ -8,7 +8,8 @@ import pinocchio as pin
 from pinocchio.visualize import Panda3dVisualizer
 import time
 
-from sklearn.semi_supervised import SelfTrainingClassifier
+
+# from sklearn.semi_supervised import SelfTrainingClassifier
 
 
 class Animator:
@@ -22,7 +23,7 @@ class Animator:
         self.ax.set_aspect('equal')
 
         if pos_ref is not None:
-            self.ax.plot(pos_ref[0], pos_ref[1],'o', color="darkred")
+            self.ax.plot(pos_ref[0], pos_ref[1], 'o', color="darkred")
 
         self.line, = self.ax.plot([], [], 'o-', lw=2, color='k')
 
@@ -37,6 +38,7 @@ class Animator:
         self.anim = animation.FuncAnimation(self.fig, self.update, self.frames,
                                             interval=100, blit=True)
         plt.show()
+
     def animate(self):
         f = r"animation.mp4"
         writervideo = animation.FFMpegWriter(fps=20)
@@ -62,7 +64,7 @@ class Panda3dAnimator:
         # Instantiate panda3visualizer
         self.viz = Panda3dVisualizer(m, cm, vm)
 
-    def play(self, k:int=5):
+    def play(self, k: int = 5):
         """
         :parameter k: number of times to play the trajectory
         """
@@ -70,9 +72,9 @@ class Panda3dAnimator:
         self.viz.loadViewerModel(group_name='flexible_arm')
 
         for _ in range(5):
-            self.viz.display(self.q[0,:])
+            self.viz.display(self.q[0, :])
             time.sleep(2)
-            for qk in self.q[1:,:]:
+            for qk in self.q[1:, :]:
                 self.viz.display(qk)
                 time.sleep(self.ts)
             time.sleep(1)

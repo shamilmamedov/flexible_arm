@@ -130,6 +130,8 @@ class FlexibleArm3DOF:
         """
         if len(tau.shape) < 2:
             tau = np.expand_dims(tau, 1)
+        if tau.shape[0]<tau.shape[1]:
+            tau=tau.transpose()
         # Compute torque due to flexibility
         qp_link2 = q[2:2 + self.n_seg]
         qp_link3 = q[2 + self.n_seg + 1:]
