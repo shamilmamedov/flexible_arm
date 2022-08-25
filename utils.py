@@ -1,5 +1,12 @@
+from enum import Enum, auto
+
 import matplotlib.pyplot as plt
 import numpy as np
+
+
+class ControlMode(Enum):
+    SET_POINT = auto()
+    REFERENCE_TRACKING = auto()
 
 
 def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):

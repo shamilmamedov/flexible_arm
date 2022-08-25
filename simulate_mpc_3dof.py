@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-
+from copy import deepcopy
 import numpy as np
 import pinocchio as pin
-from compute_equilibria import EquilibriaWrapper
-from utils import plot_result, print_timings
+from utils import plot_result, print_timings, ControlMode
 from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from animation import Animator, Panda3dAnimator
+from animation import Panda3dAnimator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from simulation import Simulator
-from controller import ConstantController, PDController
 
 if __name__ == "__main__":
-    # Create FlexibleArm instance
+    # options
+    control_mode = ControlMode.REFERENCE_TRACKING
+
     # Create FlexibleArm instance
     n_seg = 3
     n_seg_mpc = n_seg
@@ -22,40 +22,52 @@ if __name__ == "__main__":
     q = pin.randomConfiguration(fa.model)
     # fa.visualize(q)
 
-    # Simulate
-    q = np.zeros((fa.nq, 1))
-    dq = np.zeros_like(q)
-    x0 = np.vstack((q, dq))
+    # Create initial state simulated system
+    q0 = np.zeros((fa.nq, 1))
+    q0[0] += 0.5
+    q0[1] += 1.5
+    q0[1 + n_seg + 1] += 0.5
+
+    dq0 = np.zeros_like(q0)
+    x0 = np.vstack((q0, dq0))
 
     # MPC has other model states
-    q_mpc = np.zeros((fa_sym.nq, 1))
-    dq_mpc = np.zeros_like(q_mpc)
-    x0_mpc = np.vstack((q_mpc, dq_mpc))
+    q_mpc0 = deepcopy(q0)
+    dq_mpc0 = deepcopy(dq0)
+    x_mpc0 = np.vstack((q_mpc0, dq_mpc0))
 
-    _, x0_ee = fa.fk_ee(q)
+    _, qee0 = fa.fk_ee(q)
 
     # Compute reference
-    q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 1.
-    q_ref[1] += 0.5
-    q_ref[1 + n_seg + 1] += 1
+    q_mpc_ref = deepcopy(q_mpc0)
+    q_mpc_ref[0] += 1.5
+    q_mpc_ref[1] += 0.5
+    q_mpc_ref[1 + n_seg + 1] += 1.5
 
-    dq_ref = np.zeros_like(q)
-    x_ref = np.vstack((q_ref, dq_ref))
-    _, x_ee_ref = fa.fk_ee(q_ref)
+    dq_mpc_ref = np.zeros_like(q_mpc_ref)
+    x_mpc_ref = np.vstack((q_mpc_ref, dq_mpc_ref))
+    _, x_ee_ref = fa.fk_ee(q_mpc_ref)
 
+    # Create mpc options and controller
     mpc_options = Mpc3dofOptions(n_links=n_seg_mpc)
-    controller = Mpc3Dof(model=fa_sym, x0=x0_mpc, x0_ee=x0_ee, options=mpc_options)
-    u_ref = np.zeros((fa_sym.nu, 1))
-    controller.set_reference_cartesian(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
+    controller = Mpc3Dof(model=fa_sym, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
+    u_ref = np.zeros((fa_sym.nu, 1))  # u_ref could be changed to some known value along the trajectory
+
+    # Choose one out of two control modes. Reference tracking uses a spline planner.
+    if control_mode == ControlMode.SET_POINT:
+        controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_mpc_ref, u_ref=u_ref)
+    elif control_mode == ControlMode.REFERENCE_TRACKING:
+        controller.set_reference_trajectory(q_t0=q_mpc0, pee_tf=x_ee_ref, tf=5, fun_forward_pee=fa.fk_ee)
+    else:
+        Exception()
 
     # simulate
     ts = 0.01
-    n_iter = 251
+    n_iter = 600
     sim = Simulator(fa, controller, 'RK45')
     x, u = sim.simulate(x0.flatten(), ts, n_iter)
 
-    # Timing
+    # Print timing
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
     print_timings(t_mean, t_std, t_min, t_max)
 

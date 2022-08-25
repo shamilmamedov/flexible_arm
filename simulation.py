@@ -14,6 +14,7 @@ from controller import DummyController, PDController
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
+
     def __init__(self, robot, controller, integrator, rtol=1e-6, atol=1e-8) -> None:
         self.robot = robot
         self.controller = controller
@@ -28,19 +29,20 @@ class Simulator:
         return robot.ode(x, tau)
 
     def simulate(self, x0, ts, n_iter):
-        x = np.zeros((n_iter+1, self.robot.nx))
+        x = np.zeros((n_iter + 1, self.robot.nx))
         u = np.zeros((n_iter, self.robot.nu))
-        x[0,:] = x0
+        x[0, :] = x0
         for k in range(n_iter):
-            qk = x[[k],:self.robot.nq].T
-            dqk = x[[k],self.robot.nq:].T
-            
-            tau = self.controller.compute_torques(qk, dqk)
-            u[[k],:] = tau
+            qk = x[[k], :self.robot.nq].T
+            dqk = x[[k], self.robot.nq:].T
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau),
+            # control main function. some reference tracking controllers need the time step related to the reference
+            tau = self.controller.compute_torques(qk, dqk, t=ts * k)
+            u[[k], :] = tau
+
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
                             vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
-            x[k+1,:] = sol.y[:,-1]
+            x[k + 1, :] = sol.y[:, -1]
 
         return x, u
 
@@ -60,22 +62,21 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     # controller = DummyController()
-    controller = PDController(Kp=10, Kd=0.25, q_ref=np.array([np.pi/8]))
+    controller = PDController(Kp=10, Kd=0.25, q_ref=np.array([np.pi / 8]))
 
     ts = 0.001
     n_iter = 1000
 
     sim = Simulator(fa, controller, 'LSODA')
     x, u = sim.simulate(x0.flatten(), ts, n_iter)
-    t = np.arange(0, n_iter+1)*ts
+    t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions
-    q = x[::10,:fa.nq]
+    q = x[::10, :fa.nq]
 
     _, ax = plt.subplots()
-    ax.plot(t[::10], q[:,0])
+    ax.plot(t[::10], q[:, 0])
     # plt.show()
-    
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()

@@ -20,19 +20,23 @@ if __name__ == "__main__":
     # fa.visualize(q)
 
     # Simulate
-    q = np.zeros((fa.nq, 1))
-    dq = np.zeros_like(q)
-    x0 = np.vstack((q, dq))
+    q0 = np.zeros((fa.nq, 1))
+    q0[0] += 0.5
+    q0[1] += 1.5
+    q0[1 + n_seg + 1] += 0.5
+
+    dq0 = np.zeros_like(q0)
+    x0 = np.vstack((q0, dq0))
 
     # Compute reference
     q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 1.
+    q_ref[0] += 1.5
     q_ref[1] += 0.5
-    q_ref[1 + n_seg + 1] += 1
+    q_ref[1 + n_seg + 1] += 1.5
 
     # controller = DummyController()
     controller = PDController3Dof(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25),
-                                n_seg=n_seg, q_ref=q_ref)
+                                  n_seg=n_seg, q_ref=q_ref)
 
     ts = 0.001
     n_iter = 5000
