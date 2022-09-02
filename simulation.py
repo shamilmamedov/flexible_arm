@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import matplotlib
+import casadi as cs
 import numpy as np
 import pinocchio as pin
 import matplotlib.pyplot as plt
@@ -11,13 +12,43 @@ from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController
 
 
+def symbolic_RK4(x, u, ode, n=4):
+    """ Creates a symbolic RK4 integrator for
+    a given dynamic system
+    :parameter x: symbolic vector of states
+    :parameter u: symbolic vector of inputs
+    :parameter ode: ode of the system
+    :parameter n: number of step for RK4 to take
+    :return F_rk4: symbolic RK4 integrator
+    """
+    ts_sym = cs.MX.sym('ts')
+    h = ts_sym/n
+    x_next = x
+    for _ in range(n):
+        k1 = ode(x_next, u)
+        k2 = ode(x_next + h*k1/2, u)
+        k3 = ode(x_next + h*k2/2, u)
+        k4 = ode(x_next + h*k3, u)
+        x_next = x_next + h/6*(k1 + 2*k2 + 2*k3 + k4)
+
+    F = cs.Function('F', [x, u, ts_sym], [x_next],
+                        ['x', 'u', 'ts'], ['x_next'])
+
+    A =  cs.jacobian(x_next, x)
+    dF_dx = cs.Function('dF_dx', [x, u, ts_sym], [A],
+                        ['x', 'u', 'ts'], ['A'])
+    return F, dF_dx
+
+
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
-    def __init__(self, robot, controller, integrator, rtol=1e-6, atol=1e-8) -> None:
+
+    def __init__(self, robot, controller, integrator, estimator=None, rtol=1e-6, atol=1e-8) -> None:
         self.robot = robot
         self.controller = controller
         self.integrator = integrator
+        self.estimator = estimator
         self.rtol = rtol
         self.atol = atol
 
@@ -30,17 +61,17 @@ class Simulator:
     def simulate(self, x0, ts, n_iter):
         x = np.zeros((n_iter+1, self.robot.nx))
         u = np.zeros((n_iter, self.robot.nu))
-        x[0,:] = x0
+        x[0, :] = x0
         for k in range(n_iter):
-            qk = x[[k],:self.robot.nq].T
-            dqk = x[[k],self.robot.nq:].T
-            
-            tau = self.controller.compute_torques(qk, dqk)
-            u[[k],:] = tau
+            qk = x[[k], :self.robot.nq].T
+            dqk = x[[k], self.robot.nq:].T
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k,:], args=(self.robot, tau),
+            tau = self.controller.compute_torques(qk, dqk)
+            u[[k], :] = tau
+
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
                             vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
-            x[k+1,:] = sol.y[:,-1]
+            x[k+1, :] = sol.y[:, -1]
 
         return x, u
 
@@ -70,12 +101,11 @@ if __name__ == "__main__":
     t = np.arange(0, n_iter+1)*ts
 
     # Parse joint positions
-    q = x[::10,:fa.nq]
+    q = x[::10, :fa.nq]
 
     _, ax = plt.subplots()
-    ax.plot(t[::10], q[:,0])
+    ax.plot(t[::10], q[:, 0])
     # plt.show()
-    
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()

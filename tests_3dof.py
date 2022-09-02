@@ -107,6 +107,7 @@ def test_casadi_forward_simulation():
     """
     pass
 
+
 def test_SymbolicFlexibleArm():
     """ Tests Symbolic Flexible Arm class, very basic. Make sure
     that all functions are collable and do not crash
@@ -115,9 +116,19 @@ def test_SymbolicFlexibleArm():
         sarm = SymbolicFlexibleArm3DOF(n_seg)
         q = np.random.rand(sarm.nq)
         dq = np.pi*np.random.rand(sarm.nq)
-        pee = sarm.p_ee(q)
-        vee = sarm.v_ee(q, dq)
+        pee = np.array(sarm.p_ee(q))
+        vee = np.array(sarm.v_ee(q, dq))
 
+        x = cs.vertcat(q, dq)
+        u = np.random.rand(sarm.nu)
+        h = np.array(sarm.h(x))
+        dh_dx = np.array(sarm.dh_dx(x))
+        df_dx = np.array(sarm.df_dx(x, u))
+        df_du = np.array(sarm.df_du(x, u))
+        # print(f'p_ee = {pee.flatten()}')
+        # print(f'v_ee = {vee.flatten()}')
+        print(f'h = {h.flatten()}')
+        print(f'dy_dx = {dh_dx}')        
 
 
 
@@ -126,3 +137,4 @@ if __name__ == "__main__":
     test_casadi_ode()
     test_casadi_fk()
     test_casadi_vee()
+    test_SymbolicFlexibleArm()
