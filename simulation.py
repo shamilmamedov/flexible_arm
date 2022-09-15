@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import matplotlib
 import casadi as cs
 import numpy as np
@@ -10,6 +8,20 @@ from scipy.integrate import solve_ivp
 from flexible_arm import FlexibleArm
 from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController
+
+
+def RK4(x, u, ode, ts, n):
+    """ Numerical RK4 integrator
+    """
+    h = ts/n
+    x_next = x
+    for _ in range(n):
+        k1 = ode(x_next, u)
+        k2 = ode(x_next + h*k1/2, u)
+        k3 = ode(x_next + h*k2/2, u)
+        k4 = ode(x_next + h*k3, u)
+        x_next = x_next + h/6*(k1 + 2*k2 + 2*k3 + k4)
+    return x_next
 
 
 def symbolic_RK4(x, u, ode, n=4):
@@ -32,9 +44,9 @@ def symbolic_RK4(x, u, ode, n=4):
         x_next = x_next + h/6*(k1 + 2*k2 + 2*k3 + k4)
 
     F = cs.Function('F', [x, u, ts_sym], [x_next],
-                        ['x', 'u', 'ts'], ['x_next'])
+                    ['x', 'u', 'ts'], ['x_next'])
 
-    A =  cs.jacobian(x_next, x)
+    A = cs.jacobian(x_next, x)
     dF_dx = cs.Function('dF_dx', [x, u, ts_sym], [A],
                         ['x', 'u', 'ts'], ['A'])
     return F, dF_dx
@@ -59,21 +71,40 @@ class Simulator:
         return robot.ode(x, tau)
 
     def simulate(self, x0, ts, n_iter):
+        if self.estimator is not None:
+            x_hat = np.zeros((n_iter+1, self.robot.nx))
+        else:
+            x_hat = None
+
         x = np.zeros((n_iter+1, self.robot.nx))
         u = np.zeros((n_iter, self.robot.nu))
         x[0, :] = x0
         for k in range(n_iter):
             qk = x[[k], :self.robot.nq].T
             dqk = x[[k], self.robot.nq:].T
+            yk = self.robot.output(x[[k], :].T)
+
+            if self.estimator is not None:
+                if k == 0:
+                    x_hat[k, :] = self.estimator.estimate(yk).flatten()
+                else:
+                    x_hat[k, :] = self.estimator.estimate(
+                        yk, u[k-1, :]).flatten()
 
             tau = self.controller.compute_torques(qk, dqk)
             u[[k], :] = tau
+            
+            if self.integrator in ['RK45', 'LSODA']:
+                sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
+                                vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
+                x_next = sol.y[:, -1]
+            elif self.integrator == 'RK4':
+                x_next = RK4(x[[k], :].T, tau.T, self.robot.ode, ts, n=5).flatten()
+            else:
+                raise ValueError
+            x[k+1, :] = x_next
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
-                            vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
-            x[k+1, :] = sol.y[:, -1]
-
-        return x, u
+        return x, u, x_hat
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import numpy as np
 from abc import ABC, abstractmethod
 
@@ -24,51 +22,63 @@ class ExtendedKalmanFilter(BaseEstimator):
     """ Implements extended kalman filter
     """
 
-    def __init__(self, model: "SymbolicFlexibleArm3DOF", x0_hat, P0, Q, R, ts) -> None:
+    def __init__(self, model: "SymbolicFlexibleArm3DOF", x0_hat, P0, Q, R) -> None:
         """
         :parameter model: symbolic model of the arm
         :parameter x0_hat: initial state estimate
         :parameter P0: initial estimate covariance
         :parameter Q: state covariance matrix
         :parameter R: measurement covariance matrix
-        :parameter ts: sampling time
         """
         self.model = model
         self.P = P0
         self.Q = Q
         self.R = R
         self.x_hat = x0_hat
-        self.ts = ts
 
-        # Create a symbolic integrator for dynamics
-        self.F = symbolic_RK4(self.model.x, self.model.u, self.model.ode, n=1)
-
-        # Linearize the output equation
-        self.C = np.zeros((self.model.ny, self.model.nx))
-        self.A = np.zeros((self.model.nx, self.model.nx))
-
-    def linearize(self, u):
-        """ Linearizes dynamics
+    def compute_Kalman_gain(self, C):
+        """ Computes Kalman Gain given C
         """
-        self.A = np.array(self.model.dF_dx(self.x_hat, u, self.ts))
-        self.C = np.array(self.model.dh_dx(self.x_hat))
-
-    def compute_Kalman_gain(self):
-        t_ = self.R + self.C @ self.P @ self.C.T
-        L = self.P @ self.C.T @ np.linalg.pinv(t_)
+        t_ = self.R + C @ self.P @ C.T
+        L = self.P @ C.T @ np.linalg.pinv(t_)
         return L
 
     def update(self, y):
-        L = self.compute_Kalman_gain()
+        """ Implements correction equations of the EKF
+        """
+        # Linearize measurement equation
+        C = np.array(self.model.dh_dx(self.x_hat))
+
+        # Compute Kalman gain
+        L = self.compute_Kalman_gain(C)
+
+        # Correct state predictions
         self.x_hat = self.x_hat + L @ (y - np.array(self.model.h(self.x_hat)))
-        self.P = self.P - L @ self.C @ self.P
+
+        # Correct covariance predictions
+        self.P = self.P - L @ C @ self.P
         return self.x_hat
 
     def predict(self, u):
-        self.linearize(u)
-        self.P = self.A @ self.P @ self.A.T + self.Q
-        self.x_hat = self.F(self.x_hat, u, self.ts)
+        """ Implements prediction equations of the EKF
+        """
+        # Linearize state transition equations
+        A = np.array(self.model.dF_dx(self.x_hat, u))
+        
+        # Predict state covraince
+        self.P = A @ self.P @ A.T + self.Q
 
-    def estimate(self, u, y):
-        self.predict(u)
-        return self.update(y)
+        # Predict next state
+        self.x_hat = np.array(self.model.F(self.x_hat, u))
+
+    def estimate(self, y, u=None):
+        """ Combines estimation and prediction
+
+        In the iteration when there is no control input available
+        we can only update the state estimate
+        """
+        if u is None:
+            return self.update(y)
+        else:
+            self.predict(u)
+            return self.update(y)

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import yaml
 import numpy as np
@@ -192,11 +190,12 @@ class SymbolicFlexibleArm3DOF:
             variable that should be provided during numerial integration.
     """
 
-    def __init__(self, n_seg) -> None:
+    def __init__(self, n_seg: int, integrator: str = 'cvodes', ts: float = 0.001) -> None:
         """ Class constructor
         """
         # Sanity checks
         assert (n_seg in [3, 5, 10])
+        assert (integrator in ['cvodes', 'idas'])
 
         # Path to a folder with model description
         n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
@@ -281,7 +280,13 @@ class SymbolicFlexibleArm3DOF:
                                  drhs_du], ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
 
-        self.F, self.dF_dx = symbolic_RK4(x, u, self.ode, n=1)
+        # Create an integrator
+        dae = {'x':self.x, 'p':self.u, 'ode':self.rhs}
+        opts = {'t0':0, 'tf':ts}
+        I = cs.integrator('I', integrator, dae, opts)
+        x_next = I(x0=self.x, p=self.u)["xf"]
+        self.F = cs.Function('F', [x, u], [x_next])
+        self.dF_dx = cs.Function('dF_dx', [x, u], [cs.jacobian(x_next, x)])
 
     def get_acados_model(self) -> AcadosModel:
         model = AcadosModel()
