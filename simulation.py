@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
-
 import matplotlib
+import casadi as cs
 import numpy as np
 import pinocchio as pin
 import matplotlib.pyplot as plt
@@ -11,14 +10,57 @@ from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController
 
 
+def RK4(x, u, ode, ts, n):
+    """ Numerical RK4 integrator
+    """
+    h = ts/n
+    x_next = x
+    for _ in range(n):
+        k1 = ode(x_next, u)
+        k2 = ode(x_next + h*k1/2, u)
+        k3 = ode(x_next + h*k2/2, u)
+        k4 = ode(x_next + h*k3, u)
+        x_next = x_next + h/6*(k1 + 2*k2 + 2*k3 + k4)
+    return x_next
+
+
+def symbolic_RK4(x, u, ode, n=4):
+    """ Creates a symbolic RK4 integrator for
+    a given dynamic system
+    :parameter x: symbolic vector of states
+    :parameter u: symbolic vector of inputs
+    :parameter ode: ode of the system
+    :parameter n: number of step for RK4 to take
+    :return F_rk4: symbolic RK4 integrator
+    """
+    ts_sym = cs.MX.sym('ts')
+    h = ts_sym/n
+    x_next = x
+    for _ in range(n):
+        k1 = ode(x_next, u)
+        k2 = ode(x_next + h*k1/2, u)
+        k3 = ode(x_next + h*k2/2, u)
+        k4 = ode(x_next + h*k3, u)
+        x_next = x_next + h/6*(k1 + 2*k2 + 2*k3 + k4)
+
+    F = cs.Function('F', [x, u, ts_sym], [x_next],
+                    ['x', 'u', 'ts'], ['x_next'])
+
+    A = cs.jacobian(x_next, x)
+    dF_dx = cs.Function('dF_dx', [x, u, ts_sym], [A],
+                        ['x', 'u', 'ts'], ['A'])
+    return F, dF_dx
+
+
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
 
-    def __init__(self, robot, controller, integrator, rtol=1e-6, atol=1e-8) -> None:
+    def __init__(self, robot, controller, integrator, estimator=None, rtol=1e-6, atol=1e-8) -> None:
         self.robot = robot
         self.controller = controller
         self.integrator = integrator
+        self.estimator = estimator
         self.rtol = rtol
         self.atol = atol
 
@@ -29,22 +71,40 @@ class Simulator:
         return robot.ode(x, tau)
 
     def simulate(self, x0, ts, n_iter):
-        x = np.zeros((n_iter + 1, self.robot.nx))
+        if self.estimator is not None:
+            x_hat = np.zeros((n_iter+1, self.robot.nx))
+        else:
+            x_hat = None
+
+        x = np.zeros((n_iter+1, self.robot.nx))
         u = np.zeros((n_iter, self.robot.nu))
         x[0, :] = x0
         for k in range(n_iter):
             qk = x[[k], :self.robot.nq].T
             dqk = x[[k], self.robot.nq:].T
+            yk = self.robot.output(x[[k], :].T)
 
-            # control main function. some reference tracking controllers need the time step related to the reference
-            tau = self.controller.compute_torques(qk, dqk, t=ts * k)
+            if self.estimator is not None:
+                if k == 0:
+                    x_hat[k, :] = self.estimator.estimate(yk).flatten()
+                else:
+                    x_hat[k, :] = self.estimator.estimate(
+                        yk, u[k-1, :]).flatten()
+
+            tau = self.controller.compute_torques(qk, dqk)
             u[[k], :] = tau
 
-            sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
-                            vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
-            x[k + 1, :] = sol.y[:, -1]
+            if self.integrator in ['RK45', 'LSODA']:
+                sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
+                                vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
+                x_next = sol.y[:, -1]
+            elif self.integrator == 'RK4':
+                x_next = RK4(x[[k], :].T, tau.T, self.robot.ode, ts, n=5).flatten()
+            else:
+                raise ValueError
+            x[k+1, :] = x_next
 
-        return x, u
+        return x, u, x_hat
 
 
 if __name__ == "__main__":
@@ -69,7 +129,7 @@ if __name__ == "__main__":
 
     sim = Simulator(fa, controller, 'LSODA')
     x, u = sim.simulate(x0.flatten(), ts, n_iter)
-    t = np.arange(0, n_iter + 1) * ts
+    t = np.arange(0, n_iter+1)*ts
 
     # Parse joint positions
     q = x[::10, :fa.nq]
