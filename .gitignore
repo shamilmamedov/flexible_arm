@@ -14,3 +14,4 @@ __pycache__/
 .ipynb_checkpoints/
 # json files
 /*.json
+/c_generated_code/

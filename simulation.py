@@ -72,7 +72,8 @@ class Simulator:
 
     def simulate(self, x0, ts, n_iter):
         if self.estimator is not None:
-            x_hat = np.zeros((n_iter+1, self.robot.nx))
+            nx_est = np.shape(self.estimator.x_hat)[0]
+            x_hat = np.zeros((n_iter+1, nx_est))
         else:
             x_hat = None
 
@@ -80,8 +81,6 @@ class Simulator:
         u = np.zeros((n_iter, self.robot.nu))
         x[0, :] = x0
         for k in range(n_iter):
-            qk = x[[k], :self.robot.nq].T
-            dqk = x[[k], self.robot.nq:].T
             yk = self.robot.output(x[[k], :].T)
 
             if self.estimator is not None:
@@ -90,6 +89,12 @@ class Simulator:
                 else:
                     x_hat[k, :] = self.estimator.estimate(
                         yk, u[k-1, :]).flatten()
+            if self.estimator is not None:
+                qk = x_hat[[k], :self.robot.nq].T
+                dqk = x_hat[[k], self.robot.nq:].T
+            else:
+                qk = x[[k], :self.robot.nq].T
+                dqk = x[[k], self.robot.nq:].T
 
             tau = self.controller.compute_torques(qk, dqk)
             u[[k], :] = tau

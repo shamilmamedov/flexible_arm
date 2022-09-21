@@ -14,14 +14,14 @@ class FlexibleArm3DOF:
     a several smaller virtual links with virtual joint in between. Joints
     are passive, but have stiffness and damping.
 
-    First joint is an active joint i.e. it can controlled by commading torque
+    First joint is an active joint i.e. it can be controlled by commanding torque
 
     NOTE for now the number of virtual joints and links are fixed
     """
 
     def __init__(self, n_seg) -> None:
         """ Class constructor. Based on the number of segments, it loads
-        a urdf file and flexbility parameters defined in a yaml file
+        an urdf-file and flexibility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
 
