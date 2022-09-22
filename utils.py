@@ -28,8 +28,8 @@ def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):
     plt.show()
 
 
-def print_timings(t_mean: float, t_std: float, t_min: float, t_max: float):
-    print("Solver times: ")
+def print_timings(t_mean: float, t_std: float, t_min: float, t_max: float, name="solver"):
+    print(name+" times: ")
     print("\tmean: \t{:10.4f}s, \n"
           "\tstd: \t{:10.4f}s, \n"
           "\tmin: \t{:10.4f}s, \n"

@@ -27,6 +27,34 @@ class DummyController(BaseController):
         return np.zeros((self.n_joints, 1))
 
 
+class OfflineController(BaseController):
+    """
+    This controler variant just outputs predefined control signals. It can be used e.g. in a forwards simulation of the
+    system
+    """
+
+    def __init__(self, n_joints=1) -> None:
+        self.n_joints = n_joints
+        self.u_pre = None
+        self.iter = 0
+
+    def set_u(self, u: np.ndarray):
+        """
+        Set the predefined control signals
+        @param u: predefined controls with size (n_time_steps, n_controls)
+        """
+        assert len(u.shape) == 2
+        assert u.shape[1] == 3
+        self.u_pre = u
+        self.iter = 0
+
+    def compute_torques(self, q, dq, t=None) -> np.ndarray:
+        if self.iter < self.u_pre.shape[0]:
+            return self.u_pre[self.iter, :]
+        else:
+            return np.array([0., 0., 0.])
+
+
 class ConstantController(BaseController):
     """ Controller that always returns constant torque
     """

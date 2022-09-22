@@ -12,6 +12,7 @@ from controller import DummyController, PDController3Dof
 from simulation import Simulator
 from estimator import ExtendedKalmanFilter
 from safty_filter_3dof import SafetyFilter3Dof, SafetyFilter3dofOptions, get_safe_controller_class
+from utils import print_timings
 
 
 def plot_joint_positions(t, q, n_seg: int, q_ref: np.ndarray = None):
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     # Create mpc options and controller
     n_seg_mpc = 3
     safety_options = SafetyFilter3dofOptions(n_links=n_seg_mpc)
-    safety_filter = SafetyFilter3Dof(model=fa_sym_ld, x0=x0_mpc, x0_ee=qee0, options=safety_options)
+    safety_filter = SafetyFilter3Dof(model=fa_sym_ld,model_nonsymbolic=fa_ld, x0=x0_mpc, x0_ee=qee0, options=safety_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
     # Controller
@@ -97,8 +98,18 @@ if __name__ == "__main__":
     x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
+    # Print timing
+    t_mean, t_std, t_min, t_max = safety_filter.get_timing_statistics()
+    print_timings(t_mean, t_std, t_min, t_max)
+    t_mean, t_std, t_min, t_max = safety_filter.get_timing_statistics(mode=1)
+    print_timings(t_mean, t_std, t_min, t_max, name="Total")
+
     # Parse joint positions and plot active joints positions
     q = x[::10, :fa.nq]
+
+    for i in range(q.shape[0]):
+        _, qee0 = fa_ld.fk_ee(q[i,:])
+        print(qee0)
 
     plot_real_states_vs_estimate(t, x, x_hat)
     plot_joint_positions(t[::10], q, n_seg, q_ref)

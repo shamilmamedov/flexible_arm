@@ -1,11 +1,14 @@
 from dataclasses import dataclass
+import time
+
 import numpy as np
 import scipy
 from scipy.interpolate import interp1d
-from controller import BaseController
+from controller import BaseController, OfflineController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
+from simulation import Simulator
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
@@ -20,8 +23,8 @@ class SafetyFilter3dofOptions:
 
     def __init__(self, n_links: int):
         self.n_links: int = n_links  # n_links corresponds to (n+1)*2 states
-        self.n: int = 100  # number of discretization points
-        self.tf: float = 3  # time horizon
+        self.n: int = 10  # number of discretization points
+        self.tf: float = 1.  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # States are ordered for each link
@@ -33,7 +36,7 @@ class SafetyFilter3dofOptions:
                                              [0] * (self.n_links + 1) + [0] * (self.n_links + 1))
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1., 1., 1.])*1e6
+        self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e6
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -46,20 +49,28 @@ class SafetyFilter3Dof:
 
     def __init__(self,
                  model: "SymbolicFlexibleArm3DOF",
+                 model_nonsymbolic,
                  x0: np.ndarray,
                  x0_ee: np.ndarray,
                  options: SafetyFilter3dofOptions):
 
         self.u_max = 1e6
+        self.model_ns = model_nonsymbolic
         self.fa_model = model
         model = model.get_acados_model()
         self.model = model
         self.options = options
         self.debug_timings = []
+        self.debug_total_timings = []
         self.iteration_counter = 0
         self.inter_t2q = None
         self.inter_t2dq = None
         self.inter_pee = None
+
+        # set up simulator for initial state
+        integrator = 'RK45'
+        self.offline_controller = OfflineController()
+        self.sim = Simulator(self.model_ns, self.offline_controller, integrator, None)
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
@@ -138,7 +149,7 @@ class SafetyFilter3Dof:
 
         ocp.solver_options.sim_method_num_stages = 2
         ocp.solver_options.sim_method_num_steps = 2
-        ocp.solver_options.qp_solver_cond_N = int(1*options.n)
+        ocp.solver_options.qp_solver_cond_N = int(1 * options.n)
 
         # set prediction horizon
         ocp.solver_options.tf = options.tf
@@ -148,10 +159,14 @@ class SafetyFilter3Dof:
         # set costs only for the first stage, ignore the rest
         for stage in range(self.options.n):
             if stage == 0:
-                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q, R, Z))
+                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(np.zeros_like(Q),
+                                                                                    R,
+                                                                                    np.zeros_like(Z)))
             else:
-                self.acados_ocp_solver.cost_set(stage, "W", np.ones_like(scipy.linalg.block_diag(Q, R, Z)))
-        self.acados_ocp_solver.cost_set(self.options.n, "W", np.ones_like(scipy.linalg.block_diag(Q, R)))
+                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(np.zeros_like(Q),
+                                                                                    R * 1e-6,
+                                                                                    np.zeros_like(Z)))
+        self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(np.zeros_like(Q), R * 1e-6))
 
     def reset(self):
         self.debug_timings = []
@@ -159,15 +174,25 @@ class SafetyFilter3Dof:
 
     def filter(self, q: np.ndarray, dq: np.ndarray, u0: np.ndarray):
         # set initial state
+        start_time = time.time()
         xcurrent = np.vstack((q, dq))
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
-        #for i in range(self.options.n + 1):
-        #    self.acados_ocp_solver.set(i, "x", xcurrent)
-        #for i in range(self.options.n):
-        #    self.acados_ocp_solver.set(0, "z", self.x0_ee)
+        # simulate states
+        self.sim.controller.set_u(u0)
+        # Todo: This initialisation takes forever. Try without.
+        """
+        x_sim, u_sim, x_hat_ = self.sim.simulate(xcurrent.flatten(), self.options.get_sampling_time(), self.options.n)
+        #t = np.arange(0, n_iter + 1) * ts
 
+        for i in range(self.options.n + 1):
+            self.acados_ocp_solver.set(i, "x", x_sim[i,:])
+        for i in range(self.options.n):
+            self.acados_ocp_solver.set(i, "u", u_sim[i, :])
+        # for i in range(self.options.n):
+        #    self.acados_ocp_solver.set(0, "z", self.x0_ee)
+        """
         # set u0 reference
         stage = 0
         yref = np.vstack((np.zeros((self.nx, 1)), u0.transpose(), np.zeros((self.nz, 1)))).flatten()
@@ -187,10 +212,16 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
+        # print("u: {}, u_ref: {}".format(u0, u_output))
+
+        self.debug_total_timings.append(time.time() - start_time)
         return u_output
 
-    def get_timing_statistics(self) -> Tuple[float, float, float, float]:
-        timing_array = np.array(self.debug_timings)
+    def get_timing_statistics(self, mode=0) -> Tuple[float, float, float, float]:
+        if mode == 0:
+            timing_array = np.array(self.debug_timings)
+        else:
+            timing_array = np.array(self.debug_total_timings)
         t_mean = float(np.mean(timing_array))
         t_std = float(np.std(timing_array))
         t_max = float(np.max(timing_array))
