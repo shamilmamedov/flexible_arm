@@ -35,7 +35,7 @@ class FlexibleArm3DOF:
         n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
 
         model_folder = 'models/three_dof/' + \
-            n_seg_int2str[n_seg] + '_segments/'
+                       n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
         urdf_path = os.path.join(model_folder, urdf_file)
 
@@ -200,7 +200,7 @@ class SymbolicFlexibleArm3DOF:
         # Path to a folder with model description
         n_seg_int2str = {1: 'one', 3: 'three', 5: 'five', 10: 'ten'}
         model_folder = 'models/three_dof/' + \
-            n_seg_int2str[n_seg] + '_segments/'
+                       n_seg_int2str[n_seg] + '_segments/'
 
         # Number of joints, states and controls
         self.nq = 1 + 2 * (n_seg + 1)
@@ -272,17 +272,17 @@ class SymbolicFlexibleArm3DOF:
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
-        self.h = cs.Function('h', [self.x],  [h], ['x'], ['h'])
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [
-                                 drhs_dx], ['x', 'u'], ['df_dx'])
+            drhs_dx], ['x', 'u'], ['df_dx'])
         self.df_du = cs.Function('df_du', [self.x, self.u], [
-                                 drhs_du], ['x', 'u'], ['df_du'])
+            drhs_du], ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
 
         # Create an integrator
-        dae = {'x':self.x, 'p':self.u, 'ode':self.rhs}
-        opts = {'t0':0, 'tf':ts}
+        dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
+        opts = {'t0': 0, 'tf': ts}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
         self.F = cs.Function('F', [x, u], [x_next])
@@ -301,6 +301,21 @@ class SymbolicFlexibleArm3DOF:
         model.name = "flexible_arm_nq" + str(self.nq)
 
         return model
+
+    def get_acados_model_safety(self):
+        model = AcadosModel()
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
+        model.f_expl_expr = self.rhs
+        model.x = self.x
+        model.xdot = self.x_dot
+        model.z = self.z
+        model.u = self.u
+        # model.p = w  # Not used right now
+        model.name = "flexible_arm_nq" + str(self.nq)
+        constraint_expr = self.rhs_impl  # endeffector position
+
+        return model, constraint_expr
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"

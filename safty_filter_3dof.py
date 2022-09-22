@@ -24,19 +24,19 @@ class SafetyFilter3dofOptions:
     def __init__(self, n_links: int):
         self.n_links: int = n_links  # n_links corresponds to (n+1)*2 states
         self.n: int = 10  # number of discretization points
-        self.tf: float = 1.  # time horizon
+        self.tf: float = 0.1  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array([0] * (1) + [0] * (1) + \
                                            [0] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
                                            [0] * (self.n_links + 1) + [0] * (self.n_links + 1))
-        self.q_e_diag: np.ndarray = np.array([0] * (1) + [0] * (1) + \
+        self.q_e_diag: np.ndarray = np.array([0] * (1) + [1] * (1) + \
                                              [0] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
                                              [0] * (self.n_links + 1) + [0] * (self.n_links + 1))
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e6
+        self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -57,7 +57,7 @@ class SafetyFilter3Dof:
         self.u_max = 1e6
         self.model_ns = model_nonsymbolic
         self.fa_model = model
-        model = model.get_acados_model()
+        model, constraint_expr = model.get_acados_model_safety()
         self.model = model
         self.options = options
         self.debug_timings = []
@@ -87,6 +87,24 @@ class SafetyFilter3Dof:
         self.nx = nx
         self.nz = nz
 
+        # define constraints
+        ocp.model.con_h_expr = constraint_expr
+        # get constraint parameters
+        self.n_constraints = constraint_expr.shape[0]
+        ns = self.n_constraints  # We just constrain the constraints in the constraint-expression
+        nsh = self.n_constraints
+        self.current_slacks = np.zeros((ns,))
+        ocp.cost.zl = np.array([1, 1, 1])
+        ocp.cost.Zl = np.array([1e1, 1e1, 1e1]) * 1e5
+        ocp.cost.zu = ocp.cost.zl
+        ocp.cost.Zu = ocp.cost.Zl
+        ocp.constraints.lh = -np.ones((self.n_constraints,)) * 1e3
+        ocp.constraints.lh[0] = 0.
+        ocp.constraints.uh = np.ones((self.n_constraints,)) * 1e3
+        ocp.constraints.lsh = np.zeros(nsh)
+        ocp.constraints.ush = np.zeros(nsh)
+        ocp.constraints.idxsh = np.array(range(self.n_constraints))
+
         # some checks
         assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
         assert (nu == options.r_diag.shape[0])
@@ -99,6 +117,10 @@ class SafetyFilter3Dof:
         ocp.cost.cost_type = 'LINEAR_LS'
         ocp.cost.cost_type_e = 'LINEAR_LS'
 
+        options.q_diag[0:int(len(options.q_diag) / 2)] = 0
+        options.q_diag[int(len(options.q_diag) / 2):] = 1
+        options.q_e_diag[0:int(len(options.q_e_diag) / 2)] = 0
+        options.q_e_diag[int(len(options.q_e_diag) / 2):] = 1e5
         Q = np.diagflat(options.q_diag)
         Q_e = np.diagflat(options.q_e_diag)
         R = np.diagflat(options.r_diag)
@@ -139,6 +161,9 @@ class SafetyFilter3Dof:
         ocp.constraints.ubu = umax
         ocp.constraints.x0 = x0.reshape((nx,))
         ocp.constraints.idxbu = np.array(range(nu))
+        #ocp.constraints.idxbx = np.array([0])
+        #ocp.constraints.lbx = -np.array([np.pi / 2])
+        #ocp.constraints.ubx = np.array([np.pi / 2])
 
         # solver options
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # FULL_CONDENSING_QPOASES
@@ -159,14 +184,14 @@ class SafetyFilter3Dof:
         # set costs only for the first stage, ignore the rest
         for stage in range(self.options.n):
             if stage == 0:
-                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(np.zeros_like(Q),
+                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q,
                                                                                     R,
                                                                                     np.zeros_like(Z)))
             else:
-                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(np.zeros_like(Q),
-                                                                                    R * 1e-6,
+                self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q,
+                                                                                    R * 1e-1,
                                                                                     np.zeros_like(Z)))
-        self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(np.zeros_like(Q), R * 1e-6))
+        self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
 
     def reset(self):
         self.debug_timings = []
@@ -212,7 +237,7 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
-        # print("u: {}, u_ref: {}".format(u0, u_output))
+        #print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
         return u_output

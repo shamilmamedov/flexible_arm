@@ -19,7 +19,7 @@ def plot_joint_positions(t, q, n_seg: int, q_ref: np.ndarray = None):
     qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
 
     _, axs = plt.subplots(3, 1)
-    for k, (ax, qk) in enumerate(zip(axs.T, q[:,[qa_idx]].T)):
+    for k, (ax, qk) in enumerate(zip(axs.T, q[:, [qa_idx]].T)):
         ax.plot(t, qk.flatten())
         if q_ref is not None:
             ax.axhline(q_ref[qa_idx[k]], ls='--')
@@ -27,6 +27,7 @@ def plot_joint_positions(t, q, n_seg: int, q_ref: np.ndarray = None):
         ax.grid(alpha=0.5)
 
     plt.show()
+
 
 def plot_real_states_vs_estimate(t, x, x_hat):
     _, ax = plt.subplots()
@@ -37,7 +38,7 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 
 if __name__ == "__main__":
     # Simulation parametes
-    ts = 0.001
+    ts = 0.01
     n_iter = 500
 
     # Create FlexibleArm instance
@@ -51,40 +52,41 @@ if __name__ == "__main__":
 
     # Reference
     q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 1.
+    q_ref[0] += 2.
     q_ref[1] += 0.5
     q_ref[1 + n_seg + 1] += 1
 
     # Controller
     # controller = DummyController()
-    C = PDController3Dof(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25),
+    C = PDController3Dof(Kp=(0.5, 12, 3), Kd=(0.025, 0.025, 0.025),
                          n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
     # E = None
     est_model = SymbolicFlexibleArm3DOF(3, ts=ts)
-    P0 = 0.01*np.ones((est_model.nx, est_model.nx))
-    q_q, q_dq = [1e-2]*est_model.nq, [1e-1]*est_model.nq
+    P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
+    q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
-    r_q, r_dq, r_pee = [3e-4]*3, [6e-2]*3, [1e-2]*3
+    r_q, r_dq, r_pee = [3e-4] * 3, [6e-2] * 3, [1e-2] * 3
     R = np.diag([*r_q, *r_dq, *r_pee])
     E = ExtendedKalmanFilter(est_model, x0, P0, Q, R)
 
     # Simulate
     integrator = 'LSODA'
-    sim = Simulator(fa, C, integrator, E)
+    sim = Simulator(fa, C, integrator, None)
     x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions and plot active joints positions
-    q = x[::10, :fa.nq]
+    n_skip = 2
+    q = x[::n_skip, :fa.nq]
 
-    plot_real_states_vs_estimate(t, x, x_hat)
-    plot_joint_positions(t[::10], q, n_seg, q_ref)
 
+    # plot_real_states_vs_estimate(t, x, x_hat)
+    # plot_joint_positions(t[::n_skip], q, n_seg, q_ref)
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
     urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
-    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+    animator = Panda3dAnimator(urdf_path, ts * n_skip, q).play(3)

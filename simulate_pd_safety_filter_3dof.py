@@ -41,7 +41,7 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 
 if __name__ == "__main__":
     # Simulation parametes
-    ts = 0.001
+    ts = 0.01
     n_iter = 500
 
     # Create FlexibleArm instance
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     # Reference
     q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 1.
+    q_ref[0] += 2.
     q_ref[1] += 0.5
     q_ref[1 + n_seg + 1] += 1
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # Controller
     # controller = DummyController()
     PDController3DofSafe = get_safe_controller_class(PDController3Dof, safety_filter=safety_filter)
-    C = PDController3DofSafe(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25), n_seg=n_seg, q_ref=q_ref)
+    C = PDController3DofSafe(Kp=(0.5, 12, 3), Kd=(0.025, 0.025, 0.025), n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
     # E = None
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
     # Simulate
     integrator = 'LSODA'
-    sim = Simulator(fa, C, integrator, E)
+    sim = Simulator(fa, C, integrator, None)
     x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
@@ -105,17 +105,14 @@ if __name__ == "__main__":
     print_timings(t_mean, t_std, t_min, t_max, name="Total")
 
     # Parse joint positions and plot active joints positions
-    q = x[::10, :fa.nq]
+    n_skip = 2
+    q = x[::n_skip, :fa.nq]
 
-    for i in range(q.shape[0]):
-        _, qee0 = fa_ld.fk_ee(q[i,:])
-        print(qee0)
-
-    plot_real_states_vs_estimate(t, x, x_hat)
-    plot_joint_positions(t[::10], q, n_seg, q_ref)
+    #plot_real_states_vs_estimate(t, x, x_hat)
+    #plot_joint_positions(t[::10], q, n_seg, q_ref)
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
     urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
-    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(30)
