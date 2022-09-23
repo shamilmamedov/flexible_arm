@@ -13,7 +13,7 @@
 #include "pinocchio/autodiff/casadi.hpp"
 #include <casadi/casadi.hpp>
 
-int main()
+int main(int argc,char* argv[])
 {
     // Short name for convenience
     namespace pin = pinocchio;
@@ -36,6 +36,7 @@ int main()
     // Path to URDF file
     std::map<int,std::string> my_map = {
         {0, "zero"},
+        {2, "two"},
         {1, "one"},
         {3, "three"},
         {5, "five"},
@@ -44,6 +45,13 @@ int main()
 
     int n_dof = 3;
     int n_seg = 0;
+    if (argc == 2){
+        n_seg = std::stoi(argv[1]);
+    } else {
+        std::cout << "Select number of segments:" << std::endl;
+        std::cin >> n_seg;
+    }
+
     const std::string model_folder = "/home/shamil/Desktop/phd/code/"
                                     "flexible_arm/models/" + my_map.at(n_dof) + "_dof/" 
                                     + my_map.at(n_seg) + "_segments/";

@@ -71,7 +71,7 @@ if __name__ == "__main__":
     # print(sde_d)
 
     # Consider 5 segments
-    n_seg = 10
+    n_seg = 2
     rfe_lengths = [L/(2*n_seg)] + [L/n_seg]*(n_seg-1) + \
         [L/(2*n_seg)]  # [L/6, L/3, L/3, L/6]
     rfe_inertial_params = [inertial_params_rectangle(

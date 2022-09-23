@@ -36,7 +36,7 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 if __name__ == "__main__":
     # Simulation parametes
     ts = 0.001
-    n_iter = 500
+    n_iter = 15
 
     # Create FlexibleArm instance
     n_seg = 3
@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     # Controller
     # controller = DummyController()
-    C = PDController3Dof(Kp=(40, 40, 40), Kd=(0.25, 0.25, 0.25),
+    C = PDController3Dof(Kp=(40, 30, 25), Kd=(1.5, 0.25, 0.25),
                          n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     # Simulate
     integrator = 'LSODA'
     sim = Simulator(fa, C, integrator, E)
-    x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions and plot active joints positions
