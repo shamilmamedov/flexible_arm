@@ -31,14 +31,14 @@
     <link name="virtual_link2_1">
         <visual>
             <geometry>
-                <box size="0.025 0.025 0.01"/>
+                <box size="0.025 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.0125 0 0" rpy="0 0 0"/>
             <mass value="0.019675" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="4.09895833e-06" />
+            <inertia ixx="4.10551667e-06" ixy="0" ixz="0" iyy="5.12369792e-06" iyz="0" izz="1.03129792e-06" />
         </inertial>
     </link>
 
@@ -53,14 +53,14 @@
     <link name="virtual_link2_2">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -75,14 +75,14 @@
     <link name="virtual_link2_3">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -97,14 +97,14 @@
     <link name="virtual_link2_4">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -119,14 +119,14 @@
     <link name="virtual_link2_5">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -141,14 +141,14 @@
     <link name="virtual_link2_6">
     <visual>
         <geometry>
-            <box size="0.05 0.025 0.01"/>
+            <box size="0.05 0.002 0.05"/>
         </geometry>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
         <origin xyz="0.025 0 0" rpy="0 0 0"/>
         <mass value="0.03935" />
-        <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+        <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
     </inertial>
     </link>
 
@@ -163,14 +163,14 @@
     <link name="virtual_link2_7">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -185,14 +185,14 @@
     <link name="virtual_link2_8">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -207,14 +207,14 @@
     <link name="virtual_link2_9">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -229,14 +229,14 @@
     <link name="virtual_link2_10">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -251,14 +251,14 @@
     <link name="virtual_link2_11">
         <visual>
             <geometry>
-                <box size="0.025 0.025 0.01"/>
+                <box size="0.025 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.0125 0 0" rpy="0 0 0"/>
             <mass value="0.019675" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="4.09895833e-06" />
+            <inertia ixx="4.10551667e-06" ixy="0" ixz="0" iyy="5.12369792e-06" iyz="0" izz="1.03129792e-06" />
         </inertial>
     </link>
 
@@ -276,14 +276,14 @@
     <link name="virtual_link3_1">
         <visual>
             <geometry>
-                <box size="0.025 0.025 0.01"/>
+                <box size="0.025 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.0125 0 0" rpy="0 0 0"/>
             <mass value="0.019675" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="4.09895833e-06" />
+            <inertia ixx="4.10551667e-06" ixy="0" ixz="0" iyy="5.12369792e-06" iyz="0" izz="1.03129792e-06" />
         </inertial>
     </link>
 
@@ -298,14 +298,14 @@
     <link name="virtual_link3_2">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -320,14 +320,14 @@
     <link name="virtual_link3_3">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -342,14 +342,14 @@
     <link name="virtual_link3_4">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -364,14 +364,14 @@
     <link name="virtual_link3_5">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -386,14 +386,14 @@
     <link name="virtual_link3_6">
     <visual>
         <geometry>
-            <box size="0.05 0.025 0.01"/>
+            <box size="0.05 0.002 0.05"/>
         </geometry>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
         <origin xyz="0.025 0 0" rpy="0 0 0"/>
         <mass value="0.03935" />
-        <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+        <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
     </inertial>
     </link>
 
@@ -408,14 +408,14 @@
     <link name="virtual_link3_7">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -430,14 +430,14 @@
     <link name="virtual_link3_8">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -452,14 +452,14 @@
     <link name="virtual_link3_9">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -474,14 +474,14 @@
     <link name="virtual_link3_10">
         <visual>
             <geometry>
-                <box size="0.05 0.025 0.01"/>
+                <box size="0.05 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.025 0 0" rpy="0 0 0"/>
             <mass value="0.03935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-06" />
+            <inertia ixx="8.21103333e-06" ixy="0" ixz="0" iyy="1.63958333e-05" iyz="0" izz="8.21103333e-06" />
         </inertial>
     </link>
 
@@ -496,14 +496,14 @@
     <link name="virtual_link3_11">
         <visual>
             <geometry>
-                <box size="0.025 0.025 0.01"/>
+                <box size="0.025 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.0125 0 0" rpy="0 0 0"/>
             <mass value="0.019675" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="4.09895833e-06" />
+            <inertia ixx="4.10551667e-06" ixy="0" ixz="0" iyy="5.12369792e-06" iyz="0" izz="1.03129792e-06" />
         </inertial>
     </link>
 

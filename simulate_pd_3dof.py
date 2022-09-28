@@ -38,11 +38,13 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 
 if __name__ == "__main__":
     # Simulation parametes
-    ts = 0.01
-    n_iter = 500
+
+    ts = 0.001
+    n_iter = 200
+
 
     # Create FlexibleArm instance
-    n_seg = 3
+    n_seg = 10
     fa = FlexibleArm3DOF(n_seg)
 
     # Initial state
@@ -58,28 +60,31 @@ if __name__ == "__main__":
 
     # Controller
     # controller = DummyController()
-    C = PDController3Dof(Kp=(0.5, 12, 3), Kd=(0.025, 0.025, 0.025),
+    C = PDController3Dof(Kp=(40, 30, 25), Kd=(1.5, 0.25, 0.25),
                          n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
-    # E = None
-    est_model = SymbolicFlexibleArm3DOF(3, ts=ts)
-    P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
-    q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
-    Q = np.diag([*q_q, *q_dq])
-    r_q, r_dq, r_pee = [3e-4] * 3, [6e-2] * 3, [1e-2] * 3
-    R = np.diag([*r_q, *r_dq, *r_pee])
-    E = ExtendedKalmanFilter(est_model, x0, P0, Q, R)
+    E = None
+    # est_model = SymbolicFlexibleArm3DOF(3, ts=ts)
+    # P0 = 0.01*np.ones((est_model.nx, est_model.nx))
+    # q_q, q_dq = [1e-2]*est_model.nq, [1e-1]*est_model.nq
+    # Q = np.diag([*q_q, *q_dq])
+    # r_q, r_dq, r_pee = [3e-4]*3, [6e-2]*3, [1e-2]*3
+    # R = np.diag([*r_q, *r_dq, *r_pee])
+    # E = ExtendedKalmanFilter(est_model, x0, P0, Q, R)
 
     # Simulate
     integrator = 'LSODA'
-    sim = Simulator(fa, C, integrator, None)
-    x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    sim = Simulator(fa, C, integrator, E)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions and plot active joints positions
     n_skip = 2
     q = x[::n_skip, :fa.nq]
+
+    # plot_real_states_vs_estimate(t, x, x_hat)
+    # plot_joint_positions(t[::10], q, n_seg, q_ref)
 
 
     # plot_real_states_vs_estimate(t, x, x_hat)
@@ -88,5 +93,6 @@ if __name__ == "__main__":
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
-    urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
-    animator = Panda3dAnimator(urdf_path, ts * n_skip, q).play(3)
+    urdf_path = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf'
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+

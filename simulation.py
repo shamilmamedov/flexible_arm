@@ -79,37 +79,36 @@ class Simulator:
 
         x = np.zeros((n_iter+1, self.robot.nx))
         u = np.zeros((n_iter, self.robot.nu))
+        y = np.zeros((n_iter+1, self.robot.ny))
         x[0, :] = x0
+        y[0, :] = self.robot.output(x[[0], :].T).flatten()
         for k in range(n_iter):
-            yk = self.robot.output(x[[k], :].T)
+            qk = x[[k], :self.robot.nq].T
+            dqk = x[[k], self.robot.nq:].T
 
             if self.estimator is not None:
                 if k == 0:
-                    x_hat[k, :] = self.estimator.estimate(yk).flatten()
+                    x_hat[k, :] = self.estimator.estimate(y[[k], :].T).flatten()
                 else:
                     x_hat[k, :] = self.estimator.estimate(
-                        yk, u[k-1, :]).flatten()
-            if self.estimator is not None:
-                qk = x_hat[[k], :self.robot.nq].T
-                dqk = x_hat[[k], self.robot.nq:].T
-            else:
-                qk = x[[k], :self.robot.nq].T
-                dqk = x[[k], self.robot.nq:].T
+                                  y[[k], :].T, u[k-1, :]).flatten()
 
             tau = self.controller.compute_torques(qk, dqk)
             u[[k], :] = tau
 
             if self.integrator in ['RK45', 'LSODA']:
                 sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
-                                vectorized=True, rtol=self.rtol, atol=self.atol, method=self.integrator)
+                                vectorized=False, rtol=self.rtol, atol=self.atol, method=self.integrator)
                 x_next = sol.y[:, -1]
             elif self.integrator == 'RK4':
                 x_next = RK4(x[[k], :].T, tau.T, self.robot.ode, ts, n=5).flatten()
             else:
                 raise ValueError
             x[k+1, :] = x_next
+            y[k+1, :] = self.robot.output(x[[k+1], :].T).flatten()
+        
 
-        return x, u, x_hat
+        return x, u, y, x_hat
 
 
 if __name__ == "__main__":
