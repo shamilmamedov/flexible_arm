@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import matplotlib
 import numpy as np
 import pinocchio as pin
@@ -17,14 +19,15 @@ def plot_joint_positions(t, q, n_seg: int, q_ref: np.ndarray = None):
     qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
 
     _, axs = plt.subplots(3, 1)
-    for k, (ax, qk) in enumerate(zip(axs.T, q[:,[qa_idx]].T)):
+    for k, (ax, qk) in enumerate(zip(axs.T, q[:, [qa_idx]].T)):
         ax.plot(t, qk.flatten())
         if q_ref is not None:
             ax.axhline(q_ref[qa_idx[k]], ls='--')
         ax.set_ylabel(qa_lbls[k])
         ax.grid(alpha=0.5)
-        
+
     plt.show()
+
 
 def plot_real_states_vs_estimate(t, x, x_hat):
     _, ax = plt.subplots()
@@ -35,8 +38,10 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 
 if __name__ == "__main__":
     # Simulation parametes
+
     ts = 0.001
     n_iter = 200
+
 
     # Create FlexibleArm instance
     n_seg = 10
@@ -49,7 +54,7 @@ if __name__ == "__main__":
 
     # Reference
     q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 1.
+    q_ref[0] += 2.
     q_ref[1] += 0.5
     q_ref[1 + n_seg + 1] += 1
 
@@ -75,14 +80,19 @@ if __name__ == "__main__":
     t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions and plot active joints positions
-    q = x[::10, :fa.nq]
+    n_skip = 2
+    q = x[::n_skip, :fa.nq]
 
     # plot_real_states_vs_estimate(t, x, x_hat)
     # plot_joint_positions(t[::10], q, n_seg, q_ref)
 
+
+    # plot_real_states_vs_estimate(t, x, x_hat)
+    # plot_joint_positions(t[::n_skip], q, n_seg, q_ref)
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
     urdf_path = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf'
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+

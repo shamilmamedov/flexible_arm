@@ -16,14 +16,14 @@ class FlexibleArm3DOF:
     a several smaller virtual links with virtual joint in between. Joints
     are passive, but have stiffness and damping.
 
-    First joint is an active joint i.e. it can controlled by commading torque
+    First joint is an active joint i.e. it can be controlled by commanding torque
 
     NOTE for now the number of virtual joints and links are fixed
     """
 
     def __init__(self, n_seg) -> None:
         """ Class constructor. Based on the number of segments, it loads
-        a urdf file and flexbility parameters defined in a yaml file
+        an urdf-file and flexibility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
 
@@ -35,7 +35,7 @@ class FlexibleArm3DOF:
 
         # Build urdf path
         model_folder = 'models/three_dof/' + \
-            n_seg_int2str[n_seg] + '_segments/'
+                       n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
         urdf_path = os.path.join(model_folder, urdf_file)
 
@@ -207,7 +207,7 @@ class SymbolicFlexibleArm3DOF:
 
         # Path to a folder with model description
         model_folder = 'models/three_dof/' + \
-            n_seg_int2str[n_seg] + '_segments/'
+                       n_seg_int2str[n_seg] + '_segments/'
 
         # Number of joints, states and controls
         self.nq = 1 + 2 * (n_seg + 1)
@@ -283,12 +283,12 @@ class SymbolicFlexibleArm3DOF:
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
-        self.h = cs.Function('h', [self.x],  [h], ['x'], ['h'])
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [
-                                 drhs_dx], ['x', 'u'], ['df_dx'])
+            drhs_dx], ['x', 'u'], ['df_dx'])
         self.df_du = cs.Function('df_du', [self.x, self.u], [
-                                 drhs_du], ['x', 'u'], ['df_du'])
+            drhs_du], ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
 
         # Create an integrator
@@ -312,6 +312,21 @@ class SymbolicFlexibleArm3DOF:
         model.name = "flexible_arm_nq" + str(self.nq)
 
         return model
+
+    def get_acados_model_safety(self):
+        model = AcadosModel()
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
+        model.f_expl_expr = self.rhs
+        model.x = self.x
+        model.xdot = self.x_dot
+        model.z = self.z
+        model.u = self.u
+        # model.p = w  # Not used right now
+        model.name = "flexible_arm_nq" + str(self.nq)
+        constraint_expr = self.rhs_impl  # endeffector position
+
+        return model, constraint_expr
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"

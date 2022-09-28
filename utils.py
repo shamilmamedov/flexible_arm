@@ -1,5 +1,12 @@
+from enum import Enum, auto
+
 import matplotlib.pyplot as plt
 import numpy as np
+
+
+class ControlMode(Enum):
+    SET_POINT = auto()
+    REFERENCE_TRACKING = auto()
 
 
 def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):
@@ -21,8 +28,8 @@ def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):
     plt.show()
 
 
-def print_timings(t_mean: float, t_std: float, t_min: float, t_max: float):
-    print("Solver times: ")
+def print_timings(t_mean: float, t_std: float, t_min: float, t_max: float, name="solver"):
+    print(name+" times: ")
     print("\tmean: \t{:10.4f}s, \n"
           "\tstd: \t{:10.4f}s, \n"
           "\tmin: \t{:10.4f}s, \n"

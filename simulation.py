@@ -72,7 +72,8 @@ class Simulator:
 
     def simulate(self, x0, ts, n_iter):
         if self.estimator is not None:
-            x_hat = np.zeros((n_iter+1, self.robot.nx))
+            nx_est = np.shape(self.estimator.x_hat)[0]
+            x_hat = np.zeros((n_iter+1, nx_est))
         else:
             x_hat = None
 
@@ -94,7 +95,7 @@ class Simulator:
 
             tau = self.controller.compute_torques(qk, dqk)
             u[[k], :] = tau
-            
+
             if self.integrator in ['RK45', 'LSODA']:
                 sol = solve_ivp(self.ode_wrapper, [0, ts], x[k, :], args=(self.robot, tau),
                                 vectorized=False, rtol=self.rtol, atol=self.atol, method=self.integrator)
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     x0 = np.vstack((q, dq))
 
     # controller = DummyController()
-    controller = PDController(Kp=10, Kd=0.25, q_ref=np.array([np.pi/8]))
+    controller = PDController(Kp=10, Kd=0.25, q_ref=np.array([np.pi / 8]))
 
     ts = 0.001
     n_iter = 1000

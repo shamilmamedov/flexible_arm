@@ -72,6 +72,27 @@ class Poly5Trajectory:
         return self.ddp
 
 
+def get_reference_for_all_joints(q_t0, pee_tf, tf, ts, n_seg):
+    # Only get active joints
+    q_t0_active = np.array([q_t0[0], q_t0[1], q_t0[1 + (n_seg + 1)]])
+
+    # compute initial guesses for active joints
+    t, q, dq = initial_guess_for_active_joints(q_t0_active, pee_tf, tf, ts)
+
+    # Expand to full states again
+    n_t, _ = q.shape
+    q_full = np.zeros((n_t, 1 + 2 * (n_seg + 1)))
+    dq_full = np.zeros((n_t, 1 + 2 * (n_seg + 1)))
+    q_full[:, 0] = q[:, 0]
+    q_full[:, 1] = q[:, 1]
+    q_full[:, 1 + n_seg + 1] = q[:, 2]
+    dq_full[:, 0] = dq[:, 0]
+    dq_full[:, 1] = dq[:, 1]
+    dq_full[:, 1 + n_seg + 1] = dq[:, 2]
+
+    return t, q_full, dq_full
+
+
 def initial_guess_for_active_joints(q_t0, pee_tf, tf, ts):
     """ Computes an initial guess for active joints of the
     3dof arm using quintic polynomial trajectory
