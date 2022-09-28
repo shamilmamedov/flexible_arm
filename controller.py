@@ -24,11 +24,11 @@ class DummyController(BaseController):
         self.n_joints = n_joints
 
     def compute_torques(self, q, dq):
-        return np.zeros((self.n_joints, 1))
+        return np.zeros((self.n_joints, 1)).T
 
 
 class ConstantController(BaseController):
-    """ Controller that always returns constant torque
+    """ Controller that always returns a constant torque
     """
 
     def __init__(self, n_joints=1, constant=0) -> None:
@@ -39,6 +39,28 @@ class ConstantController(BaseController):
         output = np.zeros((self.n_joints, 1))
         output[0] = self.constant
         return output
+
+
+class FeedforwardController(BaseController):
+    """ A controller that returns predefined sequence of torques
+    """
+
+    def __init__(self, u) -> None:
+        """
+        :parameter u: [ns x nj] sequence of inputs; ns is the
+                      number of samples; nj is the number of joints
+        """
+        self.u = u
+        self.ns = u.shape[0]
+        self.iter = 0
+
+    def compute_torques(self, q, dq):
+        if self.iter < self.ns:
+            tau = self.u[[self.iter], :]
+            self.iter += 1
+            return tau
+        else:
+            raise RuntimeError
 
 
 class PDController(BaseController):
@@ -77,6 +99,7 @@ class PDController3Dof(BaseController):
     def compute_torques(self, q, dq):
         out0 = self.Kp[0] * (self.q_ref[0] - q[0]) - self.Kd[0] * dq[0]
         out1 = self.Kp[1] * (self.q_ref[1] - q[1]) - self.Kd[1] * dq[1]
-        out2 = self.Kp[2] * (self.q_ref[self.n_seg + 2] - q[self.n_seg + 2]) - self.Kd[2] * dq[self.n_seg + 2]
+        out2 = self.Kp[2] * (self.q_ref[self.n_seg + 2] -
+                             q[self.n_seg + 2]) - self.Kd[2] * dq[self.n_seg + 2]
 
         return np.array([out0, out1, out2]).transpose()

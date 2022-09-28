@@ -8,7 +8,7 @@ from acados_template import AcadosModel
 
 from simulation import symbolic_RK4
 
-n_seg_int2str = {0: 'zero', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
+n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
 
 class FlexibleArm3DOF:
@@ -31,7 +31,7 @@ class FlexibleArm3DOF:
             1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
-        assert (n_seg in [0, 2, 3, 5, 10])
+        assert (n_seg in [0, 1, 2, 3, 5, 10])
 
         # Build urdf path
         model_folder = 'models/three_dof/' + \
@@ -72,10 +72,10 @@ class FlexibleArm3DOF:
                 flexibility_params = yaml.safe_load(f)
 
             # Additional sanity checks
-            self.K2 = np.diag(flexibility_params['K2'][1:])
-            self.K3 = np.diag(flexibility_params['K3'][1:])
-            self.D2 = np.diag(flexibility_params['D2'][1:])
-            self.D3 = np.diag(flexibility_params['D3'][1:])
+            self.K2 = np.diag(flexibility_params['K2'])
+            self.K3 = np.diag(flexibility_params['K3'])
+            self.D2 = np.diag(flexibility_params['D2'])
+            self.D3 = np.diag(flexibility_params['D3'])
 
     def random_q(self):
         """ Returns a random configuration
@@ -202,7 +202,7 @@ class SymbolicFlexibleArm3DOF:
         """ Class constructor
         """
         # Sanity checks
-        assert (n_seg in [0, 2, 3, 5, 10])
+        assert (n_seg in [0, 1, 2, 3, 5, 10])
         assert (integrator in ['cvodes', 'idas', 'collocation'])
 
         # Path to a folder with model description
@@ -225,10 +225,10 @@ class SymbolicFlexibleArm3DOF:
             with open(params_path) as f:
                 flexibility_params = yaml.safe_load(f)
 
-            self.K2 = np.diag(flexibility_params['K2'][1:])
-            self.K3 = np.diag(flexibility_params['K3'][1:])
-            self.D2 = np.diag(flexibility_params['D2'][1:])
-            self.D3 = np.diag(flexibility_params['D3'][1:])
+            self.K2 = np.diag(flexibility_params['K2'])
+            self.K3 = np.diag(flexibility_params['K3'])
+            self.D2 = np.diag(flexibility_params['D2'])
+            self.D3 = np.diag(flexibility_params['D3'])
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)

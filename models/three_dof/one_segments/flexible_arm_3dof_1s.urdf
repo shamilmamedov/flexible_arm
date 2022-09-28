@@ -31,14 +31,14 @@
     <link name="virtual_link2_1">
         <visual>
             <geometry>
-                <box size="0.125 0.002 0.05"/>
+                <box size="0.25 0.002 0.05"/>
             </geometry>
-            <origin rpy="0 0 0" xyz ="0.0625 0 0"/>
+            <origin rpy="0 0 0" xyz ="0.125 0 0"/>
         </visual>
         <inertial>
-            <origin xyz="0.0625 0 0" rpy="0 0 0"/>
-            <mass value="0.098375" />
-            <inertia ixx="2.05275833e-05" ixy="0" ixz="0" iyy="1.48587240e-04" iyz="0" izz="1.28125240e-04" />
+            <origin xyz="0.125 0 0" rpy="0 0 0"/>
+            <mass value="0.19675" />
+            <inertia ixx="4.10551667e-05" ixy="0" ixz="0" iyy="1.06572917e-03" iyz="0" izz="1.02480517e-03" />
         </inertial>
     </link>
 
@@ -68,53 +68,32 @@
         <parent link="virtual_link2_1"/>
         <child link="virtual_link2_2"/>
         <axis xyz="0 0 1"/>
-        <origin xyz="0.125 0 0" rpy="0 0 0"/>
-        <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
-    </joint>
-
-    <link name="virtual_link2_3">
-        <visual>
-            <geometry>
-                <box size="0.125 0.002 0.05"/>
-            </geometry>
-            <origin rpy="0 0 0" xyz ="0.0625 0 0"/>
-        </visual>
-        <inertial>
-            <origin xyz="0.0625 0 0" rpy="0 0 0"/>
-            <mass value="0.098375" />
-            <inertia ixx="2.05275833e-05" ixy="0" ixz="0" iyy="1.48587240e-04" iyz="0" izz="1.28125240e-04" />
-        </inertial>
-    </link>
-
-    <joint name="passive_joint2" type="revolute">
-        <parent link="virtual_link2_2"/>
-        <child link="virtual_link2_3"/>
-        <axis xyz="0 0 1"/>
         <origin xyz="0.25 0 0" rpy="0 0 0"/>
         <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
     </joint>
 
+    
     <!--  -->
     <!-- Third link -->
     <link name="virtual_link3_1">
         <visual>
             <geometry>
-                <box size="0.125 0.002 0.05"/>
+                <box size="0.25 0.002 0.05"/>
             </geometry>
-            <origin rpy="0 0 0" xyz ="0.0625 0 0"/>
+            <origin rpy="0 0 0" xyz ="0.125 0 0"/>
         </visual>
-        <inertial>
-            <origin xyz="0.0625 0 0" rpy="0 0 0"/>
-            <mass value="0.098375" />
-            <inertia ixx="2.05275833e-05" ixy="0" ixz="0" iyy="1.48587240e-04" iyz="0" izz="1.28125240e-04" />
+         <inertial>
+            <origin xyz="0.125 0 0" rpy="0 0 0"/>
+            <mass value="0.19675" />
+            <inertia ixx="4.10551667e-05" ixy="0" ixz="0" iyy="1.06572917e-03" iyz="0" izz="1.02480517e-03" />
         </inertial>
     </link>
 
     <joint name="active_joint3" type="revolute">
-        <parent link="virtual_link2_3"/>
+        <parent link="virtual_link2_2"/>
         <child link="virtual_link3_1"/>
         <axis xyz="0 0 1"/>
-        <origin xyz="0.125 0 0" rpy="0 0 0"/>
+        <origin xyz="0.25 0 0" rpy="0 0 0"/>
         <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
     </joint>
 
@@ -136,33 +115,10 @@
         <parent link="virtual_link3_1"/>
         <child link="virtual_link3_2"/>
         <axis xyz="0 0 1"/>
-        <origin xyz="0.125 0 0" rpy="0 0 0"/>
-        <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
-    </joint>
-
-    <link name="virtual_link3_3">
-        <visual>
-            <geometry>
-                <box size="0.125 0.002 0.05"/>
-            </geometry>
-            <origin rpy="0 0 0" xyz ="0.0625 0 0"/>
-        </visual>
-        <inertial>
-            <origin xyz="0.0625 0 0" rpy="0 0 0"/>
-            <mass value="0.098375" />
-            <inertia ixx="2.05275833e-05" ixy="0" ixz="0" iyy="1.48587240e-04" iyz="0" izz="1.28125240e-04" />
-        </inertial>
-    </link>
-
-    <joint name="passive_joint3_2" type="revolute">
-        <parent link="virtual_link3_2"/>
-        <child link="virtual_link3_3"/>
-        <axis xyz="0 0 1"/>
         <origin xyz="0.25 0 0" rpy="0 0 0"/>
         <limit effort="100.0" lower="-3.14159" upper="3.14159" velocity="3.14"/>
     </joint>
-
-    
+   
     <link name="load">
         <visual>
             <geometry>
@@ -178,9 +134,9 @@
   </link>
 
     <joint name="last_link_to_load" type="fixed">
-        <parent link="virtual_link3_3"/>
+        <parent link="virtual_link3_2"/>
         <child link="load"/>
         <axis xyz="0 0 1"/>
-        <origin xyz="0.125 0 0" rpy="0 0 0"/>
+        <origin xyz="0.25 0 0" rpy="0 0 0"/>
     </joint>
 </robot>
