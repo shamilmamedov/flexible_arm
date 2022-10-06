@@ -1,4 +1,5 @@
 import os
+import time
 from matplotlib import pyplot as plt
 import numpy as np
 import casadi as cs
@@ -207,9 +208,6 @@ def compare_different_discretization():
     # controller = DummyController()
     Kp = (40, 30, 25)
     Kd = (1.5, 0.25, 0.25)
-    # C = [PDController3Dof(Kp, Kd, n_seg, q_ref)
-    #      for n_seg, q_ref in zip(n_segs, Q_ref)]
-    # C = [DummyController(3) for _ in n_segs]
 
     # Controller for the rigid body approximation
     C_0s = PDController3Dof(Kp, Kd, n_segs[0], Q_ref[0])
@@ -301,6 +299,135 @@ def compare_different_discretization():
     plt.show()
 
 
+def compare_discretized_num_sym_models():
+    # Simulation parametes
+    ts = 0.001
+    n_iter = 100
+
+    # Models
+    n_seg = 3
+    model_num = FlexibleArm3DOF(n_seg)
+    model_sym = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+
+    # Initial states
+    q = np.zeros((model_num.nq, 1)) 
+    dq = np.zeros((model_num.nq, 1)) 
+    x0 = np.vstack((q, dq)) 
+
+    # Reference; the same for all models but because of
+    q_ref = np.zeros((model_num.nq, 1)) 
+    q_ref[:2, 0] += [1., 0.5]
+    q_ref[1 + n_seg + 1] += 1
+
+    # Estimator
+    E = None
+
+    # Controller
+    Kp = (40, 30, 25)
+    Kd = (1.5, 0.25, 0.25)
+    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+
+    # Simulators
+    integrator = 'LSODA'
+    S_sym = Simulator(model_sym, C, integrator, E)
+    S_num = Simulator(model_num, C, integrator, E)
+
+    # Simulate the rigid body approxmiation
+    x_sym, u_sym, y_sym, _ = S_sym.simulate(x0.flatten(), ts, n_iter)
+    x_num, u_num, y_num, _ = S_num.simulate(x0.flatten(), ts, n_iter)
+    t = np.arange(0, n_iter + 1) * ts
+
+    # Some tests and sanity checks
+    np.testing.assert_array_almost_equal(y_sym, y_num, decimal=8)
+
+    # Plot outputs
+    y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
+              r'$\mathrm{ee}_z$ [m]']
+    legends = ['sym', 'num']
+    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
+    for k, ax in enumerate(axs.reshape(-1)):
+        ax.plot(t, y_sym[:, 6+k], label=legends[0])
+        ax.plot(t, y_num[:, 6+k], label=legends[1])
+        ax.set_ylabel(y_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.legend()
+    ax.set_xlabel('t [s]')
+    plt.tight_layout()
+    plt.show()
+
+
+def compare_different_integrators():
+    # Simulation parametes
+    ts = 0.001
+    n_iter = 100
+
+    # Models
+    n_seg = 10
+    model = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+
+    # Initial states
+    q = np.zeros((model.nq, 1)) 
+    dq = np.zeros((model.nq, 1)) 
+    x0 = np.vstack((q, dq)) 
+
+    # Reference; the same for all models but because of
+    q_ref = np.zeros((model.nq, 1)) 
+    q_ref[:2, 0] += [1., 0.5]
+    q_ref[1 + n_seg + 1] += 1
+
+    # Estimator
+    E = None
+
+    # Controller
+    Kp = (40, 30, 25)
+    Kd = (1.5, 0.25, 0.25)
+    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+
+    # Simulators
+    intg1 = 'LSODA'
+    intg2 = 'RK45'
+    intg3 = 'collocation'
+
+    S1 = Simulator(model, C, intg1, E)
+    S2 = Simulator(model, C, intg2, E)
+    S3 = Simulator(model, C, intg3, E)
+
+    # Simulate the rigid body approxmiation
+    t0_LSODA = time.time()
+    x1, u1, y1, _ = S1.simulate(x0.flatten(), ts, n_iter)
+    tf_LSODA = time.time()
+
+    t0_RK45 = time.time()
+    x2, u2, y2, _ = S2.simulate(x0.flatten(), ts, n_iter)
+    tf_RK45 = time.time()
+
+    t0_clc = time.time()
+    x3, u3, y3, _ = S3.simulate(x0.flatten(), ts, n_iter)
+    tf_clc = time.time()
+    
+    t = np.arange(0, n_iter + 1) * ts
+
+    print('Execution time LSODA:', tf_LSODA-t0_LSODA)
+    print('Execution time RK45:', tf_RK45-t0_RK45)
+    print('Execution time collocation:', tf_clc-t0_clc)
+
+    # Plot outputs
+    y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
+              r'$\mathrm{ee}_z$ [m]']
+    legends = ['LSODA', 'RK45', 'collocation']
+    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
+    for k, ax in enumerate(axs.reshape(-1)):
+        ax.plot(t, y1[:, 6+k], label=legends[0])
+        ax.plot(t, y2[:, 6+k], label=legends[1])
+        ax.plot(t, y3[:, 6+k], label=legends[2])
+        ax.set_ylabel(y_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.legend()
+    ax.set_xlabel('t [s]')
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     test_casadi_aba()
     test_casadi_ode()
@@ -308,4 +435,6 @@ if __name__ == "__main__":
     test_casadi_vee()
     test_SymbolicFlexibleArm()
     test_EKF()
-    compare_different_discretization()
+    # compare_different_discretization()
+    # compare_discretized_num_sym_models()
+    compare_different_integrators()

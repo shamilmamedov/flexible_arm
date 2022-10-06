@@ -6,7 +6,7 @@ import casadi as cs
 import pinocchio as pin
 from acados_template import AcadosModel
 
-from simulation import symbolic_RK4
+from integrator import symbolic_RK4
 
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
@@ -58,7 +58,7 @@ class FlexibleArm3DOF:
         self.nq = self.model.nq
         self.nu = 3
         self.ny = 9
-        self.n_seg = n_seg
+        self.qa_idx = [0, 1, 2 + n_seg] # indexes of the active joints
 
         # Process flexibility parameters
         if self.n_seg > 0:
@@ -75,9 +75,12 @@ class FlexibleArm3DOF:
             self.D3 = np.diag(flexibility_params['D3'])
 
     def random_q(self):
-        """ Returns a random configuration
+        """ Returns a random configuration for the active joints
+        and zero position for the passive joints
         """
-        return pin.randomConfiguration(self.model)
+        q = np.zeros(self.nq)
+        q[self.qa_idx] = pin.randomConfiguration(self.model)[self.qa_idx]
+        return q
 
     def fk(self, q, frame_id):
         """ Computes forward kinematics for a given frame
@@ -324,6 +327,9 @@ class SymbolicFlexibleArm3DOF:
         constraint_expr = self.rhs_impl  # endeffector position
 
         return model, constraint_expr
+
+    def output(self, x):
+        return np.array(self.h(x))
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"

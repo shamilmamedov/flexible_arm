@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import matplotlib
 import numpy as np
 import pinocchio as pin
