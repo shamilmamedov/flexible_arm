@@ -70,6 +70,23 @@ class Simulator:
         """
         return robot.ode(x, tau)
 
+    def _step(self, x, u, ts) -> np.ndarray:
+        """ Implements one step of the simulation
+
+        :parameter x: (initial) state 
+        :parameter u: control action
+        :parameter ts: step size of the integrator
+        """
+        if self.integrator in ['RK45', 'LSODA']:
+            sol = solve_ivp(self.ode_wrapper, [0, ts], x, args=(self.robot, u),
+                            vectorized=False, rtol=self.rtol, atol=self.atol, method=self.integrator)
+            x_next = sol.y[:, -1]
+        elif self.integrator == 'RK4':
+            x_next = RK4(x.T, u.T, self.robot.ode, ts, n=5).flatten()
+        else:
+            raise ValueError
+        return x_next
+
     def simulate(self, x0, ts, n_iter):
         if self.estimator is not None:
             nx_est = np.shape(self.estimator.x_hat)[0]
@@ -104,6 +121,7 @@ class Simulator:
                 x_next = RK4(x[[k], :].T, tau.T, self.robot.ode, ts, n=5).flatten()
             else:
                 raise ValueError
+            x_next2 = self._step(x[k, :], tau, ts)
             x[k+1, :] = x_next
             y[k+1, :] = self.robot.output(x[[k+1], :].T).flatten()
         

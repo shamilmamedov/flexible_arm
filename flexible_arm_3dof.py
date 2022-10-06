@@ -26,9 +26,6 @@ class FlexibleArm3DOF:
         an urdf-file and flexibility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
-
-        TODO:
-            1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
         assert (n_seg in [0, 1, 2, 3, 5, 10])
