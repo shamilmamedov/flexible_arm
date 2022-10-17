@@ -104,6 +104,7 @@ int main(int argc,char* argv[])
     TangentVectorAD tau_ad(model.nv);
     tau_ad = Eigen::Map<TangentVectorAD>(static_cast< std::vector<ADScalar> >(cs_tau).data(),model.nv,1);
 
+
     // Compute forward dynamics for symbolic model
     aba(ad_model, ad_data, q_ad, v_ad, tau_ad);
     // Create a casadi function for forward dynamics
@@ -121,6 +122,9 @@ int main(int argc,char* argv[])
     
     std::vector<double> v_vec((size_t)model.nv);
     Eigen::Map<TangentVector>(v_vec.data(),model.nv,1) = v;
+
+    std::vector<double> a_vec((size_t)model.nv);
+    Eigen::Map<TangentVector>(a_vec.data(),model.nv,1) = a;
     
     std::vector<double> tau_vec((size_t)model.nv);
     Eigen::Map<TangentVector>(tau_vec.data(),model.nv,1) = tau;
@@ -131,6 +135,23 @@ int main(int argc,char* argv[])
 
     std::cout << "ddq numerical = " << data.ddq << std::endl;
     std::cout << "ddq casadi = " << ddq_mat << std::endl;
+
+
+    // Compute inverse dynamics using RNEA
+    rnea(ad_model, ad_data, q_ad, v_ad, a_ad);
+    casadi::SX tau_rnea(model.nv, 1);
+    for(Eigen::DenseIndex k = 0; k < model.nv; ++k)
+        tau_rnea(k) = ad_data.tau[k];
+    casadi::Function eval_rnea("eval_rnea",
+                               casadi::SXVector {cs_q, cs_v, cs_a},
+                               casadi::SXVector {tau_rnea});
+    eval_rnea.save(model_folder + "rnea.casadi");
+
+    // Evaluate inverse casadi dynamics against numerical one
+    pin::rnea(model, data, q, v, a);
+    casadi::DM tau_res = eval_rnea(casadi::DMVector {q_vec, v_vec, a_vec})[0];
+    std::cout << "tau numerical = " << data.tau << std::endl;
+    std::cout << "tau casadi = " << tau_res << std::endl;
 
 
     // Perform the forward kinematics over the kinematic tree

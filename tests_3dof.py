@@ -6,13 +6,15 @@ import casadi as cs
 import pinocchio as pin
 import pandas as pd
 
-from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
+                               get_rest_configuration)
 from estimator import ExtendedKalmanFilter
 from simulation import Simulator
 from controller import DummyController, PDController3Dof, FeedforwardController
 
-n_segs = [2, 3, 5, 10]
-n_seg_int2str = {2: 'two', 3: 'three', 5: 'five', 10: 'ten'}
+
+n_segs = [0, 1, 2, 3, 5, 10]
+n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 robot_folder = 'models/three_dof/'
 
 
@@ -176,6 +178,28 @@ def test_EKF():
     # print(x_hat)
 
 
+def test_rest_configuration_computation():
+    """ Test a function for computing the rest position from active
+    joint configurations
+    """
+    for n_seg in n_segs:
+        nq = 3 + 2*n_seg
+        idxs = set(np.arange(0, nq))
+        idxs_a = {0, 1, 2 + n_seg}
+        idxs_p = idxs.difference(idxs_a)
+
+        # Tests that when there is no gravity then the deformations
+        # of the passive joints are zero
+        if n_seg > 0:
+            qa = np.array([0, np.pi/2, 0])
+            q = get_rest_configuration(qa, n_seg)
+            qp = q[list(idxs_p)]
+            np.testing.assert_array_equal(qp, np.zeros(2*n_seg))
+
+        qa = np.random.randn(3)
+        q = get_rest_configuration(qa, n_seg)
+
+
 def compare_different_discretization():
     """ Compares models with different discretization -- starting 
     from a rigid body model and until a fine grid of 10 discretization
@@ -297,7 +321,7 @@ def compare_different_discretization():
     plt.tight_layout()
 
     plt.show()
-
+ 
 
 def compare_discretized_num_sym_models():
     # Simulation parametes
@@ -428,6 +452,7 @@ def compare_different_integrators():
     plt.show()
 
 
+
 if __name__ == "__main__":
     test_casadi_aba()
     test_casadi_ode()
@@ -435,6 +460,7 @@ if __name__ == "__main__":
     test_casadi_vee()
     test_SymbolicFlexibleArm()
     test_EKF()
+    test_rest_configuration_computation()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
-    compare_different_integrators()
+    # compare_different_integrators()

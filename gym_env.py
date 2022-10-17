@@ -17,11 +17,13 @@ class FlexibleArmEnv(gym.Env):
 
     """
 
-    def __init__(self, n_seg, dt, render_mode=None) -> None:
+    def __init__(self, n_seg, dt, q0, render_mode=None) -> None:
         """
         :parameter n_seg: number of segments per link
         :parameter dt: stepsize of the integrator
+        :parameter q0: initial rest configuration of the robot
         """
+        self.q0 = q0
         self.dt = dt
         self.n_intg_steps = 0
         self.max_intg_steps = 500
@@ -49,16 +51,10 @@ class FlexibleArmEnv(gym.Env):
 
     def reset(self):
         """
-        TODO: Right now positions of the passive joints are zero. 
-              Meaning that the sytstem is not at rest. To solve it
-              it is necessary to solve root finding problem where 
-              positions of the active joints are fixed and positions
-              of the passive joints are found based on stiffness matrix
         """
         # Reset state of the robot
-        q = self.model.random_q()
         dq = np.zeros(self.model.nq)
-        self._state = np.concatenate((q, dq))
+        self._state = np.concatenate((self.q0, dq))
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -79,6 +75,7 @@ class FlexibleArmEnv(gym.Env):
 
         # Take action
         self._state = self.simulator.step(s, a, self.dt)
+        self.n_intg_steps += 1
 
         # Check if the state is terminal
         terminated = self._terminal()
@@ -86,13 +83,14 @@ class FlexibleArmEnv(gym.Env):
         # Compute reward
         reward = -1.0 if not terminated else 0.0
 
+        # Other outputs
         truncated = False
         info = {}
 
         return (self._state, reward, terminated, truncated, info)
 
     def _terminal(self):
-        pass
+        return self.n_intg_steps > self.max_intg_steps
 
 
 if __name__ == "__main__":

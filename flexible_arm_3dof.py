@@ -4,9 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 import pinocchio as pin
+from scipy.linalg import block_diag
 from acados_template import AcadosModel
 
 from integrator import symbolic_RK4
+from animation import Panda3dAnimator
 
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
@@ -81,6 +83,11 @@ class FlexibleArm3DOF:
         q = np.zeros(self.nq)
         q[self.qa_idx] = pin.randomConfiguration(self.model)[self.qa_idx]
         return q
+
+    def random_qa(self):
+        """ Returns a random configuration for active joints 
+        """
+        return pin.randomConfiguration(self.model)[self.qa_idx]
 
     def fk(self, q, frame_id):
         """ Computes forward kinematics for a given frame
@@ -255,6 +262,8 @@ class SymbolicFlexibleArm3DOF:
             taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
             tau = cs.vertcat(u[:2], taup_link2, u[2], taup_link3)
         else:
+            qa = q
+            dqa = dq
             tau = u
 
         # Get function for the forward kinematics and velocities
@@ -335,6 +344,69 @@ class SymbolicFlexibleArm3DOF:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
 
 
+def get_rest_configuration(qa, n_seg):
+    """ Computes the rest configuration of the robot based on 
+    rest configuration of the active joints. (It assumes that actuators
+    provide enough torque to keep the active joints at a desired position; 
+    the goal is to compute rest positions of the passive joints)
+
+    :parameter qa: configration of the active joints
+    :parameter n_seg: number of segments
+    """
+    if n_seg == 0:
+        return qa
+
+    # Path to a folder with model description
+    model_folder = 'models/three_dof/' + \
+                    n_seg_int2str[n_seg] + '_segments/'
+
+    # Load RNEA function
+    rnea = cs.Function.load(model_folder + 'rnea.casadi')
+
+    # Number of joints
+    nq = 3 + 2*n_seg
+    idxs = set(np.arange(0, nq))
+    idxs_a = {0, 1, 2 + n_seg}
+    idxs_p = idxs.difference(idxs_a)
+
+    # Casadi symbolic variables for passive joints
+    qp_link1 = cs.SX.sym('qp_l1', n_seg)
+    qp_link2 = cs.SX.sym('qp_l2', n_seg)
+    qp = cs.vertcat(qp_link1, qp_link2)
+    q = cs.vertcat(qa[:2], qp_link1, qa[2], qp_link2)
+    dq = cs.SX.zeros(nq)
+    ddq = cs.SX.zeros(nq)
+
+    # Get expression and function for gravity vector
+    g_expr = rnea(q, dq, ddq)
+    g_expr_p = g_expr[list(idxs_p)]
+
+    # Load stiffness parameters
+    params_file = 'flexibility_params.yml'
+    params_path = os.path.join(model_folder, params_file)
+
+    with open(params_path) as f:
+        flexibility_params = yaml.safe_load(f)
+
+    K2 = np.diag(flexibility_params['K2'])
+    K3 = np.diag(flexibility_params['K3'])
+    K = block_diag(K2, K3)
+
+    # Create a function for computing rest positions
+    f = cs.Function('f', [qp], [g_expr_p + K @ qp])
+
+    # Create a root finder
+    F = cs.rootfinder('F', 'newton', f)
+    qp_num = np.array(F(np.zeros(2*n_seg))).squeeze()
+
+    # Form a vector of joint angles
+    q = np.zeros(nq)
+    q[list(idxs_a)] = qa
+    q[list(idxs_p)] = qp_num 
+
+    return q
+
+
 if __name__ == "__main__":
     # n_seg = 3
     # arm = FlexibleArm(n_seg)
@@ -346,5 +418,22 @@ if __name__ == "__main__":
 
     # sarm = SymbolicFlexibleArm(n_seg)
     # print(sarm.p_ee(q))
-    sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
-    print(sarm)
+    # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
+    # print(sarm)
+
+    n_seg = 10
+    model_folder = 'models/three_dof/' + \
+                       n_seg_int2str[n_seg] + '_segments/'
+    urdf_path = os.path.join(model_folder, 
+                'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
+
+    # qa = np.random.randn(3)
+    # qa = np.array([0, np.pi/2, 0])
+    qa = np.zeros(3)
+    q = get_rest_configuration(qa, n_seg)
+
+    q = np.repeat(q.reshape(1,-1), 50, axis=0)
+    
+
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+
