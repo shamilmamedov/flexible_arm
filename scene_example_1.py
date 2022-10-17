@@ -67,8 +67,8 @@ if __name__ == "__main__":
 
     # Create mpc options and controller
     mpc_options = Mpc3dofOptions(n_links=n_seg_mpc)
-    mpc_options.n = 100
-    mpc_options.tf = 5
+    mpc_options.n = 30
+    mpc_options.tf = 1
     controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 

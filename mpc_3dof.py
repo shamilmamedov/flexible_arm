@@ -107,7 +107,7 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
-        ocp.cost.Vx_e[:nx, :nx] = np.ones(nx)
+        ocp.cost.Vx_e[:nx, :nx] = np.eye(nx)
 
         # Vz_e = np.zeros((ny_e, nz))
         # Vz_e[nx:, :] = np.eye(nz)
@@ -178,10 +178,10 @@ class Mpc3Dof(BaseController):
         @param tf: Final time tf
         @param fun_forward_pee: Function, that computes q->p_ee
         """
+        n_eval = 100
         t_eval = np.linspace(0, tf, 100)
         n_seg = int((self.nx - 2) / (2 * 2) - 1)
-        t, q, dq = get_reference_for_all_joints(q_t0, pee_tf, tf, ts=self.options.tf / self.options.n,
-                                                n_seg=n_seg)
+        t, q, dq = get_reference_for_all_joints(q_t0, pee_tf, tf, ts=self.options.tf / n_eval, n_seg=n_seg)
         self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
         self.inter_t2dq = interp1d(t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :])
         p_eval = np.zeros((t_eval.__len__(), 3))

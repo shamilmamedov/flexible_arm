@@ -12,7 +12,7 @@ class BaseController(ABC):
     """
 
     @abstractmethod
-    def compute_torques(self, q, dq):
+    def compute_torques(self, q, dq, t=None):
         ...
 
 

@@ -96,7 +96,7 @@ class Simulator:
                 qk = x[[k], :self.robot.nq].T
                 dqk = x[[k], self.robot.nq:].T
 
-            tau = self.controller.compute_torques(qk, dqk)
+            tau = self.controller.compute_torques(qk, dqk, t=ts*k)
             u[[k], :] = tau
 
             if self.integrator in ['RK45', 'LSODA']:
