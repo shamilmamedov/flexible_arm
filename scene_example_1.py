@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # simulate
     n_iter = 120
     sim = Simulator(fa_hd, controller, 'RK45', E)
-    x, u, xhat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
 
     # Print timing
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
