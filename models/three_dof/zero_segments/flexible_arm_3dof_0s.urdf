@@ -32,14 +32,14 @@
     <link name="virtual_link2_1">
         <visual>
             <geometry>
-                <box size="0.5 0.025 0.01"/>
+                <box size="0.5 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.25 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.25 0 0" rpy="0 0 0"/>
             <mass value="0.3935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-05" />
+            <inertia ixx="8.21103333e-05" ixy="0" ixz="0" iyy="8.27989583e-03" iyz="0" izz="8.19804783e-03" />
         </inertial>
     </link>
 
@@ -55,14 +55,14 @@
     <link name="virtual_link3_1">
         <visual>
             <geometry>
-                <box size="0.5 0.025 0.01"/>
+                <box size="0.5 0.002 0.05"/>
             </geometry>
             <origin rpy="0 0 0" xyz ="0.25 0 0"/>
         </visual>
         <inertial>
             <origin xyz="0.25 0 0" rpy="0 0 0"/>
             <mass value="0.3935" />
-            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="8.19791667e-05" />
+            <inertia ixx="8.21103333e-05" ixy="0" ixz="0" iyy="8.27989583e-03" iyz="0" izz="8.19804783e-03" />
         </inertial>
     </link>
 

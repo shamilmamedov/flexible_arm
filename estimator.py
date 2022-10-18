@@ -2,7 +2,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
-from simulation import symbolic_RK4
+from integrator import symbolic_RK4
 
 
 class BaseEstimator(ABC):

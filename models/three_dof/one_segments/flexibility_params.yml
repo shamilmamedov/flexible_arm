@@ -1,0 +1,8 @@
+---
+# Stiffness params
+K2: [12.67]
+K3: [12.67]
+
+# Damping params
+D2: [0.0567]
+D3: [0.0567]

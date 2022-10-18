@@ -1,13 +1,15 @@
 clc; 
 clear all; close all;
 
-ns = 0;
+ns = 10;
 % path to urdfs
 % path_to_urdf = 'models/five_segments/flexible_arm_v1.urdf';
-% path_to_urdf = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf';
+path_to_urdf = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf';
 % path_to_urdf = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf';
 % path_to_urdf = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf';
-path_to_urdf = 'models/three_dof/zero_segments/flexible_arm_3dof_0s.urdf';
+% path_to_urdf = 'models/three_dof/two_segments/flexible_arm_3dof_2s.urdf';
+% path_to_urdf = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf';
+% path_to_urdf = 'models/three_dof/zero_segments/flexible_arm_3dof_0s.urdf';
 
 % Create a robot instance using Matlab Toolbox
 robot = importrobot(path_to_urdf);
