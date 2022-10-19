@@ -1,13 +1,6 @@
-import matplotlib
 import casadi as cs
 import numpy as np
-import pinocchio as pin
-import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-
-from flexible_arm import FlexibleArm
-from animation import Animator, Panda3dAnimator
-from controller import DummyController, PDController
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from integrator import RK4
 

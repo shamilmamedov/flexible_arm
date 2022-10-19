@@ -1,10 +1,16 @@
-from copy import deepcopy
+import tempfile
 import numpy as np
-import torch
+from copy import deepcopy
 from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from stable_baselines3.common.env_checker import check_env
 from gym_env import FlexibleArmEnv
+from gym_utils import CallableExpert
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils import ControlMode
+from stable_baselines3.common.vec_env import DummyVecEnv
+from imitation.algorithms import bc
+from imitation.algorithms.dagger import SimpleDAggerTrainer
+from stable_baselines3.common.evaluation import evaluate_policy
 
 control_mode = ControlMode.SET_POINT
 n_seg = 3
@@ -49,40 +55,12 @@ controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
 dt = 0.05
 env = FlexibleArmEnv(n_seg=n_seg, dt=dt, q0=q0[:, 0], xee_final=x_ee_ref)
 
-from stable_baselines3.common import policies
-
-
-# create callable controller function as expert
-class CallableExpert(policies.BasePolicy):
-    def __init__(self, controller, observation_space, action_space):
-        super().__init__(observation_space, action_space)
-        self.controller = controller
-        self.observation_space = observation_space
-        self.action_space = action_space
-
-    def _predict(self, observation, deterministic: bool = False):
-        n_q = int(observation.tolist()[0].__len__() / 2)
-        torques = self.controller.compute_torques(np.array([observation.tolist()[0][:n_q]]).transpose(),
-                                                  np.array([observation.tolist()[0][n_q:]]).transpose())
-        torques = torch.tensor(torques)
-        return torques
-
-    def __call__(self, observation):
-        return self._predict(observation)
-
 callable_expert = CallableExpert(controller, observation_space=env.observation_space, action_space=env.action_space)
 
 # check environment
-from stable_baselines3.common.env_checker import check_env
 check_env(env)
 
 # peform behavior cloning
-import tempfile
-import numpy as np
-from stable_baselines3.common.vec_env import DummyVecEnv
-from imitation.algorithms import bc
-from imitation.algorithms.dagger import SimpleDAggerTrainer
-
 venv = DummyVecEnv([lambda: FlexibleArmEnv(n_seg=n_seg, dt=dt, q0=q0, xee_final=x_ee_ref)])
 
 bc_trainer = bc.BC(
@@ -101,7 +79,6 @@ with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
     dagger_trainer.train(10000, rollout_round_min_episodes=20)
 
 # Evaluate and save trained policy
-from stable_baselines3.common.evaluation import evaluate_policy
 reward, _ = evaluate_policy(dagger_trainer.policy, env, 10)
 print("Final reward: {}".format(reward))
 

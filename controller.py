@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from typing import List, Tuple
-
+from stable_baselines3.ppo import MlpPolicy
 import numpy as np
 from abc import ABC, abstractmethod
+
+from gym_env import FlexibleArmEnv
 
 
 class BaseController(ABC):
@@ -131,3 +133,27 @@ class PDController3Dof(BaseController):
                              q[self.n_seg + 2]) - self.Kd[2] * dq[self.n_seg + 2]
 
         return np.array([out0, out1, out2]).transpose()
+
+
+class NNController(BaseController):
+    """ Proportional-Derivative controller
+    """
+
+    def __init__(self, nn_file: str, n_seg: int) -> None:
+        """
+        @param network_data: file that contains network data
+        @param n_seg: segments of robot
+        """
+        # create dummy environment to get observation and action spaces
+        env = FlexibleArmEnv(n_seg=n_seg, dt=0.05, q0=np.array([0]), xee_final=None)
+        # load trained policy. need a dummy policy.
+        learned_policy = MlpPolicy(observation_space=env.observation_space, action_space=env.action_space,
+                                   lr_schedule=lambda x: 1)
+        self.learned_policy = learned_policy.load(nn_file)
+        self.n_seg = n_seg
+
+    def compute_torques(self, q, dq, t=None):
+        obs = np.vstack((q, dq))[:,0]
+        out = self.learned_policy.predict(obs, deterministic=True)[0]
+
+        return out

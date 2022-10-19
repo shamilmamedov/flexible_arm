@@ -3,9 +3,9 @@ import numpy as np
 from stable_baselines3.ppo import MlpPolicy
 from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 from gym_env import FlexibleArmEnv
+from gym_utils import CallableExpert
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils import ControlMode
-from stable_baselines3.common import policies
 
 control_mode = ControlMode.SET_POINT
 n_seg = 3
@@ -49,29 +49,6 @@ controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
 
 env = FlexibleArmEnv(n_seg=n_seg, dt=0.05, q0=q0[:, 0], xee_final=x_ee_ref)
 
-
-class CallableExpert(policies.BasePolicy):
-    """
-    Slightly modified version of policy regarding np and torch arrays.
-    Todo. Merge with other expert
-    """
-
-    def __init__(self, controller, observation_space, action_space):
-        super().__init__(observation_space, action_space)
-        self.controller = controller
-        self.observation_space = observation_space
-        self.action_space = action_space
-
-    def _predict(self, observation, deterministic: bool = False):
-        nq = int(observation.__len__() / 2)
-        torques = self.controller.compute_torques(np.expand_dims(observation[:nq], axis=1),
-                                                  np.expand_dims(observation[nq:], axis=1))
-        return torques
-
-    def __call__(self, observation):
-        return self._predict(observation)
-
-
 # create MPC expert
 expert = CallableExpert(controller, observation_space=env.observation_space, action_space=env.action_space)
 
@@ -89,7 +66,7 @@ for i in range(n_eps):
     done = False
     obs = env.reset()
     while not done:
-        action_exp = expert(obs)
+        action_exp = expert.predict_np(obs)
         action_bc = learned_policy.predict(obs, deterministic=True)[0]
         print("Action exp: {}, Action bc: {}".format(action_exp, action_bc))
         if use_trained:
