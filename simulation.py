@@ -16,7 +16,7 @@ class Simulator:
     """
 
     def __init__(self, robot, controller, integrator, estimator=None, rtol=1e-6, atol=1e-8) -> None:
-        if integrator == 'collocation':
+        if integrator in ['collocation', 'cvodes']:
             assert isinstance(robot, SymbolicFlexibleArm3DOF)
 
         self.robot = robot
@@ -45,7 +45,7 @@ class Simulator:
             x_next = sol.y[:, -1]
         elif self.integrator == 'RK4':
             x_next = RK4(x, u, self.robot.ode, dt, n=5).flatten()
-        elif self.integrator == 'collocation':
+        elif self.integrator in ['collocation', 'cvodes']:
             x_next = np.array(self.F(x, u)).flatten()
         else:
             raise ValueError
@@ -53,9 +53,16 @@ class Simulator:
 
     def simulate(self, x0, dt, n_iter):
         # Create an integrator for collocation method
-        if self.integrator == 'collocation':
+        if self.integrator in ['collocation', 'cvodes']:
             dae = {'x': self.robot.x, 'p': self.robot.u, 'ode': self.robot.rhs}
-            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 5, 'simplify': True}
+            if self.integrator == 'collocation':
+                opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 'simplify': True,
+                        'rootfinder':'fast_newton', 'collocation_scheme': 'radau',
+                        'expand': True, 'interpolation_order': 3}
+            else:
+                opts = {'t0': 0, 'tf': dt, 'abstol':self.atol, 'reltol':self.rtol,
+                        'linear_multistep_method': 'bdf', 'nonlinear_solver_iteration': 'functional',
+                        'expand': True, 'fsens_err_con': False, 'quad_err_con': False}
             I = cs.integrator('I', self.integrator, dae, opts)
             x_next = I(x0=self.robot.x, p=self.robot.u)["xf"]
             self.F = cs.Function('F', [self.robot.x, self.robot.u], [x_next])

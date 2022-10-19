@@ -411,10 +411,12 @@ def compare_different_integrators():
     intg1 = 'LSODA'
     intg2 = 'RK45'
     intg3 = 'collocation'
+    intg4 = 'cvodes'
 
     S1 = Simulator(model, C, intg1, E)
     S2 = Simulator(model, C, intg2, E)
     S3 = Simulator(model, C, intg3, E)
+    S4 = Simulator(model, C, intg4, E)
 
     # Simulate the rigid body approxmiation
     t0_LSODA = time.time()
@@ -428,22 +430,28 @@ def compare_different_integrators():
     t0_clc = time.time()
     x3, u3, y3, _ = S3.simulate(x0.flatten(), ts, n_iter)
     tf_clc = time.time()
+
+    t0_cvd = time.time()
+    x4, u4, y4, _ = S4.simulate(x0.flatten(), ts, n_iter)
+    tf_cvd = time.time()
     
     t = np.arange(0, n_iter + 1) * ts
 
     print('Execution time LSODA:', tf_LSODA-t0_LSODA)
     print('Execution time RK45:', tf_RK45-t0_RK45)
     print('Execution time collocation:', tf_clc-t0_clc)
+    print('Execution time cvodes:', tf_cvd-t0_cvd)
 
     # Plot outputs
     y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
               r'$\mathrm{ee}_z$ [m]']
-    legends = ['LSODA', 'RK45', 'collocation']
+    legends = ['LSODA', 'RK45', 'collocation', 'cvodes']
     _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
     for k, ax in enumerate(axs.reshape(-1)):
         ax.plot(t, y1[:, 6+k], label=legends[0])
         ax.plot(t, y2[:, 6+k], label=legends[1])
         ax.plot(t, y3[:, 6+k], label=legends[2])
+        ax.plot(t, y4[:, 6+k], label=legends[3])
         ax.set_ylabel(y_lbls[k])
         ax.grid(alpha=0.5)
         ax.legend()
@@ -463,4 +471,4 @@ if __name__ == "__main__":
     test_rest_configuration_computation()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
-    # compare_different_integrators()
+    compare_different_integrators()
