@@ -9,7 +9,7 @@ from acados_template import AcadosModel
 
 from integrator import symbolic_RK4
 from animation import Panda3dAnimator
-
+from copy import deepcopy
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
 
@@ -106,7 +106,7 @@ class FlexibleArm3DOF:
     def fk_ee(self, q):
         """ Computes forward kinematics for EE frame in base frame
         """
-        return self.fk(q, self.ee_frame_id)
+        return deepcopy(self.fk(q, self.ee_frame_id))
 
     def frame_velocity(self, q, dq, frame_id):
         """ Computes end-effector velocity for a given frame
