@@ -71,7 +71,7 @@ class Panda3dAnimator:
         self.viz.initViewer()
         self.viz.loadViewerModel(group_name='flexible_arm')
 
-        for _ in range(5):
+        for _ in range(k):
             self.viz.display(self.q[0, :])
             time.sleep(2)
             for qk in self.q[1:, :]:

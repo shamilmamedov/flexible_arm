@@ -1,13 +1,6 @@
-import matplotlib
 import casadi as cs
 import numpy as np
-import pinocchio as pin
-import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-
-from flexible_arm import FlexibleArm
-from animation import Animator, Panda3dAnimator
-from controller import DummyController, PDController
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from integrator import RK4
 
@@ -35,7 +28,7 @@ class Simulator:
     def step(self, x, u, dt) -> np.ndarray:
         """ Implements one step of the simulation
 
-        :parameter x: [nx x 1] (initial) state 
+        :parameter x: [nx x 1] (initial) state
         :parameter u: [nu x 1] control action
         :parameter dt: step size of the integrator
         """
@@ -91,7 +84,7 @@ class Simulator:
                         y[[k], :].T, u[k-1, :]).flatten()
 
             # Compute control action
-            tau = self.controller.compute_torques(qk, dqk)
+            tau = self.controller.compute_torques(qk, dqk, t=dt*k)
             u[[k], :] = tau
 
             # Perform an integration step
