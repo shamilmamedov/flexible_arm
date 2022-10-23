@@ -10,6 +10,7 @@ from acados_template import AcadosModel
 from integrator import symbolic_RK4
 from animation import Panda3dAnimator
 from copy import deepcopy
+
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
 
@@ -36,11 +37,11 @@ class FlexibleArm3DOF:
         model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
-        urdf_path = os.path.join(model_folder, urdf_file)
+        self.urdf_path = os.path.join(model_folder, urdf_file)
 
         # Try to load model from urdf file
         try:
-            self.model = pin.buildModelFromUrdf(urdf_path)
+            self.model = pin.buildModelFromUrdf(self.urdf_path)
         except ValueError:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
@@ -215,6 +216,8 @@ class SymbolicFlexibleArm3DOF:
         # Path to a folder with model description
         model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
+        urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
+        self.urdf_path = os.path.join(model_folder, urdf_file)
 
         # Number of joints, states and controls
         self.nq = 1 + 2 * (n_seg + 1)
@@ -291,13 +294,13 @@ class SymbolicFlexibleArm3DOF:
         self.z = z
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
-                               ['x', 'u'], ['dx'])
-        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
+                               ['x', 'u'], ['dx']).expand()
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h']).expand()
 
-        self.df_dx = cs.Function('df_dx', [self.x, self.u], [
-            drhs_dx], ['x', 'u'], ['df_dx'])
-        self.df_du = cs.Function('df_du', [self.x, self.u], [
-            drhs_du], ['x', 'u'], ['df_du'])
+        self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
+                                 ['x', 'u'], ['df_dx'])
+        self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
+                                 ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
 
         # Create an integrator

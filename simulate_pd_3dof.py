@@ -3,10 +3,11 @@ import numpy as np
 import pinocchio as pin
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
+                                get_rest_configuration)
 from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController3Dof
-from simulation import Simulator
+from simulation import Simulator, SimulatorOptions
 from estimator import ExtendedKalmanFilter
 
 
@@ -23,7 +24,52 @@ def plot_joint_positions(t, q, n_seg: int, q_ref: np.ndarray = None):
             ax.axhline(q_ref[qa_idx[k]], ls='--')
         ax.set_ylabel(qa_lbls[k])
         ax.grid(alpha=0.5)
+    plt.show()
 
+
+def plot_output_measurements(t, y):
+    # Parse measurements
+    qa = y[:,:3]
+    dqa = y[:,3:6]
+    pee = y[:,6:9]
+
+    qa_lbls = [f'qa_{k} [rad]' for k in range(1,4)]
+    _, axs_q = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    for k, ax in enumerate(axs_q.reshape(-1)):
+        ax.plot(t, qa[:,k])
+        ax.set_ylabel(qa_lbls[k])
+        ax.grid()
+    axs_q[2].set_xlabel('t [s]')
+    plt.tight_layout()
+
+    dqa_lbls = [f'dqa_{k} [rad/s]' for k in range(1,4)]
+    _, axs_dq = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    for k, ax in enumerate(axs_dq.reshape(-1)):
+        ax.plot(t, dqa[:,k])
+        ax.set_ylabel(dqa_lbls[k])
+        ax.grid()
+    plt.tight_layout()
+
+    pee_lbls = ['pee_x [m]', 'pee_y [m]', 'pee_z [m]']
+    _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    for k, ax in enumerate(axs_pee.reshape(-1)):
+        ax.plot(t, pee[:,k])
+        ax.set_ylabel(pee_lbls[k])
+        ax.grid()
+    plt.tight_layout()
+
+    plt.show()
+
+
+def plot_controls(t, u):
+    u_lbls = [f'tau_{k} [Nm]' for k in range(1,4)]
+    _, axs_u = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    for k, ax in enumerate(axs_u.reshape(-1)):
+        ax.plot(t, u[:,k])
+        ax.set_ylabel(u_lbls[k])
+        ax.grid()
+    axs_u[2].set_xlabel('t [s]')
+    plt.tight_layout()
     plt.show()
 
 
@@ -36,61 +82,56 @@ def plot_real_states_vs_estimate(t, x, x_hat):
 
 if __name__ == "__main__":
     # Simulation parametes
-
     ts = 0.001
-    n_iter = 200
-
+    n_iter = 600
 
     # Create FlexibleArm instance
-    n_seg = 10
-    fa = FlexibleArm3DOF(n_seg)
+    n_seg = 3
+    fa = SymbolicFlexibleArm3DOF(n_seg)
 
     # Initial state
-    q = np.zeros((fa.nq, 1))
+    qa = np.zeros(3)
+    q = get_rest_configuration(qa, n_seg)
     dq = np.zeros_like(q)
-    x0 = np.vstack((q, dq))
+    x0 = np.concatenate((q,dq)).reshape(-1,1)
 
     # Reference
-    q_ref = np.zeros((fa.nq, 1))
-    q_ref[0] += 2.
-    q_ref[1] += 0.5
-    q_ref[1 + n_seg + 1] += 1
+    qa_ref = np.array([2, 0.5, 1])
+    q_ref = get_rest_configuration(qa_ref, n_seg)
 
     # Controller
     # controller = DummyController()
-    C = PDController3Dof(Kp=(40, 30, 25), Kd=(1.5, 0.25, 0.25),
+    C = PDController3Dof(Kp=(40, 8, 2), Kd=(1.5, 0.2, 0.1),
                          n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
-    E = None
-    # est_model = SymbolicFlexibleArm3DOF(3, ts=ts)
-    # P0 = 0.01*np.ones((est_model.nx, est_model.nx))
-    # q_q, q_dq = [1e-2]*est_model.nq, [1e-1]*est_model.nq
-    # Q = np.diag([*q_q, *q_dq])
-    # r_q, r_dq, r_pee = [3e-4]*3, [6e-2]*3, [1e-2]*3
-    # R = np.diag([*r_q, *r_dq, *r_pee])
-    # E = ExtendedKalmanFilter(est_model, x0, P0, Q, R)
+    # E = None
+    est_model = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+    P0 = 0.01*np.ones((est_model.nx, est_model.nx))
+    q_q, q_dq = [1e-2]*est_model.nq, [1e-1]*est_model.nq
+    Q = np.diag([*q_q, *q_dq])
+    r_q, r_dq, r_pee = [3e-4]*3, [6e-2]*3, [1e-2]*3
+    R = np.diag([*r_q, *r_dq, *r_pee])
+    E = ExtendedKalmanFilter(est_model, x0, P0, Q, R)
 
     # Simulate
-    integrator = 'LSODA'
-    sim = Simulator(fa, C, integrator, E)
+    opts = SimulatorOptions(contr_input_states='estimated')
+    integrator = 'cvodes'
+    sim = Simulator(fa, C, integrator, E, opts)
     x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Parse joint positions and plot active joints positions
-    n_skip = 2
+    n_skip = 10
     q = x[::n_skip, :fa.nq]
 
     # plot_real_states_vs_estimate(t, x, x_hat)
     # plot_joint_positions(t[::10], q, n_seg, q_ref)
-
-
+    plot_controls(t[:-1], u)
     # plot_real_states_vs_estimate(t, x, x_hat)
     # plot_joint_positions(t[::n_skip], q, n_seg, q_ref)
+    # plot_output_measurements(t, y)
 
     # Animate simulated motion
-    # anim = Animator(fa, q).play()
-
-    urdf_path = 'models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf'
-    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+    animator = Panda3dAnimator(fa.urdf_path, 0.01, q).play(3)
 
