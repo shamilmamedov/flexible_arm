@@ -148,8 +148,10 @@ def test_SymbolicFlexibleArm():
 
 
 def test_EKF():
+    """ Test Extended Kalman Filter implementation
+    """
     # Create a model of the robot
-    est_model = SymbolicFlexibleArm3DOF(3)
+    est_model = SymbolicFlexibleArm3DOF(3, integrator='collocation')
 
     # Initial state
     q = np.zeros((est_model.nq, 1))
@@ -173,9 +175,22 @@ def test_EKF():
     delta_x = np.vstack((delta_q, delta_dq))
     y = sim_model.output(x0 + delta_x)
 
-    # Update the estimate of the state
-    x_hat = E.estimate(y)
-    # print(x_hat)
+    # Update the estimate of the state in the beginning when
+    # there is no input yet
+    n_iter = 100
+    t0 = time.time()
+    for _ in range(n_iter):
+        x_hat = E.estimate(y)
+    tf = time.time()
+    print(f"Average update time: {1000*(tf-t0)/n_iter:.4f} ms")
+
+    u = np.zeros((3,1))
+    t0 = time.time()
+    for _ in range(n_iter):
+        x_hat = E.estimate(y, u)
+    tf = time.time()
+    print(f"Average predict-update time: {1000*(tf-t0)/n_iter:.4f} ms")
+
 
 
 def test_rest_configuration_computation():
@@ -471,4 +486,4 @@ if __name__ == "__main__":
     test_rest_configuration_computation()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
-    compare_different_integrators()
+    # compare_different_integrators()

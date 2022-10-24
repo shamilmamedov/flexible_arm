@@ -206,7 +206,7 @@ class SymbolicFlexibleArm3DOF:
             variable that should be provided during numerial integration.
     """
 
-    def __init__(self, n_seg: int, integrator: str = 'cvodes', ts: float = 0.001) -> None:
+    def __init__(self, n_seg: int, integrator: str = 'collocation', dt: float = 0.001) -> None:
         """ Class constructor
         """
         # Sanity checks
@@ -298,14 +298,25 @@ class SymbolicFlexibleArm3DOF:
         self.h = cs.Function('h', [self.x], [h], ['x'], ['h']).expand()
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
-                                 ['x', 'u'], ['df_dx'])
+                                 ['x', 'u'], ['df_dx']).expand()
         self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
-                                 ['x', 'u'], ['df_du'])
-        self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
+                                 ['x', 'u'], ['df_du']).expand()
+        self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], 
+                                 ['x'], ['dy_dx']).expand()
+
 
         # Create an integrator
         dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
-        opts = {'t0': 0, 'tf': ts}
+        if integrator == 'collocation':
+            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 1, 
+                    'simplify': True, 'collocation_scheme': 'radau',
+                    'rootfinder':'fast_newton','expand': True, 
+                    'interpolation_order': 3}
+        elif integrator == 'cvodes':
+            opts = {'t0': 0, 'tf': dt, 
+                    'nonlinear_solver_iteration': 'functional', 'expand': True,
+                    'fsens_err_con': False, 'quad_err_con': False,
+                    'linear_multistep_method': 'bdf'}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
         self.F = cs.Function('F', [x, u], [x_next])
@@ -411,7 +422,7 @@ def get_rest_configuration(qa, n_seg):
 
 
 if __name__ == "__main__":
-    # n_seg = 3
+    n_seg = 3
     # arm = FlexibleArm(n_seg)
     # q = np.zeros((arm.nq, 1))
     # R, p = arm.fk_ee(q)
@@ -419,8 +430,7 @@ if __name__ == "__main__":
 
     # # arm.visualize(q)
 
-    # sarm = SymbolicFlexibleArm(n_seg)
-    # print(sarm.p_ee(q))
+    sarm = SymbolicFlexibleArm3DOF(n_seg)
     # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
     # print(sarm)
 
