@@ -7,6 +7,7 @@ from numpy.random import multivariate_normal
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from integrator import RK4
 
+# Measurement noise covairance parameters
 R_Q = [3e-6]*3
 R_DQ = [5e-3]*3
 R_PEE = [5e-4]*3
@@ -18,8 +19,8 @@ class SimulatorOptions:
     """
     rtol: float = 1e-3
     atol: float = 1e-6
-    R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    # R: np.ndarray = np.zeros((9,9))
+    # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
+    R: np.ndarray = np.zeros((9,9))
     contr_input_states: str = 'real'
 
 
@@ -79,8 +80,7 @@ class Simulator:
                         'interpolation_order': 3}
             else:
                 opts = {'t0': 0, 'tf': dt, 'abstol':self.opts.atol, 'reltol':self.opts.rtol,
-                        'nonlinear_solver_iteration': 'functional', 'expand': True,
-                        'fsens_err_con': False, 'quad_err_con': False,
+                        'nonlinear_solver_iteration': 'newton', 'expand': True,
                         'linear_multistep_method': 'bdf'}
             I = cs.integrator('I', self.integrator, dae, opts)
             x_next = I(x0=self.robot.x, p=self.robot.u)["xf"]

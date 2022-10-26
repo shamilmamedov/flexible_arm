@@ -18,19 +18,19 @@ class Mpc3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_links: int):
-        self.n_links: int = n_links  # n_links corresponds to (n+1)*2 states
+    def __init__(self, n_seg: int, tf: float=3):
+        self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
         self.n: int = 100  # number of discretization points
-        self.tf: float = 3  # time horizon
+        self.tf: float = tf  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
-                                           [1] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                           [1] * (self.n_links + 1) + [0] * (self.n_links + 1))
+                                           [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1) + \
+                                           [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1))
         self.q_e_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
-                                             [1] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                             [1] * (self.n_links + 1) + [0] * (self.n_links + 1))
+                                             [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1) + \
+                                             [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1))
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1e-2, 1e-2, 1e-2])
@@ -49,7 +49,7 @@ class Mpc3Dof(BaseController):
                  x0_ee: np.ndarray,
                  options: Mpc3dofOptions):
 
-        self.u_max = 1e6
+        self.u_max = 150
         self.fa_model = model
         model = model.get_acados_model()
         self.model = model
@@ -62,8 +62,7 @@ class Mpc3Dof(BaseController):
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
-        # set model
-        ocp.model = model
+        ocp.model = model # set model
 
         # OCP parameter adjustment
         nx = model.x.size()[0]
@@ -150,6 +149,7 @@ class Mpc3Dof(BaseController):
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
+
         @param x_ref: States q and dq of the reference position
         @param p_ee_ref: Endefector reference position
         @param u_ref: Torques at endeffector position. Can be set to zero.
@@ -173,6 +173,7 @@ class Mpc3Dof(BaseController):
         Sets a reference point which will be transformed into a guiding trajectory and can be used alternatively to
         set_reference_point() method.
         The function precomputes a spline for joint positions with quintic polynoms.
+
         @param q_t0: Position states at time 0
         @param pee_tf: Endeffector reference state at final time tf
         @param tf: Final time tf
@@ -211,16 +212,16 @@ class Mpc3Dof(BaseController):
             q_ref_vec = self.inter_t2q(t_vec)
             dq_ref_vec = self.inter_t2dq(t_vec)
             pee_ref_vec = self.inter_pee(t_vec)
-            q_vec = np.hstack((q_ref_vec, dq_ref_vec))
+            x_vec = np.hstack((q_ref_vec, dq_ref_vec))
             u_ref = np.zeros((self.nu, 1))
 
             for stage in range(self.options.n):
-                yref = np.vstack((np.expand_dims(q_vec[stage, :], 1),
+                yref = np.vstack((np.expand_dims(x_vec[stage, :], 1),
                                   u_ref,
                                   np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
                 self.acados_ocp_solver.cost_set(stage, "yref", yref)
             stage = self.options.n
-            yref_e = np.vstack((np.expand_dims(q_vec[stage, :], 1), np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
+            yref_e = np.vstack((np.expand_dims(x_vec[stage, :], 1), np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
             self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
         # acados solve NLP

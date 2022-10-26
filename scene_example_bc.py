@@ -70,7 +70,7 @@ if __name__ == "__main__":
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
     # Create mpc options and controller
-    mpc_options = Mpc3dofOptions(n_links=n_seg_mpc)
+    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc)
     mpc_options.n = 30
     mpc_options.tf = 1
     mpc_options.r_diag *= 10

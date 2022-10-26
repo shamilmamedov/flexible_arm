@@ -208,6 +208,10 @@ class SymbolicFlexibleArm3DOF:
 
     def __init__(self, n_seg: int, integrator: str = 'collocation', dt: float = 0.001) -> None:
         """ Class constructor
+
+        :parameter n_seg: number of segments of a link
+        :parameter integrator: an integration scheme used to get discrete map
+        :parameter dt: integration step
         """
         # Sanity checks
         assert (n_seg in [0, 1, 2, 3, 5, 10])
@@ -219,7 +223,7 @@ class SymbolicFlexibleArm3DOF:
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
         self.urdf_path = os.path.join(model_folder, urdf_file)
 
-        # Number of joints, states and controls
+        # Dimensionality parameters
         self.nq = 1 + 2 * (n_seg + 1)
         self.nx = 2 * self.nq
         self.nu = 3
@@ -240,15 +244,20 @@ class SymbolicFlexibleArm3DOF:
             self.D2 = np.diag(flexibility_params['D2'])
             self.D3 = np.diag(flexibility_params['D3'])
 
+        # Load the forward dynamics alogirthm function ABA
+        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+
+        # Get function for the forward kinematics and velocities
+        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
+        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
         u = cs.MX.sym("u", self.nu)
         z = cs.MX.sym("z", self.nz)
         x = cs.vertcat(q, dq)
-
-        # Load the forward dynamics alogirthm function ABA
-        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        x_dot = cs.MX.sym('xdot', self.nx) # needed for acados
 
         if self.n_seg > 0:
             # Compute torques of passive joints due to joint flexibility
@@ -267,11 +276,7 @@ class SymbolicFlexibleArm3DOF:
         else:
             qa = q
             dqa = dq
-            tau = u
-
-        # Get function for the forward kinematics and velocities
-        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
-        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+            tau = u      
 
         # Accelerations and right-hand-side of the ODE
         ddq = casadi_aba(q, dq, tau)
@@ -283,9 +288,6 @@ class SymbolicFlexibleArm3DOF:
         drhs_dx = cs.jacobian(rhs, x)
         drhs_du = cs.jacobian(rhs, u)
         dh_dx = cs.jacobian(h, x)
-
-        # Symbolic variables for dot values (needed for acados)
-        x_dot = cs.MX.sym('xdot', self.nx)
 
         self.rhs_impl = self.p_ee(q)
         self.x = x
@@ -315,7 +317,6 @@ class SymbolicFlexibleArm3DOF:
         elif integrator == 'cvodes':
             opts = {'t0': 0, 'tf': dt, 
                     'nonlinear_solver_iteration': 'functional', 'expand': True,
-                    'fsens_err_con': False, 'quad_err_con': False,
                     'linear_multistep_method': 'bdf'}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
@@ -323,14 +324,23 @@ class SymbolicFlexibleArm3DOF:
         self.dF_dx = cs.Function('dF_dx', [x, u], [cs.jacobian(x_next, x)])
 
     def get_acados_model(self) -> AcadosModel:
+        """ Return an acados model later used in OCP
+        Implicit dynamics is extended with an algebraic state that
+        corresponds to the end-effector position (I guess it is needed
+        for tracking)
+        """
         model = AcadosModel()
-        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
-                                       self.z - self.rhs_impl)
-        model.f_expl_expr = self.rhs
         model.x = self.x
-        model.xdot = self.x_dot
         model.z = self.z
         model.u = self.u
+        model.xdot = self.x_dot
+
+        # CasADi expression for implicit dynamics
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
+        # CasADi expression for explicit dynamics
+        model.f_expl_expr = self.rhs
+        
         # model.p = w  # Not used right now
         model.name = "flexible_arm_nq" + str(self.nq)
 
@@ -338,20 +348,25 @@ class SymbolicFlexibleArm3DOF:
 
     def get_acados_model_safety(self):
         model = AcadosModel()
+        model.x = self.x
+        model.z = self.z
+        model.u = self.u
+        model.xdot = self.x_dot
+        # model.p = w  # Not used right now
+
         model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
                                        self.z - self.rhs_impl)
         model.f_expl_expr = self.rhs
-        model.x = self.x
-        model.xdot = self.x_dot
-        model.z = self.z
-        model.u = self.u
-        # model.p = w  # Not used right now
+        
         model.name = "flexible_arm_nq" + str(self.nq)
         constraint_expr = self.rhs_impl  # endeffector position
 
         return model, constraint_expr
 
     def output(self, x):
+        """ Return the output of the system for a given state.
+        Actually it wraps output map. It is needed for simulation API
+        """
         return np.array(self.h(x))
 
     def __str__(self) -> str:
@@ -418,7 +433,7 @@ def get_rest_configuration(qa, n_seg):
     q[list(idxs_a)] = qa
     q[list(idxs_p)] = qp_num 
 
-    return q
+    return q.reshape(-1,1)
 
 
 if __name__ == "__main__":
