@@ -4,9 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 import pinocchio as pin
+from scipy.linalg import block_diag
 from acados_template import AcadosModel
 
-from simulation import symbolic_RK4
+from integrator import symbolic_RK4
+from animation import Panda3dAnimator
+from copy import deepcopy
 
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 
@@ -26,9 +29,6 @@ class FlexibleArm3DOF:
         an urdf-file and flexibility parameters defined in a yaml file
 
         :parameter n_seg: number of segments for the flexible link
-
-        TODO:
-            1. Extend the model with flexibility in the first joint (SEA like model)
         """
         # Sanity checks
         assert (n_seg in [0, 1, 2, 3, 5, 10])
@@ -37,11 +37,11 @@ class FlexibleArm3DOF:
         model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
         urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
-        urdf_path = os.path.join(model_folder, urdf_file)
+        self.urdf_path = os.path.join(model_folder, urdf_file)
 
         # Try to load model from urdf file
         try:
-            self.model = pin.buildModelFromUrdf(urdf_path)
+            self.model = pin.buildModelFromUrdf(self.urdf_path)
         except ValueError:
             print(f"URDF file doesn't exist. Make sure path is correct!")
 
@@ -61,7 +61,7 @@ class FlexibleArm3DOF:
         self.nq = self.model.nq
         self.nu = 3
         self.ny = 9
-        self.n_seg = n_seg
+        self.qa_idx = [0, 1, 2 + n_seg] # indexes of the active joints
 
         # Process flexibility parameters
         if self.n_seg > 0:
@@ -78,9 +78,17 @@ class FlexibleArm3DOF:
             self.D3 = np.diag(flexibility_params['D3'])
 
     def random_q(self):
-        """ Returns a random configuration
+        """ Returns a random configuration for the active joints
+        and zero position for the passive joints
         """
-        return pin.randomConfiguration(self.model)
+        q = np.zeros(self.nq)
+        q[self.qa_idx] = pin.randomConfiguration(self.model)[self.qa_idx]
+        return q
+
+    def random_qa(self):
+        """ Returns a random configuration for active joints 
+        """
+        return pin.randomConfiguration(self.model)[self.qa_idx]
 
     def fk(self, q, frame_id):
         """ Computes forward kinematics for a given frame
@@ -99,7 +107,7 @@ class FlexibleArm3DOF:
     def fk_ee(self, q):
         """ Computes forward kinematics for EE frame in base frame
         """
-        return self.fk(q, self.ee_frame_id)
+        return deepcopy(self.fk(q, self.ee_frame_id))
 
     def frame_velocity(self, q, dq, frame_id):
         """ Computes end-effector velocity for a given frame
@@ -198,8 +206,12 @@ class SymbolicFlexibleArm3DOF:
             variable that should be provided during numerial integration.
     """
 
-    def __init__(self, n_seg: int, integrator: str = 'cvodes', ts: float = 0.001) -> None:
+    def __init__(self, n_seg: int, integrator: str = 'collocation', dt: float = 0.001) -> None:
         """ Class constructor
+
+        :parameter n_seg: number of segments of a link
+        :parameter integrator: an integration scheme used to get discrete map
+        :parameter dt: integration step
         """
         # Sanity checks
         assert (n_seg in [0, 1, 2, 3, 5, 10])
@@ -208,8 +220,10 @@ class SymbolicFlexibleArm3DOF:
         # Path to a folder with model description
         model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
+        urdf_file = 'flexible_arm_3dof_' + str(n_seg) + 's.urdf'
+        self.urdf_path = os.path.join(model_folder, urdf_file)
 
-        # Number of joints, states and controls
+        # Dimensionality parameters
         self.nq = 1 + 2 * (n_seg + 1)
         self.nx = 2 * self.nq
         self.nu = 3
@@ -230,15 +244,20 @@ class SymbolicFlexibleArm3DOF:
             self.D2 = np.diag(flexibility_params['D2'])
             self.D3 = np.diag(flexibility_params['D3'])
 
+        # Load the forward dynamics alogirthm function ABA
+        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+
+        # Get function for the forward kinematics and velocities
+        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
+        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
         u = cs.MX.sym("u", self.nu)
         z = cs.MX.sym("z", self.nz)
         x = cs.vertcat(q, dq)
-
-        # Load the forward dynamics alogirthm function ABA
-        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        x_dot = cs.MX.sym('xdot', self.nx) # needed for acados
 
         if self.n_seg > 0:
             # Compute torques of passive joints due to joint flexibility
@@ -255,11 +274,9 @@ class SymbolicFlexibleArm3DOF:
             taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
             tau = cs.vertcat(u[:2], taup_link2, u[2], taup_link3)
         else:
-            tau = u
-
-        # Get function for the forward kinematics and velocities
-        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
-        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+            qa = q
+            dqa = dq
+            tau = u      
 
         # Accelerations and right-hand-side of the ODE
         ddq = casadi_aba(q, dq, tau)
@@ -272,9 +289,6 @@ class SymbolicFlexibleArm3DOF:
         drhs_du = cs.jacobian(rhs, u)
         dh_dx = cs.jacobian(h, x)
 
-        # Symbolic variables for dot values (needed for acados)
-        x_dot = cs.MX.sym('xdot', self.nx)
-
         self.rhs_impl = self.p_ee(q)
         self.x = x
         self.x_dot = x_dot
@@ -282,32 +296,51 @@ class SymbolicFlexibleArm3DOF:
         self.z = z
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
-                               ['x', 'u'], ['dx'])
-        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
+                               ['x', 'u'], ['dx']).expand()
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h']).expand()
 
-        self.df_dx = cs.Function('df_dx', [self.x, self.u], [
-            drhs_dx], ['x', 'u'], ['df_dx'])
-        self.df_du = cs.Function('df_du', [self.x, self.u], [
-            drhs_du], ['x', 'u'], ['df_du'])
-        self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], ['x'], ['dy_dx'])
+        self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
+                                 ['x', 'u'], ['df_dx']).expand()
+        self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
+                                 ['x', 'u'], ['df_du']).expand()
+        self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], 
+                                 ['x'], ['dy_dx']).expand()
+
 
         # Create an integrator
         dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
-        opts = {'t0': 0, 'tf': ts}
+        if integrator == 'collocation':
+            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 1, 
+                    'simplify': True, 'collocation_scheme': 'radau',
+                    'rootfinder':'fast_newton','expand': True, 
+                    'interpolation_order': 3}
+        elif integrator == 'cvodes':
+            opts = {'t0': 0, 'tf': dt, 
+                    'nonlinear_solver_iteration': 'functional', 'expand': True,
+                    'linear_multistep_method': 'bdf'}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
         self.F = cs.Function('F', [x, u], [x_next])
         self.dF_dx = cs.Function('dF_dx', [x, u], [cs.jacobian(x_next, x)])
 
     def get_acados_model(self) -> AcadosModel:
+        """ Return an acados model later used in OCP
+        Implicit dynamics is extended with an algebraic state that
+        corresponds to the end-effector position (I guess it is needed
+        for tracking)
+        """
         model = AcadosModel()
-        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
-                                       self.z - self.rhs_impl)
-        model.f_expl_expr = self.rhs
         model.x = self.x
-        model.xdot = self.x_dot
         model.z = self.z
         model.u = self.u
+        model.xdot = self.x_dot
+
+        # CasADi expression for implicit dynamics
+        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+                                       self.z - self.rhs_impl)
+        # CasADi expression for explicit dynamics
+        model.f_expl_expr = self.rhs
+        
         # model.p = w  # Not used right now
         model.name = "flexible_arm_nq" + str(self.nq)
 
@@ -315,25 +348,96 @@ class SymbolicFlexibleArm3DOF:
 
     def get_acados_model_safety(self):
         model = AcadosModel()
+        model.x = self.x
+        model.z = self.z
+        model.u = self.u
+        model.xdot = self.x_dot
+        # model.p = w  # Not used right now
+
         model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
                                        self.z - self.rhs_impl)
         model.f_expl_expr = self.rhs
-        model.x = self.x
-        model.xdot = self.x_dot
-        model.z = self.z
-        model.u = self.u
-        # model.p = w  # Not used right now
+        
         model.name = "flexible_arm_nq" + str(self.nq)
         constraint_expr = self.rhs_impl  # endeffector position
 
         return model, constraint_expr
 
+    def output(self, x):
+        """ Return the output of the system for a given state.
+        Actually it wraps output map. It is needed for simulation API
+        """
+        return np.array(self.h(x))
+
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
 
 
+def get_rest_configuration(qa, n_seg):
+    """ Computes the rest configuration of the robot based on 
+    rest configuration of the active joints. (It assumes that actuators
+    provide enough torque to keep the active joints at a desired position; 
+    the goal is to compute rest positions of the passive joints)
+
+    :parameter qa: configration of the active joints
+    :parameter n_seg: number of segments
+    """
+    if n_seg == 0:
+        return qa
+
+    # Path to a folder with model description
+    model_folder = 'models/three_dof/' + \
+                    n_seg_int2str[n_seg] + '_segments/'
+
+    # Load RNEA function
+    rnea = cs.Function.load(model_folder + 'rnea.casadi')
+
+    # Number of joints
+    nq = 3 + 2*n_seg
+    idxs = set(np.arange(0, nq))
+    idxs_a = {0, 1, 2 + n_seg}
+    idxs_p = idxs.difference(idxs_a)
+
+    # Casadi symbolic variables for passive joints
+    qp_link1 = cs.SX.sym('qp_l1', n_seg)
+    qp_link2 = cs.SX.sym('qp_l2', n_seg)
+    qp = cs.vertcat(qp_link1, qp_link2)
+    q = cs.vertcat(qa[:2], qp_link1, qa[2], qp_link2)
+    dq = cs.SX.zeros(nq)
+    ddq = cs.SX.zeros(nq)
+
+    # Get expression and function for gravity vector
+    g_expr = rnea(q, dq, ddq)
+    g_expr_p = g_expr[list(idxs_p)]
+
+    # Load stiffness parameters
+    params_file = 'flexibility_params.yml'
+    params_path = os.path.join(model_folder, params_file)
+
+    with open(params_path) as f:
+        flexibility_params = yaml.safe_load(f)
+
+    K2 = np.diag(flexibility_params['K2'])
+    K3 = np.diag(flexibility_params['K3'])
+    K = block_diag(K2, K3)
+
+    # Create a function for computing rest positions
+    f = cs.Function('f', [qp], [g_expr_p + K @ qp])
+
+    # Create a root finder
+    F = cs.rootfinder('F', 'newton', f)
+    qp_num = np.array(F(np.zeros(2*n_seg))).squeeze()
+
+    # Form a vector of joint angles
+    q = np.zeros(nq)
+    q[list(idxs_a)] = qa
+    q[list(idxs_p)] = qp_num 
+
+    return q.reshape(-1,1)
+
+
 if __name__ == "__main__":
-    # n_seg = 3
+    n_seg = 3
     # arm = FlexibleArm(n_seg)
     # q = np.zeros((arm.nq, 1))
     # R, p = arm.fk_ee(q)
@@ -341,7 +445,23 @@ if __name__ == "__main__":
 
     # # arm.visualize(q)
 
-    # sarm = SymbolicFlexibleArm(n_seg)
-    # print(sarm.p_ee(q))
-    sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
-    print(sarm)
+    sarm = SymbolicFlexibleArm3DOF(n_seg)
+    # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
+    # print(sarm)
+
+    n_seg = 10
+    model_folder = 'models/three_dof/' + \
+                       n_seg_int2str[n_seg] + '_segments/'
+    urdf_path = os.path.join(model_folder, 
+                'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
+
+    # qa = np.random.randn(3)
+    # qa = np.array([0, np.pi/2, 0])
+    qa = np.zeros(3)
+    q = get_rest_configuration(qa, n_seg)
+
+    q = np.repeat(q.reshape(1,-1), 50, axis=0)
+    
+
+    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+

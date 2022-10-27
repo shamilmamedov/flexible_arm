@@ -1,17 +1,20 @@
 import os
+import time
 from matplotlib import pyplot as plt
 import numpy as np
 import casadi as cs
 import pinocchio as pin
 import pandas as pd
 
-from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
+                               get_rest_configuration)
 from estimator import ExtendedKalmanFilter
 from simulation import Simulator
 from controller import DummyController, PDController3Dof, FeedforwardController
 
-n_segs = [2, 3, 5, 10]
-n_seg_int2str = {2: 'two', 3: 'three', 5: 'five', 10: 'ten'}
+
+n_segs = [0, 1, 2, 3, 5, 10]
+n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
 robot_folder = 'models/three_dof/'
 
 
@@ -145,8 +148,10 @@ def test_SymbolicFlexibleArm():
 
 
 def test_EKF():
+    """ Test Extended Kalman Filter implementation
+    """
     # Create a model of the robot
-    est_model = SymbolicFlexibleArm3DOF(3)
+    est_model = SymbolicFlexibleArm3DOF(3, integrator='collocation')
 
     # Initial state
     q = np.zeros((est_model.nq, 1))
@@ -170,9 +175,44 @@ def test_EKF():
     delta_x = np.vstack((delta_q, delta_dq))
     y = sim_model.output(x0 + delta_x)
 
-    # Update the estimate of the state
-    x_hat = E.estimate(y)
-    # print(x_hat)
+    # Update the estimate of the state in the beginning when
+    # there is no input yet
+    n_iter = 100
+    t0 = time.time()
+    for _ in range(n_iter):
+        x_hat = E.estimate(y)
+    tf = time.time()
+    print(f"Average update time: {1000*(tf-t0)/n_iter:.4f} ms")
+
+    u = np.zeros((3,1))
+    t0 = time.time()
+    for _ in range(n_iter):
+        x_hat = E.estimate(y, u)
+    tf = time.time()
+    print(f"Average predict-update time: {1000*(tf-t0)/n_iter:.4f} ms")
+
+
+
+def test_rest_configuration_computation():
+    """ Test a function for computing the rest position from active
+    joint configurations
+    """
+    for n_seg in n_segs:
+        nq = 3 + 2*n_seg
+        idxs = set(np.arange(0, nq))
+        idxs_a = {0, 1, 2 + n_seg}
+        idxs_p = idxs.difference(idxs_a)
+
+        # Tests that when there is no gravity then the deformations
+        # of the passive joints are zero
+        if n_seg > 0:
+            qa = np.array([0, np.pi/2, 0])
+            q = get_rest_configuration(qa, n_seg)
+            qp = q[list(idxs_p)]
+            np.testing.assert_array_equal(qp, np.zeros(2*n_seg))
+
+        qa = np.random.randn(3)
+        q = get_rest_configuration(qa, n_seg)
 
 
 def compare_different_discretization():
@@ -207,9 +247,6 @@ def compare_different_discretization():
     # controller = DummyController()
     Kp = (40, 30, 25)
     Kd = (1.5, 0.25, 0.25)
-    # C = [PDController3Dof(Kp, Kd, n_seg, q_ref)
-    #      for n_seg, q_ref in zip(n_segs, Q_ref)]
-    # C = [DummyController(3) for _ in n_segs]
 
     # Controller for the rigid body approximation
     C_0s = PDController3Dof(Kp, Kd, n_segs[0], Q_ref[0])
@@ -299,6 +336,144 @@ def compare_different_discretization():
     plt.tight_layout()
 
     plt.show()
+ 
+
+def compare_discretized_num_sym_models():
+    # Simulation parametes
+    ts = 0.001
+    n_iter = 100
+
+    # Models
+    n_seg = 3
+    model_num = FlexibleArm3DOF(n_seg)
+    model_sym = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+
+    # Initial states
+    q = np.zeros((model_num.nq, 1)) 
+    dq = np.zeros((model_num.nq, 1)) 
+    x0 = np.vstack((q, dq)) 
+
+    # Reference; the same for all models but because of
+    q_ref = np.zeros((model_num.nq, 1)) 
+    q_ref[:2, 0] += [1., 0.5]
+    q_ref[1 + n_seg + 1] += 1
+
+    # Estimator
+    E = None
+
+    # Controller
+    Kp = (40, 30, 25)
+    Kd = (1.5, 0.25, 0.25)
+    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+
+    # Simulators
+    integrator = 'LSODA'
+    S_sym = Simulator(model_sym, C, integrator, E)
+    S_num = Simulator(model_num, C, integrator, E)
+
+    # Simulate the rigid body approxmiation
+    x_sym, u_sym, y_sym, _ = S_sym.simulate(x0.flatten(), ts, n_iter)
+    x_num, u_num, y_num, _ = S_num.simulate(x0.flatten(), ts, n_iter)
+    t = np.arange(0, n_iter + 1) * ts
+
+    # Some tests and sanity checks
+    np.testing.assert_array_almost_equal(y_sym, y_num, decimal=8)
+
+    # Plot outputs
+    y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
+              r'$\mathrm{ee}_z$ [m]']
+    legends = ['sym', 'num']
+    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
+    for k, ax in enumerate(axs.reshape(-1)):
+        ax.plot(t, y_sym[:, 6+k], label=legends[0])
+        ax.plot(t, y_num[:, 6+k], label=legends[1])
+        ax.set_ylabel(y_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.legend()
+    ax.set_xlabel('t [s]')
+    plt.tight_layout()
+    plt.show()
+
+
+def compare_different_integrators():
+    # Simulation parametes
+    ts = 0.001
+    n_iter = 100
+
+    # Models
+    n_seg = 10
+    model = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+
+    # Initial states
+    q = np.zeros((model.nq, 1)) 
+    dq = np.zeros((model.nq, 1)) 
+    x0 = np.vstack((q, dq)) 
+
+    # Reference; the same for all models but because of
+    q_ref = np.zeros((model.nq, 1)) 
+    q_ref[:2, 0] += [1., 0.5]
+    q_ref[1 + n_seg + 1] += 1
+
+    # Estimator
+    E = None
+
+    # Controller
+    Kp = (40, 30, 25)
+    Kd = (1.5, 0.25, 0.25)
+    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+
+    # Simulators
+    intg1 = 'LSODA'
+    intg2 = 'RK45'
+    intg3 = 'collocation'
+    intg4 = 'cvodes'
+
+    S1 = Simulator(model, C, intg1, E)
+    S2 = Simulator(model, C, intg2, E)
+    S3 = Simulator(model, C, intg3, E)
+    S4 = Simulator(model, C, intg4, E)
+
+    # Simulate the rigid body approxmiation
+    t0_LSODA = time.time()
+    x1, u1, y1, _ = S1.simulate(x0.flatten(), ts, n_iter)
+    tf_LSODA = time.time()
+
+    t0_RK45 = time.time()
+    x2, u2, y2, _ = S2.simulate(x0.flatten(), ts, n_iter)
+    tf_RK45 = time.time()
+
+    t0_clc = time.time()
+    x3, u3, y3, _ = S3.simulate(x0.flatten(), ts, n_iter)
+    tf_clc = time.time()
+
+    t0_cvd = time.time()
+    x4, u4, y4, _ = S4.simulate(x0.flatten(), ts, n_iter)
+    tf_cvd = time.time()
+    
+    t = np.arange(0, n_iter + 1) * ts
+
+    print('Execution time LSODA:', tf_LSODA-t0_LSODA)
+    print('Execution time RK45:', tf_RK45-t0_RK45)
+    print('Execution time collocation:', tf_clc-t0_clc)
+    print('Execution time cvodes:', tf_cvd-t0_cvd)
+
+    # Plot outputs
+    y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
+              r'$\mathrm{ee}_z$ [m]']
+    legends = ['LSODA', 'RK45', 'collocation', 'cvodes']
+    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
+    for k, ax in enumerate(axs.reshape(-1)):
+        ax.plot(t, y1[:, 6+k], label=legends[0])
+        ax.plot(t, y2[:, 6+k], label=legends[1])
+        ax.plot(t, y3[:, 6+k], label=legends[2])
+        ax.plot(t, y4[:, 6+k], label=legends[3])
+        ax.set_ylabel(y_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.legend()
+    ax.set_xlabel('t [s]')
+    plt.tight_layout()
+    plt.show()
+
 
 
 if __name__ == "__main__":
@@ -308,4 +483,7 @@ if __name__ == "__main__":
     test_casadi_vee()
     test_SymbolicFlexibleArm()
     test_EKF()
-    compare_different_discretization()
+    test_rest_configuration_computation()
+    # compare_different_discretization()
+    # compare_discretized_num_sym_models()
+    # compare_different_integrators()

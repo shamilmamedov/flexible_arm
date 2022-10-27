@@ -1,0 +1,2 @@
+_target_: imitation.nets.ObservationNet
+hidden_dims: [64, 64, 64]

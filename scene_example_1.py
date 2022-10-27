@@ -1,21 +1,21 @@
+#!/usr/bin/env python3
 from copy import deepcopy
 import numpy as np
 import pinocchio as pin
 
 from estimator import ExtendedKalmanFilter
 from utils import plot_result, print_timings, ControlMode
-from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
-                               get_rest_configuration)
+from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 from animation import Panda3dAnimator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from simulation import Simulator, SimulatorOptions
+from simulation import Simulator
 
 if __name__ == "__main__":
     # options
     control_mode = ControlMode.REFERENCE_TRACKING
 
-    # Create FlexibleArm instances
-    n_seg = 10
+    # Create FlexibleArm instance
+    n_seg = 3
     n_seg_mpc = 3
 
     fa_ld = FlexibleArm3DOF(n_seg_mpc)
@@ -25,16 +25,27 @@ if __name__ == "__main__":
 
     # Sample a random configuration
     q = pin.randomConfiguration(fa_hd.model)
+    # fa.visualize(q)
 
     # Create initial state simulated system
-    qa0 = np.array([0.1, 1.5, 0.5])
-    q0 = get_rest_configuration(qa0, n_seg)
+    angle0_0 = 0.
+    angle0_1 = 0
+    angle0_2 = np.pi/20
+
+    q0 = np.zeros((fa_hd.nq, 1))
+    q0[0] += angle0_0
+    q0[1] += angle0_1
+    q0[1 + n_seg + 1] += angle0_2
+
     dq0 = np.zeros_like(q0)
     x0 = np.vstack((q0, dq0))
 
     # MPC has other model states
-    qa0_mpc = np.array([0.5, 1.5, 0.5])
-    q0_mpc = get_rest_configuration(qa0_mpc, n_seg_mpc)
+    q0_mpc = np.zeros((fa_ld.nq, 1))
+    q0_mpc[0] += angle0_0
+    q0_mpc[1] += angle0_1
+    q0_mpc[1 + n_seg_mpc + 1] += angle0_2
+
     dq0_mpc = np.zeros_like(q0_mpc)
     x0_mpc = np.vstack((q0_mpc, dq0_mpc))
 
@@ -45,16 +56,19 @@ if __name__ == "__main__":
     _, qee0 = fa_ld.fk_ee(q0_mpc)
 
     # Compute reference
-    qa_mpc_ref = deepcopy(qa0_mpc)
-    qa_mpc_ref += np.array([1.5, 0.5, 1.5])
-    q_mpc_ref = get_rest_configuration(qa_mpc_ref, n_seg_mpc)
+    q_mpc_ref = deepcopy(q_mpc0)
+    q_mpc_ref[0] += np.pi/2
+    q_mpc_ref[1] += 0
+    q_mpc_ref[1 + n_seg_mpc + 1] += -np.pi/20
 
     dq_mpc_ref = np.zeros_like(q_mpc_ref)
     x_mpc_ref = np.vstack((q_mpc_ref, dq_mpc_ref))
     _, x_ee_ref = fa_ld.fk_ee(q_mpc_ref)
 
     # Create mpc options and controller
-    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=2)
+    mpc_options = Mpc3dofOptions(n_links=n_seg_mpc)
+    mpc_options.n = 30
+    mpc_options.tf = 1
     controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
@@ -62,16 +76,15 @@ if __name__ == "__main__":
     if control_mode == ControlMode.SET_POINT:
         controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_mpc_ref, u_ref=u_ref)
     elif control_mode == ControlMode.REFERENCE_TRACKING:
-        controller.set_reference_trajectory(q_t0=q_mpc0, pee_tf=x_ee_ref, 
-                                            tf=5, fun_forward_pee=fa_ld.fk_ee)
+        controller.set_reference_trajectory(q_t0=q_mpc0, pee_tf=x_ee_ref, tf=5, fun_forward_pee=fa_ld.fk_ee)
     else:
-        raise ValueError
+        Exception()
 
     # Sampling time
-    dt = 0.02
+    ts = 0.05
 
     # Estimator
-    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=dt, integrator='cvodes')
+    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, ts=ts)
     P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
     q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
@@ -80,10 +93,9 @@ if __name__ == "__main__":
     E = ExtendedKalmanFilter(est_model, x0_mpc, P0, Q, R)
 
     # simulate
-    n_iter = 200
-    sim_opts = SimulatorOptions(contr_input_states='estimated')
-    sim = Simulator(fa_sym_hd, controller, 'cvodes', E, opts=sim_opts)
-    x, u, y, xhat = sim.simulate(x0.flatten(), dt, n_iter)
+    n_iter = 120
+    sim = Simulator(fa_hd, controller, 'RK45', E)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
 
     # Print timing
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
@@ -94,7 +106,8 @@ if __name__ == "__main__":
 
     # Parse joint positions
     n_skip = 1
-    q = x[::n_skip, :fa_sym_hd.nq]
+    q = x[::n_skip, :fa_hd.nq]
 
     # Animate simulated motion
-    animator = Panda3dAnimator(fa_sym_hd.urdf_path, dt*n_skip, q).play(3)
+    urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
+    animator = Panda3dAnimator(urdf_path, ts*n_skip, q).play(30)
