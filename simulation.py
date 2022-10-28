@@ -10,7 +10,7 @@ from integrator import RK4
 # Measurement noise covairance parameters
 R_Q = [3e-6]*3
 R_DQ = [5e-3]*3
-R_PEE = [5e-4]*3
+R_PEE = [1e-4]*3
 
 @dataclass
 class SimulatorOptions:
@@ -19,8 +19,8 @@ class SimulatorOptions:
     """
     rtol: float = 1e-3
     atol: float = 1e-6
-    # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    R: np.ndarray = np.zeros((9,9))
+    R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
+    # R: np.ndarray = np.zeros((9,9))
     contr_input_states: str = 'real'
 
 

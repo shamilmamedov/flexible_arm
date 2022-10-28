@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from copy import deepcopy
 import numpy as np
 import pinocchio as pin

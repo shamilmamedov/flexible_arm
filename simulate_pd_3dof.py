@@ -112,7 +112,7 @@ def plot_real_states_vs_estimate(t, x, x_hat, n_seg: int):
 if __name__ == "__main__":
     # Simulation parametes
     dt = 0.001
-    n_iter = 600
+    n_iter = 800
 
     # Create FlexibleArm instance
     n_seg = 3
@@ -149,9 +149,9 @@ if __name__ == "__main__":
                          n_seg=n_seg_est, q_ref=q_ref)
 
     # Simulate
-    opts = SimulatorOptions(contr_input_states='estimated')
+    opts = SimulatorOptions(contr_input_states='real') # 'real', 'estimated'
     integrator = 'cvodes'
-    sim = Simulator(fa, C, integrator, E, opts)
+    sim = Simulator(fa, C, integrator, None, opts)
     x, u, y, x_hat = sim.simulate(x0.flatten(), dt, n_iter)
     t = np.arange(0, n_iter + 1) * dt
 
@@ -162,9 +162,9 @@ if __name__ == "__main__":
     # plot_real_states_vs_estimate(t, x, x_hat)
     # plot_joint_positions(t[::10], q, n_seg, q_ref)
     # plot_controls(t[:-1], u)
-    plot_real_states_vs_estimate(t, x, x_hat, n_seg)
+    # plot_real_states_vs_estimate(t, x, x_hat, n_seg)
     # plot_joint_positions(t[::n_skip], q, n_seg, q_ref)
-    # plot_output_measurements(t, y)
+    plot_output_measurements(t, y)
 
     # Animate simulated motion
     animator = Panda3dAnimator(fa.urdf_path, 0.01, q).play(3)

@@ -49,7 +49,7 @@ class Mpc3Dof(BaseController):
                  x0_ee: np.ndarray,
                  options: Mpc3dofOptions):
 
-        self.u_max = 150
+        self.u_max = np.array([100, 50, 50])
         self.fa_model = model
         model = model.get_acados_model()
         self.model = model
@@ -118,11 +118,9 @@ class Mpc3Dof(BaseController):
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
         # set constraints
-        umax = self.u_max * np.ones((nu,))
-
         ocp.constraints.constr_type = 'BGH'
-        ocp.constraints.lbu = -umax
-        ocp.constraints.ubu = umax
+        ocp.constraints.lbu = -self.u_max
+        ocp.constraints.ubu = self.u_max
         ocp.constraints.x0 = x0.reshape((nx,))
         ocp.constraints.idxbu = np.array(range(nu))
 
