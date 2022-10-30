@@ -9,7 +9,7 @@ def plot_controls(t: np.ndarray, u: np.ndarray):
     for k, ax in enumerate(axs.reshape(-1)):
         ax.plot(t, u[:,k])
         ax.set_ylabel(u_lbls[k])
-        ax.grid()
+        ax.grid(alpha=0.5)
     axs[2].set_xlabel('t [s]')
     plt.tight_layout()
     plt.show()
@@ -26,7 +26,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray):
     for k, ax in enumerate(axs_q.reshape(-1)):
         ax.plot(t, qa[:,k])
         ax.set_ylabel(qa_lbls[k])
-        ax.grid()
+        ax.grid(alpha=0.5)
     axs_q[2].set_xlabel('t [s]')
     plt.tight_layout()
 
@@ -35,7 +35,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray):
     for k, ax in enumerate(axs_dq.reshape(-1)):
         ax.plot(t, dqa[:,k])
         ax.set_ylabel(dqa_lbls[k])
-        ax.grid()
+        ax.grid(alpha=0.5)
     plt.tight_layout()
 
     pee_lbls = ['pee_x [m]', 'pee_y [m]', 'pee_z [m]']
@@ -43,7 +43,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray):
     for k, ax in enumerate(axs_pee.reshape(-1)):
         ax.plot(t, pee[:,k])
         ax.set_ylabel(pee_lbls[k])
-        ax.grid()
+        ax.grid(alpha=0.5)
     plt.tight_layout()
 
     plt.show()

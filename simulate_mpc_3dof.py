@@ -49,7 +49,6 @@ if __name__ == "__main__":
     qa_mpc_ref = deepcopy(qa0_mpc)
     qa_mpc_ref += np.array([1.5, 0.5, 1.5])
     q_mpc_ref = get_rest_configuration(qa_mpc_ref, n_seg_mpc)
-
     dq_mpc_ref = np.zeros_like(q_mpc_ref)
     x_mpc_ref = np.vstack((q_mpc_ref, dq_mpc_ref))
     _, x_ee_ref = fa_ld.fk_ee(q_mpc_ref)

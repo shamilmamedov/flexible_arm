@@ -11,6 +11,11 @@ from poly5_planner import initial_guess_for_active_joints, get_reference_for_all
 if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
+Q_QA = 1 # penalty on active joints positions
+Q_QP = 0.1 # penalty on passive joints positions
+Q_DQA = 0.1 # penalty on active joints velocities
+Q_DQP = 0.001 # penalty on passive joints velocities
+Q_DQA_E = 1 # penalty on terminal active joints velocities
 
 @dataclass
 class Mpc3dofOptions:
@@ -25,18 +30,34 @@ class Mpc3dofOptions:
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
 
         # States are ordered for each link
-        self.q_diag: np.ndarray = np.array([1] * (1) +
-                                           [1] * (1) +
-                                           [1] * (self.n_seg + 1) +
-                                           [3] + [1] * (self.n_seg) + \
-                                           [1] * (self.n_seg + 1) +
-                                           [3] + [1] * (self.n_seg))
-        self.q_e_diag: np.ndarray = np.array([1] * (1) +
-                                             [10] * (1) + \
-                                             [1] * (self.n_seg + 1) +
-                                             [10] * (self.n_seg + 1) + \
-                                             [1] * (self.n_seg + 1) +
-                                             [10] * (self.n_seg + 1))
+        # self.q_diag: np.ndarray = np.array([1] * (1) +
+        #                                    [1] * (1) +
+        #                                    [1] * (self.n_seg + 1) +
+        #                                    [3] + [1] * (self.n_seg) + \
+        #                                    [1] * (self.n_seg + 1) +
+        #                                    [3] + [1] * (self.n_seg))
+        self.q_diag: np.ndarray = np.array([Q_QA] * (2) + # qa1 and qa2
+                                           [Q_QP] * (self.n_seg) + # qp 1st link
+                                           [Q_QA] * (1) + # qa3
+                                           [Q_QP] * (self.n_seg) + # qp 2nd link
+                                           [Q_DQA] * (2) + # dqa1 and dqa2
+                                           [Q_DQP] * (self.n_seg) + # dqp 1st link
+                                           [Q_DQA] * (1) + # dqa3
+                                           [Q_DQP] * (self.n_seg)) # dqp 2nd link
+        # self.q_e_diag: np.ndarray = np.array([1] * (1) +
+        #                                      [10] * (1) + \
+        #                                      [1] * (self.n_seg + 1) +
+        #                                      [10] * (self.n_seg + 1) + \
+        #                                      [1] * (self.n_seg + 1) +
+        #                                      [10] * (self.n_seg + 1))
+        self.q_e_diag: np.ndarray = np.array([Q_QA] * (2) + # qa1 and qa2
+                                             [Q_QP] * (self.n_seg) + # qp 1st link
+                                             [Q_QA] * (1) + # qa3
+                                             [Q_QP] * (self.n_seg) + # qp 2nd link
+                                             [Q_DQA_E] * (2) + # dqa1 and dqa2
+                                             [Q_DQP] * (self.n_seg) + # dqp 1st link
+                                             [Q_DQA_E] * (1) + # dqa3
+                                             [Q_DQP] * (self.n_seg)) # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e-1])
