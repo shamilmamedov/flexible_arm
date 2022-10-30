@@ -66,7 +66,7 @@ if __name__ == "__main__":
     _, x_ee_ref = fa_ld.fk_ee(q_mpc_ref)
 
     # Create mpc options and controller
-    mpc_options = Mpc3dofOptions(n_links=n_seg_mpc)
+    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc)
     mpc_options.n = 30
     mpc_options.tf = 1
     controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     ts = 0.05
 
     # Estimator
-    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, ts=ts)
+    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=ts)
     P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
     q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])

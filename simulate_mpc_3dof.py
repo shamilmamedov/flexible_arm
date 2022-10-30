@@ -90,7 +90,7 @@ if __name__ == "__main__":
     print_timings(t_mean, t_std, t_min, t_max)
 
     # Plot result
-    # plot_result(x=x, u=u, t=np.arange(0, (n_iter + 1) * ts, ts))
+    #plot_result(x=x, u=u, t=np.arange(0, (n_iter+1) * dt, dt))
 
     # Parse joint positions
     n_skip = 1

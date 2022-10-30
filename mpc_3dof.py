@@ -22,15 +22,21 @@ class Mpc3dofOptions:
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
         self.n: int = 100  # number of discretization points
         self.tf: float = tf  # time horizon
-        self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
+        self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
 
         # States are ordered for each link
-        self.q_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
-                                           [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1) + \
-                                           [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1))
-        self.q_e_diag: np.ndarray = np.array([1] * (1) + [0] * (1) + \
-                                             [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1) + \
-                                             [1] * (self.n_seg + 1) + [0] * (self.n_seg + 1))
+        self.q_diag: np.ndarray = np.array([1] * (1) +
+                                           [10] * (1) +
+                                           [1] * (self.n_seg + 1) +
+                                           [10] * (self.n_seg + 1) + \
+                                           [1] * (self.n_seg + 1) +
+                                           [10] * (self.n_seg + 1))
+        self.q_e_diag: np.ndarray = np.array([1] * (1) +
+                                             [10] * (1) + \
+                                             [1] * (self.n_seg + 1) +
+                                             [10] * (self.n_seg + 1) + \
+                                             [1] * (self.n_seg + 1) +
+                                             [10] * (self.n_seg + 1))
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1e-2, 1e-2, 1e-2])
@@ -231,7 +237,7 @@ class Mpc3Dof(BaseController):
         self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot")[0])
 
         # Check for errors in acados
-        if status != 0:
+        if status != 0 and status != 2:
             raise Exception('acados returned status {} in time step {}. Exiting.'.format(status,
                                                                                          self.iteration_counter))
         self.iteration_counter += 1

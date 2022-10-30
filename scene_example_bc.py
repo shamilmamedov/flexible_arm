@@ -91,7 +91,7 @@ if __name__ == "__main__":
     ts = 0.05
 
     # Estimator
-    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, ts=ts)
+    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc,  dt=ts)
     P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
     q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
