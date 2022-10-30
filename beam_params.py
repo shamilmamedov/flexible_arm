@@ -88,7 +88,7 @@ if __name__ == "__main__":
     d = 2*zeta*wn
 
     # Consider 5 segments
-    n_seg = 10
+    n_seg = 0
     if n_seg > 0:
         # Get the length of the primary-divison and the mass. These 
         # parameters are used for computing stiffness and damping parameters

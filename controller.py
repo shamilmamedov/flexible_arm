@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from typing import List, Tuple
 from stable_baselines3.ppo import MlpPolicy
 import numpy as np
@@ -147,7 +146,8 @@ class NNController(BaseController):
         # create dummy environment to get observation and action spaces
         env = FlexibleArmEnv(n_seg=n_seg, dt=0.05, q0=np.array([0]), xee_final=None)
         # load trained policy. need a dummy policy.
-        learned_policy = MlpPolicy(observation_space=env.observation_space, action_space=env.action_space,
+        learned_policy = MlpPolicy(observation_space=env.observation_space, 
+                                   action_space=env.action_space,
                                    lr_schedule=lambda x: 1)
         self.learned_policy = learned_policy.load(nn_file)
         self.n_seg = n_seg

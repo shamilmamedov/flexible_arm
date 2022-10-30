@@ -9,10 +9,11 @@ from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
 from animation import Panda3dAnimator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from simulation import Simulator, SimulatorOptions
+import plotting
 
 if __name__ == "__main__":
     # options
-    control_mode = ControlMode.REFERENCE_TRACKING
+    control_mode = ControlMode.SET_POINT
 
     # Create FlexibleArm instances
     n_seg = 10
@@ -84,6 +85,7 @@ if __name__ == "__main__":
     sim_opts = SimulatorOptions(contr_input_states='estimated')
     sim = Simulator(fa_sym_hd, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), dt, n_iter)
+    t = np.arange(0, n_iter + 1) * dt
 
     # Print timing
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
@@ -95,6 +97,10 @@ if __name__ == "__main__":
     # Parse joint positions
     n_skip = 1
     q = x[::n_skip, :fa_sym_hd.nq]
+
+    # Visualization
+    plotting.plot_controls(t[:-1], u)
+    plotting.plot_measurements(t, y)
 
     # Animate simulated motion
     animator = Panda3dAnimator(fa_sym_hd.urdf_path, dt*n_skip, q).play(3)
