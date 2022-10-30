@@ -18,7 +18,7 @@ class Mpc3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_seg: int, tf: float=3):
+    def __init__(self, n_seg: int, tf: float = 2):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
         self.n: int = 100  # number of discretization points
         self.tf: float = tf  # time horizon
@@ -26,11 +26,11 @@ class Mpc3dofOptions:
 
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array([1] * (1) +
-                                           [10] * (1) +
+                                           [1] * (1) +
                                            [1] * (self.n_seg + 1) +
-                                           [10] * (self.n_seg + 1) + \
+                                           [3] + [1] * (self.n_seg) + \
                                            [1] * (self.n_seg + 1) +
-                                           [10] * (self.n_seg + 1))
+                                           [3] + [1] * (self.n_seg))
         self.q_e_diag: np.ndarray = np.array([1] * (1) +
                                              [10] * (1) + \
                                              [1] * (self.n_seg + 1) +
@@ -39,7 +39,7 @@ class Mpc3dofOptions:
                                              [10] * (self.n_seg + 1))
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1e-2, 1e-2, 1e-2])
+        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e-1])
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -68,7 +68,7 @@ class Mpc3Dof(BaseController):
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
-        ocp.model = model # set model
+        ocp.model = model  # set model
 
         # OCP parameter adjustment
         nx = model.x.size()[0]
