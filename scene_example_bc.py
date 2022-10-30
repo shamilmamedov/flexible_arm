@@ -87,10 +87,10 @@ if __name__ == "__main__":
         controller = NNController(nn_file="bc_policy_1", n_seg=n_seg_mpc)
 
     # Sampling time
-    ts = 0.05
+    dt = 0.05
 
     # Estimator
-    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, ts=ts)
+    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=dt)
     P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
     q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     # simulate
     n_iter = 100
     sim = Simulator(fa_hd, controller, 'RK45', E)
-    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), dt, n_iter)
 
     # Print timing
     if not use_NN:
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         print_timings(t_mean, t_std, t_min, t_max)
 
     # Plot result
-    t = np.linspace(0, n_iter * ts, x.shape[0])
+    t = np.linspace(0, n_iter * dt, x.shape[0])
     plot_result(x=x, u=u, t=t)
 
     # Parse joint positions
@@ -118,4 +118,4 @@ if __name__ == "__main__":
 
     # Animate simulated motion
     urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
-    animator = Panda3dAnimator(urdf_path, ts * n_skip, q).play(30)
+    animator = Panda3dAnimator(urdf_path, dt * n_skip, q).play(30)

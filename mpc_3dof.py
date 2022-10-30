@@ -49,7 +49,7 @@ class Mpc3Dof(BaseController):
                  x0_ee: np.ndarray,
                  options: Mpc3dofOptions):
 
-        self.u_max = np.array([100, 50, 50])
+        self.u_max = np.array([100, 30, 30])
         self.fa_model = model
         model = model.get_acados_model()
         self.model = model
