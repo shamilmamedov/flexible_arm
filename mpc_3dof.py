@@ -55,6 +55,8 @@ class Mpc3dofOptions:
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0])
+        self.w2_slack_speed: float = 1e1
+        self.w2_slack_wall: float = 1e3
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -149,6 +151,7 @@ class Mpc3Dof(BaseController):
         ocp.constraints.idxbu = np.array(range(nu))
 
         # state constraints
+
         ocp.constraints.lbx = -self.dq_active_max
         ocp.constraints.ubx = self.dq_active_max
         ocp.constraints.idxbx = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
@@ -156,17 +159,18 @@ class Mpc3Dof(BaseController):
         ocp.constraints.lbx_e = -self.dq_active_max
         ocp.constraints.ubx_e = self.dq_active_max
         ocp.constraints.idxbx_e = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+        ocp.constraints.idxsbx = np.array([0, 1, 2])
 
         # safety constraints
         if options.wall_constraint_on:
             ocp.model.con_h_expr = constraint_expr[options.wall_axis]
             n_wall_constraints = 1
             # self.n_constraints = constraint_expr.shape[0]
-            ns = n_wall_constraints  # self.n_constraints  # We just constrain the constraints in the constraint-expression
+            ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([1] * n_wall_constraints)
-            ocp.cost.Zl = np.array([1e6] * n_wall_constraints)
+            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
             ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
@@ -176,6 +180,11 @@ class Mpc3Dof(BaseController):
             ocp.constraints.lsh = np.zeros(nsh)
             ocp.constraints.ush = np.zeros(nsh)
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
+        else:
+            ocp.cost.zl = np.array([0] * 3)
+            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
+            ocp.cost.zu = ocp.cost.zl
+            ocp.cost.Zu = ocp.cost.Zl
 
         # solver options
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # FULL_CONDENSING_QPOASES
