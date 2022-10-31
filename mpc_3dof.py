@@ -11,11 +11,12 @@ from poly5_planner import initial_guess_for_active_joints, get_reference_for_all
 if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
-Q_QA = 1 # penalty on active joints positions
-Q_QP = 0.1 # penalty on passive joints positions
-Q_DQA = 0.1 # penalty on active joints velocities
-Q_DQP = 0.001 # penalty on passive joints velocities
-Q_DQA_E = 1 # penalty on terminal active joints velocities
+Q_QA = 1  # penalty on active joints positions
+Q_QP = 0.1  # penalty on passive joints positions
+Q_DQA = 0.1  # penalty on active joints velocities
+Q_DQP = 0.001  # penalty on passive joints velocities
+Q_DQA_E = 1  # penalty on terminal active joints velocities
+
 
 @dataclass
 class Mpc3dofOptions:
@@ -28,39 +29,32 @@ class Mpc3dofOptions:
         self.n: int = 100  # number of discretization points
         self.tf: float = tf  # time horizon
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
+        self.condensing_relative: float = 1  # relative factor of condensing [0-1]
+        self.wall_constraint_on: bool = False  # choose whether we activate the wall constraint
+        self.wall_axis: int = 2  # Wall axis: 0,1,2 -> x,y,z
+        self.wall_value: float = 0.5  # wall height value on axis
+        self.wall_pos_side: bool = True  # defines the allowed side of the wall
 
         # States are ordered for each link
-        # self.q_diag: np.ndarray = np.array([1] * (1) +
-        #                                    [1] * (1) +
-        #                                    [1] * (self.n_seg + 1) +
-        #                                    [3] + [1] * (self.n_seg) + \
-        #                                    [1] * (self.n_seg + 1) +
-        #                                    [3] + [1] * (self.n_seg))
-        self.q_diag: np.ndarray = np.array([Q_QA] * (2) + # qa1 and qa2
-                                           [Q_QP] * (self.n_seg) + # qp 1st link
-                                           [Q_QA] * (1) + # qa3
-                                           [Q_QP] * (self.n_seg) + # qp 2nd link
-                                           [Q_DQA] * (2) + # dqa1 and dqa2
-                                           [Q_DQP] * (self.n_seg) + # dqp 1st link
-                                           [Q_DQA] * (1) + # dqa3
-                                           [Q_DQP] * (self.n_seg)) # dqp 2nd link
-        # self.q_e_diag: np.ndarray = np.array([1] * (1) +
-        #                                      [10] * (1) + \
-        #                                      [1] * (self.n_seg + 1) +
-        #                                      [10] * (self.n_seg + 1) + \
-        #                                      [1] * (self.n_seg + 1) +
-        #                                      [10] * (self.n_seg + 1))
-        self.q_e_diag: np.ndarray = np.array([Q_QA] * (2) + # qa1 and qa2
-                                             [Q_QP] * (self.n_seg) + # qp 1st link
-                                             [Q_QA] * (1) + # qa3
-                                             [Q_QP] * (self.n_seg) + # qp 2nd link
-                                             [Q_DQA_E] * (2) + # dqa1 and dqa2
-                                             [Q_DQP] * (self.n_seg) + # dqp 1st link
-                                             [Q_DQA_E] * (1) + # dqa3
-                                             [Q_DQP] * (self.n_seg)) # dqp 2nd link
+        self.q_diag: np.ndarray = np.array([Q_QA] * (2) +  # qa1 and qa2
+                                           [Q_QP] * (self.n_seg) +  # qp 1st link
+                                           [Q_QA] * (1) +  # qa3
+                                           [Q_QP] * (self.n_seg) +  # qp 2nd link
+                                           [Q_DQA] * (2) +  # dqa1 and dqa2
+                                           [Q_DQP] * (self.n_seg) +  # dqp 1st link
+                                           [Q_DQA] * (1) +  # dqa3
+                                           [Q_DQP] * (self.n_seg))  # dqp 2nd link
+        self.q_e_diag: np.ndarray = np.array([Q_QA] * (2) +  # qa1 and qa2
+                                             [Q_QP] * (self.n_seg) +  # qp 1st link
+                                             [Q_QA] * (1) +  # qa3
+                                             [Q_QP] * (self.n_seg) +  # qp 2nd link
+                                             [Q_DQA_E] * (2) +  # dqa1 and dqa2
+                                             [Q_DQP] * (self.n_seg) +  # dqp 1st link
+                                             [Q_DQA_E] * (1) +  # dqa3
+                                             [Q_DQP] * (self.n_seg))  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e-1])
+        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0])
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -76,9 +70,10 @@ class Mpc3Dof(BaseController):
                  x0_ee: np.ndarray,
                  options: Mpc3dofOptions):
 
-        self.u_max = np.array([100, 30, 30])
+        self.u_max = np.array([100, 30, 30])  # [Nm]
+        self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
         self.fa_model = model
-        model = model.get_acados_model()
+        model, constraint_expr = model.get_acados_model_safety()
         self.model = model
         self.options = options
         self.debug_timings = []
@@ -144,15 +139,47 @@ class Mpc3Dof(BaseController):
         ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
-        # set constraints
+        # general constraints
         ocp.constraints.constr_type = 'BGH'
+        ocp.constraints.x0 = x0.reshape((nx,))
+
+        # control constraints
         ocp.constraints.lbu = -self.u_max
         ocp.constraints.ubu = self.u_max
-        ocp.constraints.x0 = x0.reshape((nx,))
         ocp.constraints.idxbu = np.array(range(nu))
+
+        # state constraints
+        ocp.constraints.lbx = -self.dq_active_max
+        ocp.constraints.ubx = self.dq_active_max
+        ocp.constraints.idxbx = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+
+        ocp.constraints.lbx_e = -self.dq_active_max
+        ocp.constraints.ubx_e = self.dq_active_max
+        ocp.constraints.idxbx_e = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+
+        # safety constraints
+        if options.wall_constraint_on:
+            ocp.model.con_h_expr = constraint_expr[options.wall_axis]
+            n_wall_constraints = 1
+            # self.n_constraints = constraint_expr.shape[0]
+            ns = n_wall_constraints  # self.n_constraints  # We just constrain the constraints in the constraint-expression
+            nsh = n_wall_constraints  # self.n_constraints
+            self.current_slacks = np.zeros((ns,))
+            ocp.cost.zl = np.array([1] * n_wall_constraints)
+            ocp.cost.Zl = np.array([1e6] * n_wall_constraints)
+            ocp.cost.zu = ocp.cost.zl
+            ocp.cost.Zu = ocp.cost.Zl
+            ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
+                options.wall_value if options.wall_pos_side else -1e3)
+            ocp.constraints.uh = np.ones((n_wall_constraints,)) * (
+                options.wall_value if not options.wall_pos_side else 1e3)
+            ocp.constraints.lsh = np.zeros(nsh)
+            ocp.constraints.ush = np.zeros(nsh)
+            ocp.constraints.idxsh = np.array(range(n_wall_constraints))
 
         # solver options
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # FULL_CONDENSING_QPOASES
+        ocp.solver_options.qp_solver_cond_N = int(options.n * options.condensing_relative)
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.solver_options.integrator_type = 'IRK'
         ocp.solver_options.nlp_solver_type = 'SQP_RTI'  # SQP_RTI, SQP
