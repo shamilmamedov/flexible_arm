@@ -72,7 +72,7 @@ class Mpc3Dof(BaseController):
                  x0_ee: np.ndarray,
                  options: Mpc3dofOptions):
 
-        self.u_max = np.array([100, 30, 30])  # [Nm]
+        self.u_max = np.array([20, 10, 10])  # [Nm]
         self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()
