@@ -24,9 +24,6 @@ if __name__ == "__main__":
     fa_sym_ld = SymbolicFlexibleArm3DOF(n_seg_mpc)
     fa_sym_hd = SymbolicFlexibleArm3DOF(n_seg)
 
-    # Sample a random configuration
-    q = pin.randomConfiguration(fa_hd.model)
-
     # Create initial state simulated system
     qa0 = np.array([0.1, 1.5, 0.5])
     q0 = get_rest_configuration(qa0, n_seg)
@@ -34,7 +31,7 @@ if __name__ == "__main__":
     x0 = np.vstack((q0, dq0))
 
     # MPC has other model states
-    qa0_mpc = np.array([0.5, 1.5, 0.5])
+    qa0_mpc = np.array([0.1, 1.5, 0.5])
     q0_mpc = get_rest_configuration(qa0_mpc, n_seg_mpc)
     dq0_mpc = np.zeros_like(q0_mpc)
     x0_mpc = np.vstack((q0_mpc, dq0_mpc))
@@ -55,7 +52,7 @@ if __name__ == "__main__":
 
     # Create mpc options and controller
     mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1)
-    controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
+    controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, pee_0=qee0, options=mpc_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
     # Choose one out of two control modes. Reference tracking uses a spline planner.
