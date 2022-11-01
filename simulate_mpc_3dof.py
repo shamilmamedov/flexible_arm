@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     # Create FlexibleArm instances
     n_seg = 10
-    n_seg_mpc = 3
+    n_seg_mpc = 3 
 
     fa_ld = FlexibleArm3DOF(n_seg_mpc)
     fa_hd = FlexibleArm3DOF(n_seg)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     _, x_ee_ref = fa_ld.fk_ee(q_mpc_ref)
 
     # Create mpc options and controller
-    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=2)
+    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1)
     controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
@@ -68,14 +68,15 @@ if __name__ == "__main__":
         raise ValueError
 
     # Sampling time
-    dt = 0.02
+    dt = 0.01
 
     # Estimator
     est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=dt, integrator='cvodes')
-    P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
-    q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
+    p0_q, p0_dq = [0.05] * est_model.nq, [1e-3] * est_model.nq
+    P0 = np.diag([*p0_q, *p0_dq])
+    q_q, q_dq = [1e-2] * est_model.nq, [5e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
-    r_q, r_dq, r_pee = [3e-4] * 3, [6e-2] * 3, [1e-2] * 3
+    r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
     R = np.diag([*r_q, *r_dq, *r_pee])
     E = ExtendedKalmanFilter(est_model, x0_mpc, P0, Q, R)
 
