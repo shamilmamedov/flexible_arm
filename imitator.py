@@ -1,3 +1,4 @@
+import pathlib
 from dataclasses import dataclass
 import numpy as np
 from imitation.algorithms import bc
@@ -6,6 +7,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
 import tempfile
 from typing import TYPE_CHECKING, Tuple
+from stable_baselines3.common.logger import configure
 from stable_baselines3.common.env_checker import check_env
 
 import plotting
@@ -16,6 +18,7 @@ from gym_utils import CallableExpert
 from mpc_3dof import Mpc3Dof
 from flexible_arm_3dof import get_rest_configuration
 from simulation import SimulatorOptions, Simulator
+from utils import print_timings
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
@@ -31,8 +34,9 @@ class ImitatorOptions:
     def __init__(self, dt: float = 0.01):
         self.environment_options: FlexibleArmEnvOptions = FlexibleArmEnvOptions(dt=dt)
         self.filename: str = "trained_policy"
+        self.logdir_rel: str = "/logdata/"
         self.save_file: bool = True
-        self.n_episodes: int = 1000  # number of training episodes (100 ~ 1 minute on laptop)
+        self.n_episodes: int = 30 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
         self.rollout_round_min_episodes: int = 2  # option for dagger algorithm.
         self.rollout_round_min_timesteps: int = 1000  # option for dagger algorithm.
 
@@ -82,32 +86,45 @@ class Imitator:
         print("Average expert reward: {}".format(total_reward_sum / n_eps))
         self.env.reset()
 
-    def evaluate_student(self):
+    def evaluate_student(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True):
         controller = NNController(nn_file=self.options.filename, n_seg=self.expert_controller.options.n_seg)
 
         # simulate
-        n_iter = 400
+        n_iter = 500
         if self.estimator is not None:
             sim_opts = SimulatorOptions(contr_input_states='estimated')
         else:
             sim_opts = SimulatorOptions()
-        sim = Simulator(self.env.model_sym, controller, 'cvodes', self.estimator, opts=sim_opts)
-        x0 = self.env.reset()
-        x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
-        t = np.arange(0, n_iter + 1) * self.env.dt
 
-        # Parse joint positions
-        n_skip = 1
-        q = x[::n_skip, :self.env.model_sym.nq]
+        for simulation_count in range(n_episodes):
+            sim = Simulator(self.env.model_sym, controller, 'cvodes', self.estimator, opts=sim_opts)
+            x0 = self.env.reset()
+            x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
+            t = np.arange(0, n_iter + 1) * self.env.dt
 
-        # Visualization
-        plotting.plot_controls(t[:-1], u)
-        plotting.plot_measurements(t, y)
+            # Parse joint positions
+            n_skip = 1
+            q = x[::n_skip, :self.env.model_sym.nq]
 
-        # Animate simulated motion
-        animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(3)
+            # Visualization
+            if show_plot:
+                plotting.plot_controls(t[:-1], u)
+                plotting.plot_measurements(t, y)
+
+            t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
+            print_timings(t_mean, t_std, t_min, t_max)
+
+            # Animate simulated motion
+            animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(n_replay)
 
     def train(self):
+        assert int(self.expert_controller.options.tf / self.expert_controller.options.n) == int(self.env.dt)
+
+        # set up logger
+        current_dir = pathlib.Path(__file__).parent.resolve()
+        path = current_dir.__str__() + self.options.logdir_rel
+        custom_logger = configure(path, ["stdout", "csv", "tensorboard"])
+
         with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
             print(tmpdir)
             dagger_trainer = SimpleDAggerTrainer(
@@ -115,7 +132,9 @@ class Imitator:
                 scratch_dir=tmpdir,
                 expert_policy=self.callable_expert,
                 bc_trainer=self.bc_trainer,
+                custom_logger=custom_logger
             )
+
             dagger_trainer.train(self.options.n_episodes,
                                  rollout_round_min_episodes=self.options.rollout_round_min_episodes,
                                  rollout_round_min_timesteps=self.options.rollout_round_min_timesteps)

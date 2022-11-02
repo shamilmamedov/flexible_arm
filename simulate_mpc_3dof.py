@@ -92,8 +92,8 @@ if __name__ == "__main__":
     t = np.arange(0, n_iter + 1) * dt
 
     # Print timing
-    #t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
-    #print_timings(t_mean, t_std, t_min, t_max)
+    t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
+    print_timings(t_mean, t_std, t_min, t_max)
 
     # Plot result
     #plot_result(x=x, u=u, t=np.arange(0, (n_iter+1) * dt, dt))

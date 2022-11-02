@@ -101,7 +101,6 @@ class Simulator:
         for k in range(n_iter):
             if self.estimator is not None:
                 if k == 0:
-                    # todo: shamil: needs initialization with u_equilibirium or so
                     x_hat[k, :] = self.estimator.estimate(
                                     y[[k], :].T).flatten()
                 else:

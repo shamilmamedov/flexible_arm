@@ -1,4 +1,0 @@
-_target_: imitation.nets.EmbeddingNet
-hidden_dims_before_embed: [64]
-hidden_dims_after_embed: [64, 64]
-encoding_dim: 64

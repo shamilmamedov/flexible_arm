@@ -2,6 +2,7 @@
 Implements a gym environment for flexible link robot arm. The environment
 is used for behavioral cloning
 """
+from copy import copy
 from dataclasses import dataclass
 
 import gym
@@ -21,8 +22,8 @@ class FlexibleArmEnvOptions:
 
     def __init__(self, dt: float = 0.01):
         self.qa_start: np.ndarray = np.array([0.5, 1.5, 0.5])
-        self.qa_end: np.ndarray = np.array([1.5, 0.5, 1.5])
-        self.qa_range_start: np.ndarray = np.array([0.1, 0.1, 0.1])
+        self.qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
+        self.qa_range_start: np.ndarray = np.array([np.pi, 0.1, 0.1])
         self.qa_range_end: np.ndarray = np.array([.0, .0, .0])
         self.n_seg: int = 3
         self.dt: float = dt
@@ -97,6 +98,8 @@ class FlexibleArmEnv(gym.Env):
         # end position
         self.x_final, self.xee_final = self.sample_rand_config(qa_mean=self.options.qa_end,
                                                                qa_range=self.options.qa_range_end)
+        if self.simulator.estimator is not None:
+            self.simulator.estimator.x_hat = copy(np.expand_dims(self._state, 1))
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -122,7 +125,7 @@ class FlexibleArmEnv(gym.Env):
         # define reward as Euclidian distance to goal
         _, x_ee = self.model.fk_ee(self._state[:int(self.model.nq)])
         dist = np.linalg.norm(x_ee - self.xee_final, 2)
-        reward = - dist*self.options.dt
+        reward = - dist * self.options.dt
 
         # Check if the state is terminal
         done = bool(self._terminal(dist))
@@ -139,7 +142,7 @@ class FlexibleArmEnv(gym.Env):
             self.goal_dist_counter = 0
 
         done = False
-        if self.goal_dist_counter >= self.options.goal_min_time/self.options.dt:
+        if self.goal_dist_counter >= self.options.goal_min_time / self.options.dt:
             done = True
         if self.no_intg_steps > self.max_intg_steps:
             done = True

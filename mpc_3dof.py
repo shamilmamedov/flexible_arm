@@ -83,7 +83,6 @@ class Mpc3Dof(BaseController):
         model, constraint_expr = model.get_acados_model_safety()
         self.model = model
         self.options = options
-        self.debug_timings = []
         self.iteration_counter = 0
         self.inter_t2q = None
         self.inter_t2dq = None
@@ -306,11 +305,3 @@ class Mpc3Dof(BaseController):
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
         return u_output
-
-    def get_timing_statistics(self) -> Tuple[float, float, float, float]:
-        timing_array = np.array(self.debug_timings)
-        t_mean = float(np.mean(timing_array))
-        t_std = float(np.std(timing_array))
-        t_max = float(np.max(timing_array))
-        t_min = float(np.min(timing_array))
-        return t_mean, t_std, t_min, t_max

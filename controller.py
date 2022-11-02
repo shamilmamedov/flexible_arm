@@ -1,3 +1,4 @@
+import time
 from typing import List, Tuple
 from stable_baselines3.ppo import MlpPolicy
 import numpy as np
@@ -11,10 +12,19 @@ class BaseController(ABC):
     All the controllers must implement compute_torques 
     attrubute
     """
+    debug_timings = []
 
     @abstractmethod
     def compute_torques(self, q, dq, t=None):
         ...
+
+    def get_timing_statistics(self) -> Tuple[float, float, float, float]:
+        timing_array = np.array(self.debug_timings)
+        t_mean = float(np.mean(timing_array))
+        t_std = float(np.std(timing_array))
+        t_max = float(np.max(timing_array))
+        t_min = float(np.min(timing_array))
+        return t_mean, t_std, t_min, t_max
 
 
 class DummyController(BaseController):
@@ -148,14 +158,16 @@ class NNController(BaseController):
         env_options.n_seg = n_seg
         env = FlexibleArmEnv(options=FlexibleArmEnvOptions(), estimator=None)
         # load trained policy. need a dummy policy.
-        learned_policy = MlpPolicy(observation_space=env.observation_space, 
+        learned_policy = MlpPolicy(observation_space=env.observation_space,
                                    action_space=env.action_space,
                                    lr_schedule=lambda x: 1)
         self.learned_policy = learned_policy.load(nn_file)
         self.n_seg = n_seg
 
     def compute_torques(self, q, dq, t=None):
-        obs = np.vstack((q, dq))[:,0]
+        obs = np.vstack((q, dq))[:, 0]
+        t_start = time.time()
         out = self.learned_policy.predict(obs, deterministic=True)[0]
-
+        self.debug_timings.append(time.time() - t_start)
         return out
+
