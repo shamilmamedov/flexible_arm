@@ -1,5 +1,8 @@
 import pathlib
 from dataclasses import dataclass
+from datetime import datetime
+
+import matplotlib.pyplot as plt
 import numpy as np
 from imitation.algorithms import bc
 from imitation.algorithms.dagger import SimpleDAggerTrainer
@@ -7,9 +10,8 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
 import tempfile
 from typing import TYPE_CHECKING, Tuple
-from stable_baselines3.common.logger import configure
+from stable_baselines3.common.logger import configure, read_csv
 from stable_baselines3.common.env_checker import check_env
-
 import plotting
 from animation import Panda3dAnimator
 from controller import NNController
@@ -34,7 +36,7 @@ class ImitatorOptions:
     def __init__(self, dt: float = 0.01):
         self.environment_options: FlexibleArmEnvOptions = FlexibleArmEnvOptions(dt=dt)
         self.filename: str = "trained_policy"
-        self.logdir_rel: str = "/logdata/"
+        self.logdir_rel: str = "/logdata"
         self.save_file: bool = True
         self.n_episodes: int = 30 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
         self.rollout_round_min_episodes: int = 2  # option for dagger algorithm.
@@ -50,6 +52,8 @@ class Imitator:
         self.options = options
         self.expert_controller = expert_controller
         self.estimator = estimator
+        self.datetimestr = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
+        self.log_dir = None
 
         # create and sanity check training environment
         self.env = FlexibleArmEnv(options=options.environment_options, estimator=estimator)
@@ -86,8 +90,9 @@ class Imitator:
         print("Average expert reward: {}".format(total_reward_sum / n_eps))
         self.env.reset()
 
-    def evaluate_student(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True):
-        controller = NNController(nn_file=self.options.filename, n_seg=self.expert_controller.options.n_seg)
+    def render_student(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True, seed: int = None):
+        controller = NNController(nn_file=self.options.filename + '_' + self.datetimestr,
+                                  n_seg=self.expert_controller.options.n_seg)
 
         # simulate
         n_iter = 500
@@ -97,6 +102,8 @@ class Imitator:
             sim_opts = SimulatorOptions()
 
         for simulation_count in range(n_episodes):
+            if seed is not None:
+                np.random.seed(seed + simulation_count)
             sim = Simulator(self.env.model_sym, controller, 'cvodes', self.estimator, opts=sim_opts)
             x0 = self.env.reset()
             x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
@@ -117,12 +124,75 @@ class Imitator:
             # Animate simulated motion
             animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(n_replay)
 
+    def render_expert(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True, seed: int = None):
+        # simulate
+        n_iter = 500
+        if self.estimator is not None:
+            sim_opts = SimulatorOptions(contr_input_states='estimated')
+        else:
+            sim_opts = SimulatorOptions()
+
+        for simulation_count in range(n_episodes):
+            if seed is not None:
+                np.random.seed(seed + simulation_count)
+            sim = Simulator(self.env.model_sym, self.expert_controller, 'cvodes', self.estimator, opts=sim_opts)
+            x0 = self.env.reset()
+            self.expert_controller.set_reference_point(x_ref=self.env.x_final,
+                                                       p_ee_ref=self.env.xee_final,
+                                                       u_ref=np.array([0, 0, 0]))
+            x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
+            t = np.arange(0, n_iter + 1) * self.env.dt
+
+            # Parse joint positions
+            n_skip = 1
+            q = x[::n_skip, :self.env.model_sym.nq]
+
+            # Visualization
+            if show_plot:
+                plotting.plot_controls(t[:-1], u)
+                plotting.plot_measurements(t, y)
+
+            t_mean, t_std, t_min, t_max = self.expert_controller.get_timing_statistics()
+            print_timings(t_mean, t_std, t_min, t_max)
+
+            # Animate simulated motion
+            animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(n_replay)
+
+    def plot_training(self, log_dir=None):
+        if self.log_dir is None and log_dir is None:
+            print("No training defined")
+            return
+        if log_dir is None:
+            log_dir = self.log_dir
+        data = read_csv(log_dir + "/progress.csv")
+        return_mean = data['rollout/return_mean']
+        return_std = data['rollout/return_std']
+        return_max = data['rollout/return_max']
+        return_min = data['rollout/return_min']
+        bc_loss = data['bc/loss']
+        prob_true_act = data['bc/prob_true_act']
+        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
+        i = np.arange(return_mean.shape[0])
+        ax1.plot(i, return_mean)
+        ax1.fill_between(i, y1=return_mean + return_std, y2=return_mean - return_std, alpha=0.3)
+        ax1.plot(i, return_max, color='black')
+        ax1.plot(i, return_min, color='black')
+        ax1.set_title('Return')
+
+        ax2.plot(bc_loss)
+        ax2.set_title('Loss')
+
+        ax3.plot(prob_true_act)
+        ax3.set_title('Probability True Action')
+        plt.show()
+
     def train(self):
         assert int(self.expert_controller.options.tf / self.expert_controller.options.n) == int(self.env.dt)
 
         # set up logger
         current_dir = pathlib.Path(__file__).parent.resolve()
-        path = current_dir.__str__() + self.options.logdir_rel
+        path = current_dir.__str__() + self.options.logdir_rel + '/' + self.datetimestr
+        self.log_dir = path
         custom_logger = configure(path, ["stdout", "csv", "tensorboard"])
 
         with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
@@ -145,4 +215,4 @@ class Imitator:
 
         # Save policy
         if self.options.save_file:
-            dagger_trainer.policy.save(self.options.filename)
+            dagger_trainer.policy.save(self.options.filename + '_' + self.datetimestr)

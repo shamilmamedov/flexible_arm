@@ -95,9 +95,6 @@ if __name__ == "__main__":
     t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
     print_timings(t_mean, t_std, t_min, t_max)
 
-    # Plot result
-    #plot_result(x=x, u=u, t=np.arange(0, (n_iter+1) * dt, dt))
-
     # Parse joint positions
     n_skip = 1
     q = x[::n_skip, :fa_sym_hd.nq]

@@ -8,7 +8,7 @@ from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 
 if __name__ == "__main__":
     USE_ESTIMATOR = True
-    TRAIN_POLICY = False
+    TRAIN_POLICY = True
 
     dt = 0.01
     imitator_options = ImitatorOptions(dt=dt)
@@ -49,5 +49,10 @@ if __name__ == "__main__":
     if TRAIN_POLICY:
         imitator.train()
 
+    # plot training
+    imitator.plot_training()
+
     # evaluate
-    imitator.evaluate_student(n_episodes=10, n_replay=2, show_plot=False)
+    imitator.render_expert(n_episodes=1, n_replay=2, show_plot=False, seed=1)
+    imitator.render_student(n_episodes=10, n_replay=2, show_plot=False, seed=1)
+
