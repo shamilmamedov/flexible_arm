@@ -2,14 +2,34 @@
 Implements a gym environment for flexible link robot arm. The environment
 is used for behavioral cloning
 """
+from dataclasses import dataclass
 
 import gym
 import numpy as np
 from typing import Tuple
 from gym import spaces
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF
-from simulation import Simulator
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF, get_rest_configuration
+from simulation import Simulator, SimulatorOptions
+
+
+@dataclass
+class FlexibleArmEnvOptions:
+    """
+    Options for imitation learning
+    """
+
+    def __init__(self, dt: float = 0.01):
+        self.qa_start: np.ndarray = np.array([0.5, 1.5, 0.5])
+        self.qa_end: np.ndarray = np.array([1.5, 0.5, 1.5])
+        self.qa_range_start: np.ndarray = np.array([0.1, 0.1, 0.1])
+        self.qa_range_end: np.ndarray = np.array([.0, .0, .0])
+        self.n_seg: int = 3
+        self.dt: float = dt
+        self.render_mode = None
+        self.maximum_torques: np.ndarray = np.array([20, 10, 10])
+        self.goal_dist_euclid: float = 0.01
+        self.sim_time = 2
 
 
 class FlexibleArmEnv(gym.Env):
@@ -17,48 +37,64 @@ class FlexibleArmEnv(gym.Env):
 
     """
 
-    def __init__(self, n_seg: int, dt: float, q0, xee_final, render_mode=None) -> None:
+    def __init__(self, options: FlexibleArmEnvOptions, estimator=None) -> None:
         """
         :parameter n_seg: number of segments per link
         :parameter dt: stepsize of the integrator
         :parameter q0: initial rest configuration of the robot
         """
-        if len(q0.shape) > 1:
-            q0 = q0[:, 0]
-        self.q0 = q0
-        self.dt = dt
-        self.xee_final = xee_final
-        self.no_intg_steps = 0
-        self.max_intg_steps = 30
+        self.options = options
+        self.model = FlexibleArm3DOF(options.n_seg)
+        self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
+        self.dt = options.dt
 
-        # Numerical arm model (an alternative is symbolic)
-        self.model = FlexibleArm3DOF(n_seg)
+        # initial position
+        self._state, _ = self.sample_rand_config(qa_mean=options.qa_start, qa_range=options.qa_range_start)
+
+        # end position
+        self.x_final, self.xee_final = self.sample_rand_config(qa_mean=options.qa_end, qa_range=options.qa_range_end)
+
+        self.no_intg_steps = 0
+        self.max_intg_steps = int(options.sim_time / options.dt)
 
         # Simulator of the model
-        self.simulator = Simulator(self.model, controller=None, integrator='RK45',
-                                   estimator=None, )
+        if estimator is not None:
+            sim_opts = SimulatorOptions(contr_input_states='estimated')
+        else:
+            sim_opts = SimulatorOptions()
+        self.simulator = Simulator(self.model_sym, controller=None, integrator='RK45',
+                                   estimator=estimator, opts=sim_opts)
 
         # Define observation space
-        # todo shamil: this should be our actual maxima of the states (degerees etc)
         self.observation_space = spaces.Box(np.array([-np.pi * 200] * self.model.nx),
                                             np.array([np.pi * 200] * self.model.nx), dtype=np.float64)
 
         # Define action space
-        # todo: think of propper bounds also for mpc (tech specification of robot)
-        u_low = np.array([-10] * 3)
-        u_high = np.array([10] * 3)
-        self.action_space = spaces.Box(u_low, u_high, dtype=np.float64)
+        self.action_space = spaces.Box(-options.maximum_torques, options.maximum_torques, dtype=np.float64)
 
-        self.render_mode = render_mode
+        self.render_mode = options.render_mode
 
         self._state = None
+
+    def sample_rand_config(self, qa_mean: np.ndarray, qa_range: np.ndarray):
+        qa = np.random.uniform(-qa_range / 2, qa_range / 2) + qa_mean
+        q = get_rest_configuration(qa, self.options.n_seg)
+        dq = np.zeros_like(q)
+        x = np.vstack((q, dq))
+        _, xee = self.model.fk_ee(q)
+        return x[:, 0], xee
 
     def reset(self):
         """
         """
         # Reset state of the robot
-        dq = np.zeros(self.model.nq)
-        self._state = np.concatenate((self.q0, dq))
+        # initial position
+        self._state, _ = self.sample_rand_config(qa_mean=self.options.qa_start,
+                                                 qa_range=self.options.qa_range_start)
+
+        # end position
+        self.x_final, self.xee_final = self.sample_rand_config(qa_mean=self.options.qa_end,
+                                                               qa_range=self.options.qa_range_end)
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -86,7 +122,7 @@ class FlexibleArmEnv(gym.Env):
         reward = - np.linalg.norm(x_ee - self.xee_final, 2)
 
         # Check if the state is terminal
-        done = self._terminal(dist)
+        done = bool(self._terminal(dist))
 
         # Other outputs
         info = {}
@@ -94,5 +130,4 @@ class FlexibleArmEnv(gym.Env):
         return (self._state, reward, done, info)
 
     def _terminal(self, dist: float):
-        return self.no_intg_steps > self.max_intg_steps or dist < 0.01
-
+        return bool(self.no_intg_steps > self.max_intg_steps or dist < self.options.goal_dist_euclid)

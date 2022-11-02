@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 import pinocchio as pin
 
+from controller import NNController
 from estimator import ExtendedKalmanFilter
 from utils import plot_result, print_timings, ControlMode
 from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
@@ -17,7 +18,7 @@ if __name__ == "__main__":
 
     # Create FlexibleArm instances
     n_seg = 10
-    n_seg_mpc = 3 
+    n_seg_mpc = 3
 
     fa_ld = FlexibleArm3DOF(n_seg_mpc)
     fa_hd = FlexibleArm3DOF(n_seg)
@@ -54,7 +55,8 @@ if __name__ == "__main__":
     _, x_ee_ref = fa_ld.fk_ee(q_mpc_ref)
 
     # Create mpc options and controller
-    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1)
+    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.3)
+    mpc_options.n = 30
     controller = Mpc3Dof(model=fa_sym_ld, x0=x_mpc0, x0_ee=qee0, options=mpc_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
@@ -80,16 +82,18 @@ if __name__ == "__main__":
     R = np.diag([*r_q, *r_dq, *r_pee])
     E = ExtendedKalmanFilter(est_model, x0_mpc, P0, Q, R)
 
+    #controller = NNController(nn_file="trained_policy", n_seg=3)
+
     # simulate
-    n_iter = 200
+    n_iter = 400
     sim_opts = SimulatorOptions(contr_input_states='estimated')
     sim = Simulator(fa_sym_hd, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), dt, n_iter)
     t = np.arange(0, n_iter + 1) * dt
 
     # Print timing
-    t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
-    print_timings(t_mean, t_std, t_min, t_max)
+    #t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
+    #print_timings(t_mean, t_std, t_min, t_max)
 
     # Plot result
     #plot_result(x=x, u=u, t=np.arange(0, (n_iter+1) * dt, dt))

@@ -3,7 +3,7 @@ from stable_baselines3.ppo import MlpPolicy
 import numpy as np
 from abc import ABC, abstractmethod
 
-from gym_env import FlexibleArmEnv
+from gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 
 class BaseController(ABC):
@@ -144,7 +144,9 @@ class NNController(BaseController):
         @param n_seg: segments of robot
         """
         # create dummy environment to get observation and action spaces
-        env = FlexibleArmEnv(n_seg=n_seg, dt=0.05, q0=np.array([0]), xee_final=None)
+        env_options = FlexibleArmEnvOptions(dt=0.01)
+        env_options.n_seg = n_seg
+        env = FlexibleArmEnv(options=FlexibleArmEnvOptions(), estimator=None)
         # load trained policy. need a dummy policy.
         learned_policy = MlpPolicy(observation_space=env.observation_space, 
                                    action_space=env.action_space,
