@@ -30,6 +30,7 @@ class FlexibleArmEnvOptions:
         self.maximum_torques: np.ndarray = np.array([20, 10, 10])
         self.goal_dist_euclid: float = 0.01
         self.sim_time = 2
+        self.goal_min_time: float = 1
 
 
 class FlexibleArmEnv(gym.Env):
@@ -73,6 +74,7 @@ class FlexibleArmEnv(gym.Env):
         self.action_space = spaces.Box(-options.maximum_torques, options.maximum_torques, dtype=np.float64)
 
         self.render_mode = options.render_mode
+        self.goal_dist_counter = 0
 
         self._state = None
 
@@ -98,6 +100,7 @@ class FlexibleArmEnv(gym.Env):
 
         # Reset integrations step counter
         self.no_intg_steps = 0
+        self.goal_dist_counter = 0
 
         # Get observations and info
         observation = self._state
@@ -119,7 +122,7 @@ class FlexibleArmEnv(gym.Env):
         # define reward as Euclidian distance to goal
         _, x_ee = self.model.fk_ee(self._state[:int(self.model.nq)])
         dist = np.linalg.norm(x_ee - self.xee_final, 2)
-        reward = - np.linalg.norm(x_ee - self.xee_final, 2)
+        reward = - dist*self.options.dt
 
         # Check if the state is terminal
         done = bool(self._terminal(dist))
@@ -130,4 +133,14 @@ class FlexibleArmEnv(gym.Env):
         return (self._state, reward, done, info)
 
     def _terminal(self, dist: float):
-        return bool(self.no_intg_steps > self.max_intg_steps or dist < self.options.goal_dist_euclid)
+        if dist < self.options.goal_dist_euclid:
+            self.goal_dist_counter += 1
+        else:
+            self.goal_dist_counter = 0
+
+        done = False
+        if self.goal_dist_counter >= self.options.goal_min_time/self.options.dt:
+            done = True
+        if self.no_intg_steps > self.max_intg_steps:
+            done = True
+        return bool(done)

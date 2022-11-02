@@ -1,6 +1,7 @@
 import numpy as np
 
 from flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from gym_env import FlexibleArmEnv
 from imitator import ImitatorOptions, Imitator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 
@@ -12,21 +13,26 @@ if __name__ == "__main__":
     # Create FlexibleArm instances
     n_seg_mpc = 3
     fa_sym_ld = SymbolicFlexibleArm3DOF(n_seg_mpc)
-    qa0 = np.array([0.1, 1.5, 0.5])
-    q0 = get_rest_configuration(qa0, n_seg_mpc)
-    dq0 = np.zeros_like(q0)
-    x0 = np.vstack((q0, dq0))
-    fa_ld = FlexibleArm3DOF(n_seg_mpc)
-    _, x_ee_ref = fa_ld.fk_ee(q0)
 
     # Create mpc options and controller
     mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.3)
     mpc_options.n = 30
-    controller = Mpc3Dof(model=fa_sym_ld, x0=x0, x0_ee=x_ee_ref, options=mpc_options)
+    controller = Mpc3Dof(model=fa_sym_ld, options=mpc_options)
 
     # Create estimator
     estimator = None
 
+    # get reward of expert policy
+    env = FlexibleArmEnv(options=imitator_options.environment_options, estimator=estimator)
+
     # create imitator and train
     imitator = Imitator(options=imitator_options, expert_controller=controller, estimator=estimator)
+
+    # evaluate expert to get an idea of the reward achievable
+    imitator.evaluate_expert(n_eps=1)
+
+    # train network to imitate expert
     imitator.train()
+
+    # evaluate
+    imitator.evaluate_student()

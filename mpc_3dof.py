@@ -11,11 +11,12 @@ from poly5_planner import initial_guess_for_active_joints, get_reference_for_all
 if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
-Q_QA = 1  # penalty on active joints positions
+Q_QA = .1  # penalty on active joints positions
 Q_QP = 0.1  # penalty on passive joints positions
-Q_DQA = 0.1  # penalty on active joints velocities
+Q_DQA = 10.  # penalty on active joints velocities
 Q_DQP = 0.001  # penalty on passive joints velocities
 Q_DQA_E = 1  # penalty on terminal active joints velocities
+Q_QA_E = .1  # penalty on terminal active joints velocities
 
 
 @dataclass
@@ -44,18 +45,18 @@ class Mpc3dofOptions:
                                            [Q_DQP] * (self.n_seg) +  # dqp 1st link
                                            [Q_DQA] * (1) +  # dqa3
                                            [Q_DQP] * (self.n_seg))  # dqp 2nd link
-        self.q_e_diag: np.ndarray = np.array([Q_QA] * (2) +  # qa1 and qa2
+        self.q_e_diag: np.ndarray = np.array([Q_QA_E] * (2) +  # qa1 and qa2
                                              [Q_QP] * (self.n_seg) +  # qp 1st link
-                                             [Q_QA] * (1) +  # qa3
+                                             [Q_QA_E] * (1) +  # qa3
                                              [Q_QP] * (self.n_seg) +  # qp 2nd link
                                              [Q_DQA_E] * (2) +  # dqa1 and dqa2
                                              [Q_DQP] * (self.n_seg) +  # dqp 1st link
                                              [Q_DQA_E] * (1) +  # dqa3
                                              [Q_DQP] * (self.n_seg))  # dqp 2nd link
-        self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
-        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0])
-        self.w2_slack_speed: float = 1e1
+        self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
+        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
+        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0]) * 1e-1
+        self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e3
 
     def get_sampling_time(self) -> float:
@@ -73,9 +74,9 @@ class Mpc3Dof(BaseController):
                  options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1)):
 
         if x0 is None:
-            x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)),))
+            x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
         if x0_ee is None:
-            x0_ee = np.zeros((3,))
+            x0_ee = np.zeros((3, 1))
         self.u_max = np.array([20, 10, 10])  # [Nm]
         self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
         self.fa_model = model
