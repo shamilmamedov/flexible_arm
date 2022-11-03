@@ -70,15 +70,20 @@ class Mpc3Dof(BaseController):
 
     def __init__(self, model: "SymbolicFlexibleArm3DOF",
                  x0: np.ndarray = None,
-                 x0_ee: np.ndarray = None,
+                 pee_0: np.ndarray = None,
                  options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1)):
-
+        """
+        :parameter x0: initial state vector
+        :parameter pee_0: initial end-effector position
+        :parameter options: a class with options
+        """
         if x0 is None:
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
-        if x0_ee is None:
-            x0_ee = np.zeros((3, 1))
+        if pee_0 is None:
+            pee_0 = np.zeros((3, 1))
         self.u_max = np.array([20, 10, 10])  # [Nm]
         self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
+
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()
         self.model = model
@@ -141,7 +146,7 @@ class Mpc3Dof(BaseController):
         # ocp.cost.Vz_e = Vz_e
 
         x_goal = x0
-        x_goal_cartesian = x0_ee  # np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
+        x_goal_cartesian = pee_0  # np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
         ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
@@ -209,7 +214,6 @@ class Mpc3Dof(BaseController):
     def reset(self):
         self.debug_timings = []
         self.iteration_counter = 0
-        self.acados_ocp_solver.reset()
 
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """

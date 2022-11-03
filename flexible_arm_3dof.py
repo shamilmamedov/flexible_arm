@@ -436,6 +436,32 @@ def get_rest_configuration(qa, n_seg):
     return q.reshape(-1,1)
 
 
+def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
+    """ Numerically computes the inverse kineamtics for the
+    zero segment model i.e. for the rigid body approximation
+
+    :parameter pee: the end-effector position
+    """
+    # Load the forward kinematics function
+    model_folder = 'models/three_dof/zero_segments/'
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
+
+    # Create symbolic variables for joint angles and
+    # create a function for solving ik
+    q = cs.SX.sym('q', 3)
+    f = cs.Function ('f', [q], [fkp(q) - pee])
+
+    # Create a root finder
+    F = cs.rootfinder('F', 'newton', f)
+
+    # Solve IK problem
+    if q_guess is None:
+        q_guess = np.array([0, 0.1, -0.1])
+        
+    q_num = F(q_guess)
+    return (np.array(q_num) + np.pi) % (2 * np.pi) - np.pi
+
+
 if __name__ == "__main__":
     n_seg = 3
     # arm = FlexibleArm(n_seg)
@@ -449,16 +475,21 @@ if __name__ == "__main__":
     # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
     # print(sarm)
 
-    n_seg = 10
+    n_seg = 0
     model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
     urdf_path = os.path.join(model_folder, 
                 'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
 
     # qa = np.random.randn(3)
-    # qa = np.array([0, np.pi/2, 0])
-    qa = np.zeros(3)
+    # qa = np.array([np.pi/2, np.pi/10, -np.pi/8])
+    qa = np.array([0., 2*np.pi/5, -np.pi/3])
+    # qa = np.zeros(3)
     q = get_rest_configuration(qa, n_seg)
+
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
+    pee = np.array(fkp(q))
+    q_ik = inverse_kinematics_rb(pee)
 
     q = np.repeat(q.reshape(1,-1), 50, axis=0)
     

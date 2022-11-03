@@ -15,7 +15,7 @@ def plot_controls(t: np.ndarray, u: np.ndarray):
     plt.show()
 
 
-def plot_measurements(t: np.ndarray, y: np.ndarray):
+def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     # Parse measurements
     qa = y[:,:3]
     dqa = y[:,3:6]
@@ -42,9 +42,111 @@ def plot_measurements(t: np.ndarray, y: np.ndarray):
     _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
     for k, ax in enumerate(axs_pee.reshape(-1)):
         ax.plot(t, pee[:,k])
+        if pee_ref is not None:
+            ax.axhline(pee_ref[k], ls='--', color='red')
         ax.set_ylabel(pee_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()
+
+    plt.show()
+
+
+def plot_joint_positions(t: np.ndarray, q: np.ndarray, 
+                         n_seg: int, q_ref: np.ndarray = None):
+    """ Plots positions of the active joints
+    """
+    qa_idx = [0, 1, 1 + (n_seg + 1)]
+    qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
+
+    _, axs = plt.subplots(3, 1)
+    for k, (ax, qk) in enumerate(zip(axs.T, q[:, [qa_idx]].T)):
+        ax.plot(t, qk.flatten())
+        if q_ref is not None:
+            ax.axhline(q_ref[qa_idx[k]], ls='--')
+        ax.set_ylabel(qa_lbls[k])
+        ax.grid(alpha=0.5)
+    plt.show()
+
+
+def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray, 
+                                 x_hat: np.ndarray, n_seg_sim: int,
+                                 n_seg_est: int):
+    """
+    Compares real and estimated states. 
+    NOTE the comparison is valid if the discretization of the
+    simulation model and of the estimator model match. If the
+    dimensions of the estimation and simulation mdoels do 
+    not match then only active joint positions and 
+    velocities are compared and passive joint states are
+    plotted alone
+    """
+    assert n_seg_sim >= n_seg_est
+
+    # Parse states into active and passive
+    nq_est = 3 + 2*n_seg_est
+    nq_sim = 3 + 2*n_seg_sim
+    idxs_est = set(np.arange(0, nq_est))
+    idxs_sim = set(np.arange(0, nq_sim))
+    qa_idxs_est = [0, 1, 2 + n_seg_est]
+    qa_idxs_sim = [0, 1, 2 + n_seg_sim]
+    qp_idxs_est = list(idxs_est.difference(set(qa_idxs_est)))
+    qp_idxs_sim = list(idxs_sim.difference(set(qa_idxs_sim)))
+
+    dqa_idxs_est = [nq_est + k for k in qa_idxs_est]
+    dqa_idxs_sim = [nq_sim + k for k in qa_idxs_sim]
+    dqp_idxs_est = [nq_est + k for k in qp_idxs_est]
+    dqp_idxs_sim = [nq_sim + k for k in qp_idxs_sim]
+
+    # Plot active joint positions
+    qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
+    fig_qa, axs_qa = plt.subplots(3, 1, sharex=True, figsize=(6,8))
+    for k, (ax, qk, qk_hat) in enumerate(zip(axs_qa.T, 
+                        x[:, [qa_idxs_sim]].T, x_hat[:, [qa_idxs_est]].T)):
+        ax.plot(t, qk.flatten())
+        ax.plot(t, qk_hat.flatten(), ls='--')
+        ax.set_ylabel(qa_lbls[k])
+        ax.grid(alpha=0.5)
+    fig_qa.suptitle('active joint positions')
+    fig_qa.tight_layout()
+
+    # # Plot passive joint positions
+    qp1_idxs_est = qp_idxs_est[:len(qp_idxs_est)//2]
+    qp2_idxs_est = qp_idxs_est[len(qp_idxs_est)//2:]
+    fig_qp, axs_qp = plt.subplots(2,1, sharex=True, figsize=(6,8))
+    for k, (ax, idxs) in enumerate(zip(axs_qp.T, [qp1_idxs_est, qp2_idxs_est])):
+        for (qk, qk_hat) in zip(x[:, [idxs]].T, x_hat[:, [idxs]].T):
+            ax.plot(t, qk_hat.flatten(), ls='--')
+            if n_seg_est == n_seg_sim:
+                ax.plot(t, qk.flatten())    
+            ax.grid(alpha=0.5)
+    fig_qp.suptitle('passive joint positions')
+    fig_qp.tight_layout()
+
+    # Plot active joint velocities
+    dqa_lbls = [r"$\dot q_{a 1}$", r"$\dot q_{a 2}$", r"$\dot q_{a 3}$"]
+    fig_dqa, axs_dqa = plt.subplots(3, 1,  sharex=True, figsize=(6,8))
+    for k, (ax, dqk, dqk_hat) in enumerate(zip(axs_dqa.T, 
+                        x[:, [dqa_idxs_sim]].T, x_hat[:, [dqa_idxs_est]].T)):
+        ax.plot(t, dqk.flatten())
+        ax.plot(t, dqk_hat.flatten(), ls='--')
+        ax.set_ylabel(dqa_lbls[k])
+        ax.grid(alpha=0.5)
+    fig_dqa.suptitle('active joint velocities')
+    fig_dqa.tight_layout()
+
+    # Passive joint velocities
+    dqp1_idxs_est = dqp_idxs_est[:len(dqp_idxs_est)//2]
+    dqp2_idxs_est = dqp_idxs_est[len(dqp_idxs_est)//2:]
+    fig_dqp, axs_dqp = plt.subplots(2,1, sharex=True, figsize=(6,8))
+    for k, (ax, idxs) in enumerate(zip(axs_dqp.T, 
+                            [dqp1_idxs_est, dqp2_idxs_est])):
+        for (dqk, dqk_hat) in zip(x[:, [idxs]].T, x_hat[:, [idxs]].T):
+            if n_seg_est == n_seg_sim:
+                ax.plot(t, dqk.flatten())
+            ax.plot(t, dqk_hat.flatten(), ls='--')
+            ax.grid(alpha=0.5)
+    fig_dqp.suptitle('passive joint velocities')
+    fig_dqp.tight_layout()
 
     plt.show()
 
