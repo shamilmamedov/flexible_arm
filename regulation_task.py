@@ -6,7 +6,7 @@ from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from estimator import ExtendedKalmanFilter
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from controller import NNController, PDController3Dof
+from controller import NNController
 from simulation import SimulatorOptions, Simulator
 from animation import Panda3dAnimator
 import plotting

@@ -25,13 +25,13 @@ if __name__ == "__main__":
     fa_sym_hd = SymbolicFlexibleArm3DOF(n_seg)
 
     # Create initial state simulated system
-    qa0 = np.array([0.1, 1.5, 0.5])
+    qa0 = np.array([np.pi/2, np.pi/10, -np.pi/8])
     q0 = get_rest_configuration(qa0, n_seg)
     dq0 = np.zeros_like(q0)
     x0 = np.vstack((q0, dq0))
 
     # MPC has other model states
-    qa0_mpc = np.array([0.1, 1.5, 0.5])
+    qa0_mpc = qa0.copy()
     q0_mpc = get_rest_configuration(qa0_mpc, n_seg_mpc)
     dq0_mpc = np.zeros_like(q0_mpc)
     x0_mpc = np.vstack((q0_mpc, dq0_mpc))
@@ -43,8 +43,8 @@ if __name__ == "__main__":
     _, qee0 = fa_ld.fk_ee(q0_mpc)
 
     # Compute reference
-    qa_mpc_ref = deepcopy(qa0_mpc)
-    qa_mpc_ref += np.array([1.5, 0.5, 1.5])
+    # qa_mpc_ref = deepcopy(qa0_mpc)
+    qa_mpc_ref = np.array([0., 2*np.pi/5, -np.pi/3])
     q_mpc_ref = get_rest_configuration(qa_mpc_ref, n_seg_mpc)
     dq_mpc_ref = np.zeros_like(q_mpc_ref)
     x_mpc_ref = np.vstack((q_mpc_ref, dq_mpc_ref))
@@ -68,13 +68,14 @@ if __name__ == "__main__":
     dt = 0.01
 
     # Estimator
-    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=dt, integrator='cvodes')
+    est_model = SymbolicFlexibleArm3DOF(n_seg_mpc, dt=dt, integrator='collocation')
     p0_q, p0_dq = [0.05] * est_model.nq, [1e-3] * est_model.nq
     P0 = np.diag([*p0_q, *p0_dq])
-    q_q, q_dq = [1e-2] * est_model.nq, [5e-1] * est_model.nq
+    q_q = [1e-4, *[1e-3] * (est_model.nq - 1)]
+    q_dq = [1e-1, *[5e-1] * (est_model.nq - 1)]
     Q = np.diag([*q_q, *q_dq])
     r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
-    R = np.diag([*r_q, *r_dq, *r_pee])
+    R = 10*np.diag([*r_q, *r_dq, *r_pee])
     E = ExtendedKalmanFilter(est_model, x0_mpc, P0, Q, R)
 
     # simulate
@@ -96,8 +97,8 @@ if __name__ == "__main__":
     q = x[::n_skip, :fa_sym_hd.nq]
 
     # Visualization
-    plotting.plot_controls(t[:-1], u)
-    plotting.plot_measurements(t, y)
+    # plotting.plot_controls(t[:-1], u)
+    plotting.plot_measurements(t, y, x_ee_ref)
 
     # Animate simulated motion
     animator = Panda3dAnimator(fa_sym_hd.urdf_path, dt*n_skip, q).play(3)

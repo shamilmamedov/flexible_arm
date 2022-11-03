@@ -54,7 +54,7 @@ class Mpc3dofOptions:
                                              [Q_DQP] * (self.n_seg))  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0])
+        self.r_diag: np.ndarray = np.array([5e-2, 5e-2, 5e-2])
         self.w2_slack_speed: float = 1e1
         self.w2_slack_wall: float = 1e3
 

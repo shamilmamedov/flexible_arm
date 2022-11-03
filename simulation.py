@@ -9,7 +9,7 @@ from integrator import RK4
 
 # Measurement noise covairance parameters
 R_Q = [3e-6]*3
-R_DQ = [5e-3]*3
+R_DQ = [2e-3]*3
 R_PEE = [1e-4]*3
 
 @dataclass

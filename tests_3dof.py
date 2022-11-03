@@ -7,7 +7,7 @@ import pinocchio as pin
 import pandas as pd
 
 from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
-                               get_rest_configuration)
+                               get_rest_configuration, inverse_kinematics_rb)
 from estimator import ExtendedKalmanFilter
 from simulation import Simulator
 from controller import DummyController, PDController3Dof, FeedforwardController
@@ -209,10 +209,25 @@ def test_rest_configuration_computation():
             qa = np.array([0, np.pi/2, 0])
             q = get_rest_configuration(qa, n_seg)
             qp = q[list(idxs_p)]
-            np.testing.assert_array_equal(qp, np.zeros(2*n_seg))
+            np.testing.assert_array_equal(qp, np.zeros((2*n_seg,1)))
 
         qa = np.random.randn(3)
         q = get_rest_configuration(qa, n_seg)
+
+
+def test_inverse_kinematics():
+    """
+    TODO it is difficult to test because the IK can
+    come up with any of the three configurations
+    """
+    model_folder = 'models/three_dof/zero_segments/'
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
+
+    for k in range(2):
+        q = -np.pi + 2*np.pi*np.random.uniform(size=(3,))
+        pee = np.array(fkp(q))
+        q_ik = inverse_kinematics_rb(pee)
+        print(f'iter {k}')
 
 
 def compare_different_discretization():
@@ -484,6 +499,7 @@ if __name__ == "__main__":
     test_SymbolicFlexibleArm()
     test_EKF()
     test_rest_configuration_computation()
+    test_inverse_kinematics()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
     # compare_different_integrators()
