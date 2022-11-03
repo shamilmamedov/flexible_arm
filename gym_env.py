@@ -93,7 +93,6 @@ class FlexibleArmEnv(gym.Env):
         # initial position
         self._state, _ = self.sample_rand_config(qa_mean=self.options.qa_start,
                                                  qa_range=self.options.qa_range_start)
-
         # end position
         self.x_final, self.xee_final = self.sample_rand_config(qa_mean=self.options.qa_end,
                                                                qa_range=self.options.qa_range_end)

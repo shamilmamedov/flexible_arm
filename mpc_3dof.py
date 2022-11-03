@@ -155,7 +155,6 @@ class Mpc3Dof(BaseController):
         ocp.constraints.idxbu = np.array(range(nu))
 
         # state constraints
-
         ocp.constraints.lbx = -self.dq_active_max
         ocp.constraints.ubx = self.dq_active_max
         ocp.constraints.idxbx = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')

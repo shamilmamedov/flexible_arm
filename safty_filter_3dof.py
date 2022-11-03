@@ -21,22 +21,22 @@ class SafetyFilter3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_links: int):
-        self.n_links: int = n_links  # n_links corresponds to (n+1)*2 states
+    def __init__(self, n_seg: int):
+        self.n_seg: int = n_seg  # n_links corresponds to (n+1)*2 states
         self.n: int = 10  # number of discretization points
         self.tf: float = 0.1  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
-
-        # States are ordered for each link
-        self.q_diag: np.ndarray = np.array([0] * (1) + [0] * (1) + \
-                                           [0] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                           [0] * (self.n_links + 1) + [0] * (self.n_links + 1))
-        self.q_e_diag: np.ndarray = np.array([0] * (1) + [1] * (1) + \
-                                             [0] * (self.n_links + 1) + [0] * (self.n_links + 1) + \
-                                             [0] * (self.n_links + 1) + [0] * (self.n_links + 1))
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
+        self.w2_slack_speed: float = 1e3
+        self.w2_slack_wall: float = 1e5
+        self.u_max = np.array([20, 10, 10])  # [Nm]
+        self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
+        self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
+        self.wall_axis: int = 0  # Wall axis: 0,1,2 -> x,y,z
+        self.wall_value: float = 0.  # wall height value on axis
+        self.wall_pos_side: bool = True  # defines the allowed side of the wall
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -54,7 +54,8 @@ class SafetyFilter3Dof:
                  x0_ee: np.ndarray,
                  options: SafetyFilter3dofOptions):
 
-        self.u_max = 1e6
+        self.u_max = options.u_max
+        self.dq_active_max = options.dq_active_max
         self.model_ns = model_nonsymbolic
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()
@@ -89,24 +90,8 @@ class SafetyFilter3Dof:
 
         # define constraints
         ocp.model.con_h_expr = constraint_expr
-        # get constraint parameters
-        self.n_constraints = constraint_expr.shape[0]
-        ns = self.n_constraints  # We just constrain the constraints in the constraint-expression
-        nsh = self.n_constraints
-        self.current_slacks = np.zeros((ns,))
-        ocp.cost.zl = np.array([1, 1, 1])
-        ocp.cost.Zl = np.array([1e1, 1e1, 1e1]) * 1e5
-        ocp.cost.zu = ocp.cost.zl
-        ocp.cost.Zu = ocp.cost.Zl
-        ocp.constraints.lh = -np.ones((self.n_constraints,)) * 1e3
-        ocp.constraints.lh[0] = 0.
-        ocp.constraints.uh = np.ones((self.n_constraints,)) * 1e3
-        ocp.constraints.lsh = np.zeros(nsh)
-        ocp.constraints.ush = np.zeros(nsh)
-        ocp.constraints.idxsh = np.array(range(self.n_constraints))
 
         # some checks
-        assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
         assert (nu == options.r_diag.shape[0])
         assert (nz == options.z_diag.shape[0] == options.z_e_diag.shape[0])
 
@@ -117,15 +102,55 @@ class SafetyFilter3Dof:
         ocp.cost.cost_type = 'LINEAR_LS'
         ocp.cost.cost_type_e = 'LINEAR_LS'
 
-        options.q_diag[0:int(len(options.q_diag) / 2)] = 0
-        options.q_diag[int(len(options.q_diag) / 2):] = 1
-        options.q_e_diag[0:int(len(options.q_e_diag) / 2)] = 0
-        options.q_e_diag[int(len(options.q_e_diag) / 2):] = 1e5
-        Q = np.diagflat(options.q_diag)
-        Q_e = np.diagflat(options.q_e_diag)
+        # setting state weights
+        q_diag = np.zeros((2+4*(options.n_seg+1),))
+        q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
+        q_diag[0:int(len(q_diag) / 2)] = 0
+        q_diag[int(len(q_diag) / 2):] = 1
+        q_e_diag[0:int(len(q_e_diag) / 2)] = 0
+        q_e_diag[int(len(q_e_diag) / 2):] = 1e5
+        Q = np.diagflat(q_diag)
+        Q_e = np.diagflat(q_e_diag)
+
         R = np.diagflat(options.r_diag)
         Z = np.diagflat(options.z_diag)
         Z_e = np.diagflat(options.z_e_diag)
+
+        # state constraints
+        # state constraints
+        ocp.constraints.lbx = -self.dq_active_max
+        ocp.constraints.ubx = self.dq_active_max
+        ocp.constraints.idxbx = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+
+        ocp.constraints.lbx_e = -self.dq_active_max
+        ocp.constraints.ubx_e = self.dq_active_max
+        ocp.constraints.idxbx_e = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+        ocp.constraints.idxsbx = np.array([0, 1, 2])
+
+        # safety constraints
+        if options.wall_constraint_on:
+            ocp.model.con_h_expr = constraint_expr[options.wall_axis]
+            n_wall_constraints = 1
+            # self.n_constraints = constraint_expr.shape[0]
+            ns = n_wall_constraints
+            nsh = n_wall_constraints  # self.n_constraints
+            self.current_slacks = np.zeros((ns,))
+            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
+            ocp.cost.zu = ocp.cost.zl
+            ocp.cost.Zu = ocp.cost.Zl
+            ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
+                options.wall_value if options.wall_pos_side else -1e3)
+            ocp.constraints.uh = np.ones((n_wall_constraints,)) * (
+                options.wall_value if not options.wall_pos_side else 1e3)
+            ocp.constraints.lsh = np.zeros(nsh)
+            ocp.constraints.ush = np.zeros(nsh)
+            ocp.constraints.idxsh = np.array(range(n_wall_constraints))
+        else:
+            ocp.cost.zl = np.array([0] * 3)
+            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
+            ocp.cost.zu = ocp.cost.zl
+            ocp.cost.Zu = ocp.cost.Zl
 
         ocp.cost.W = scipy.linalg.block_diag(Q, R, Z)
         ocp.cost.W_e = scipy.linalg.block_diag(Q_e, Z_e)
@@ -153,17 +178,17 @@ class SafetyFilter3Dof:
         ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
         self.x0_ee = x0_ee
+
         # set constraints
         umax = self.u_max * np.ones((nu,))
-
         ocp.constraints.constr_type = 'BGH'
         ocp.constraints.lbu = -umax
         ocp.constraints.ubu = umax
         ocp.constraints.x0 = x0.reshape((nx,))
         ocp.constraints.idxbu = np.array(range(nu))
-        #ocp.constraints.idxbx = np.array([0])
-        #ocp.constraints.lbx = -np.array([np.pi / 2])
-        #ocp.constraints.ubx = np.array([np.pi / 2])
+        # ocp.constraints.idxbx = np.array([0])
+        # ocp.constraints.lbx = -np.array([np.pi / 2])
+        # ocp.constraints.ubx = np.array([np.pi / 2])
 
         # solver options
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # FULL_CONDENSING_QPOASES
@@ -237,7 +262,7 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
-        #print("delta u: {}".format(u0 - u_output))
+        # print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
         return u_output
@@ -266,8 +291,8 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
         def __init__(self, *args, **kwargs):
             super(ControllerSafetyWrapper, self).__init__(*args, **kwargs)
 
-        def compute_torques(self, q, dq):
-            u = super(ControllerSafetyWrapper, self).compute_torques(q, dq)
+        def compute_torques(self, q, dq, t=None):
+            u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
             u_safe = safety_filter.filter(u0=u, q=q, dq=dq)
             return u_safe
 

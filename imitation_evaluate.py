@@ -17,8 +17,8 @@ if __name__ == "__main__":
     # run simulation
     if RUN_EXPERIMENT:
         imitator, env, controller = ImitationBuilder_Wall().build()
-        imitator.render_expert(n_episodes=1, n_replay=2, show_plot=False, seed=1)
-        imitator.render_student(n_episodes=10, n_replay=2, show_plot=False, seed=1, policy_dir=experiment_dir)
+        imitator.render_expert(n_episodes=1, n_replay=1, show_plot=False, seed=1)
+        imitator.render_student(n_episodes=10, n_replay=1, show_plot=False, seed=1, policy_dir=experiment_dir)
 
 
 
