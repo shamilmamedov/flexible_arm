@@ -194,26 +194,28 @@ class Imitator:
         if self.options.save_file:
             dagger_trainer.policy.save(self.log_dir + '/' + self.options.filename)
 
+
 def smooth(y, box_pts):
-    box = np.ones(box_pts)/box_pts
+    box = np.ones(box_pts) / box_pts
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
+
 def smoothTriangle(data, degree):
-    triangle=np.concatenate((np.arange(degree + 1), np.arange(degree)[::-1])) # up then down
-    smoothed=[]
+    triangle = np.concatenate((np.arange(degree + 1), np.arange(degree)[::-1]))  # up then down
+    smoothed = []
 
     for i in range(degree, len(data) - degree * 2):
-        point=data[i:i + len(triangle)] * triangle
-        smoothed.append(np.sum(point)/np.sum(triangle))
+        point = data[i:i + len(triangle)] * triangle
+        smoothed.append(np.sum(point) / np.sum(triangle))
     # Handle boundaries
-    smoothed=[smoothed[0]]*int(degree + degree/2) + smoothed
+    smoothed = [smoothed[0]] * int(degree + degree / 2) + smoothed
     while len(smoothed) < len(data):
         smoothed.append(smoothed[-1])
     return np.array(smoothed)
 
-def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10):
 
+def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10):
     data = read_csv(log_dir + "/" + filename)
     return_mean = data['rollout/return_mean']
     return_std = data['rollout/return_std']
@@ -228,7 +230,6 @@ def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 
     return_min = smoothTriangle(return_min.array, 1)
     bc_loss = smoothTriangle(bc_loss.array, 1)
     prob_true_act = smoothTriangle(prob_true_act.array, 1)
-
 
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
     i = np.arange(return_mean.shape[0])

@@ -4,12 +4,14 @@ from flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicF
 from gym_env import FlexibleArmEnv
 from imitator import ImitatorOptions, Imitator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from imitation_builder import ImitationBuilder_Stabilization
+from imitation_builder import ImitationBuilder_Stabilization, ImitationBuilder_Wall
 
 if __name__ == "__main__":
     EVALUATE_EXPERT = False
     TRAIN_POLICY = True
-    imitator, env, controller = ImitationBuilder_Stabilization().build()
+
+    # imitator, env, controller = ImitationBuilder_Stabilization().build()
+    imitator, env, controller = ImitationBuilder_Wall().build()
 
     # evaluate expert to get an idea of the reward achievable
     if EVALUATE_EXPERT:

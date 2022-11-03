@@ -71,7 +71,7 @@ class ImitationBuilder_Stabilization(ImitationBuilder):
         self.imitator_options.environment_options.sim_time = 3
         self.imitator_options.environment_options.goal_min_time = 1
 
-        self.imitator_options.n_episodes = 6 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
+        self.imitator_options.n_episodes = 60 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
         self.imitator_options.rollout_round_min_episodes = 5  # option for dagger algorithm.
         self.imitator_options.rollout_round_min_timesteps = 2000  # option for dagger algorithm.
 
@@ -82,3 +82,40 @@ class ImitationBuilder_Stabilization(ImitationBuilder):
         self.mpc_options.wall_axis = 2  # Wall axis: 0,1,2 -> x,y,z
         self.mpc_options.wall_value = 0.5  # wall height value on axis
         self.mpc_options.wall_pos_side = True  # defines the allowed side of the wall
+
+
+class ImitationBuilder_Wall(ImitationBuilder):
+    def __init__(self):
+        n_seg = 3
+        n_seg_mpc = 3
+        dt = 0.01
+        tf = 0.3
+        dir_rel = "/wall"
+        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, dt=dt, tf=tf, dir_rel=dir_rel)
+
+    def pre_build(self):
+        delta_wall_angle = np.pi / 40
+        self.imitator_options.environment_options.qa_start = \
+            np.array([-np.pi / 2 - delta_wall_angle, np.pi / 7, -np.pi / 5])
+        self.imitator_options.environment_options.qa_end = \
+            np.array([-delta_wall_angle, np.pi / 7, -np.pi / 5])
+        self.imitator_options.environment_options.qa_range_start = np.array([np.pi, np.pi / 2, np.pi / 2])
+        self.imitator_options.environment_options.qa_range_end = np.array([.0, .0, .0])
+        self.imitator_options.environment_options.n_seg = 3
+        self.imitator_options.environment_options.render_mode = None
+        self.imitator_options.environment_options.maximum_torques = np.array([20, 10, 10])
+        self.imitator_options.environment_options.goal_dist_euclid = 0.01
+        self.imitator_options.environment_options.sim_time = 3
+        self.imitator_options.environment_options.goal_min_time = 1
+
+        self.imitator_options.n_episodes = 100 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
+        self.imitator_options.rollout_round_min_episodes = 10  # option for dagger algorithm.
+        self.imitator_options.rollout_round_min_timesteps = 5000  # option for dagger algorithm.
+
+        self.mpc_options.n = 30  # number of discretization points
+        self.mpc_options.nlp_iter = 50  # number of iterations of the nonlinear solver
+        self.mpc_options.condensing_relative = 1  # relative factor of condensing [0-1]
+        self.mpc_options.wall_constraint_on = True  # choose whether we activate the wall constraint
+        self.mpc_options.wall_axis = 1  # Wall axis: 0,1,2 -> x,y,z
+        self.mpc_options.wall_value = 0.0  # wall height value on axis
+        self.mpc_options.wall_pos_side = False  # defines the allowed side of the wall
