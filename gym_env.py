@@ -19,18 +19,17 @@ class FlexibleArmEnvOptions:
     """
     Options for imitation learning
     """
-
     def __init__(self, dt: float = 0.01):
-        self.qa_start: np.ndarray = np.array([0.5, 1.5, 0.5])
+        self.qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
         self.qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
-        self.qa_range_start: np.ndarray = np.array([np.pi, 0.1, 0.1])
+        self.qa_range_start: np.ndarray = np.array([np.pi, np.pi, np.pi])
         self.qa_range_end: np.ndarray = np.array([.0, .0, .0])
         self.n_seg: int = 3
         self.dt: float = dt
         self.render_mode = None
         self.maximum_torques: np.ndarray = np.array([20, 10, 10])
         self.goal_dist_euclid: float = 0.01
-        self.sim_time = 2
+        self.sim_time = 3
         self.goal_min_time: float = 1
 
 

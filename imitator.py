@@ -37,10 +37,11 @@ class ImitatorOptions:
         self.environment_options: FlexibleArmEnvOptions = FlexibleArmEnvOptions(dt=dt)
         self.filename: str = "trained_policy"
         self.logdir_rel: str = "/logdata"
+        self.run_name: str = None
         self.save_file: bool = True
-        self.n_episodes: int = 30 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
-        self.rollout_round_min_episodes: int = 2  # option for dagger algorithm.
-        self.rollout_round_min_timesteps: int = 1000  # option for dagger algorithm.
+        self.n_episodes: int = 60 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
+        self.rollout_round_min_episodes: int = 5  # option for dagger algorithm.
+        self.rollout_round_min_timesteps: int = 2000  # option for dagger algorithm.
 
 
 class Imitator:
@@ -52,8 +53,16 @@ class Imitator:
         self.options = options
         self.expert_controller = expert_controller
         self.estimator = estimator
-        self.datetimestr = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
-        self.log_dir = None
+
+        # set up logger
+        if options.run_name is None:
+            run_name = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
+        else:
+            run_name = options.run_name
+        current_dir = pathlib.Path(__file__).parent.resolve()
+        path = current_dir.__str__() + self.options.logdir_rel + '/' + run_name
+        self.log_dir = path
+        self.custom_logger = configure(path, ["stdout", "csv", "tensorboard"])
 
         # create and sanity check training environment
         self.env = FlexibleArmEnv(options=options.environment_options, estimator=estimator)
@@ -71,7 +80,8 @@ class Imitator:
         self.venv = DummyVecEnv([lambda: FlexibleArmEnv(options=options.environment_options, estimator=estimator)])
         self.bc_trainer = bc.BC(
             observation_space=self.env.observation_space,
-            action_space=self.env.action_space
+            action_space=self.env.action_space,
+            custom_logger=self.custom_logger
         )
 
     def evaluate_expert(self, n_eps: int = 1):
@@ -90,9 +100,10 @@ class Imitator:
         print("Average expert reward: {}".format(total_reward_sum / n_eps))
         self.env.reset()
 
-    def render_student(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True, seed: int = None):
-        controller = NNController(nn_file=self.options.filename + '_' + self.datetimestr,
-                                  n_seg=self.expert_controller.options.n_seg)
+    def render_student(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True, seed: int = None,
+                       policy_dir: str = None, filename: str = "trained_policy"):
+        filename = policy_dir + "/" + filename
+        controller = NNController(nn_file=filename, n_seg=self.expert_controller.options.n_seg)
 
         # simulate
         n_iter = 500
@@ -158,42 +169,8 @@ class Imitator:
             # Animate simulated motion
             animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(n_replay)
 
-    def plot_training(self, log_dir=None):
-        if self.log_dir is None and log_dir is None:
-            print("No training defined")
-            return
-        if log_dir is None:
-            log_dir = self.log_dir
-        data = read_csv(log_dir + "/progress.csv")
-        return_mean = data['rollout/return_mean']
-        return_std = data['rollout/return_std']
-        return_max = data['rollout/return_max']
-        return_min = data['rollout/return_min']
-        bc_loss = data['bc/loss']
-        prob_true_act = data['bc/prob_true_act']
-        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
-        i = np.arange(return_mean.shape[0])
-        ax1.plot(i, return_mean)
-        ax1.fill_between(i, y1=return_mean + return_std, y2=return_mean - return_std, alpha=0.3)
-        ax1.plot(i, return_max, color='black')
-        ax1.plot(i, return_min, color='black')
-        ax1.set_title('Return')
-
-        ax2.plot(bc_loss)
-        ax2.set_title('Loss')
-
-        ax3.plot(prob_true_act)
-        ax3.set_title('Probability True Action')
-        plt.show()
-
     def train(self):
         assert int(self.expert_controller.options.tf / self.expert_controller.options.n) == int(self.env.dt)
-
-        # set up logger
-        current_dir = pathlib.Path(__file__).parent.resolve()
-        path = current_dir.__str__() + self.options.logdir_rel + '/' + self.datetimestr
-        self.log_dir = path
-        custom_logger = configure(path, ["stdout", "csv", "tensorboard"])
 
         with tempfile.TemporaryDirectory(prefix="dagger_example_") as tmpdir:
             print(tmpdir)
@@ -202,7 +179,7 @@ class Imitator:
                 scratch_dir=tmpdir,
                 expert_policy=self.callable_expert,
                 bc_trainer=self.bc_trainer,
-                custom_logger=custom_logger
+                custom_logger=self.custom_logger
             )
 
             dagger_trainer.train(self.options.n_episodes,
@@ -215,4 +192,55 @@ class Imitator:
 
         # Save policy
         if self.options.save_file:
-            dagger_trainer.policy.save(self.options.filename + '_' + self.datetimestr)
+            dagger_trainer.policy.save(self.log_dir + '/' + self.options.filename)
+
+def smooth(y, box_pts):
+    box = np.ones(box_pts)/box_pts
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth
+
+def smoothTriangle(data, degree):
+    triangle=np.concatenate((np.arange(degree + 1), np.arange(degree)[::-1])) # up then down
+    smoothed=[]
+
+    for i in range(degree, len(data) - degree * 2):
+        point=data[i:i + len(triangle)] * triangle
+        smoothed.append(np.sum(point)/np.sum(triangle))
+    # Handle boundaries
+    smoothed=[smoothed[0]]*int(degree + degree/2) + smoothed
+    while len(smoothed) < len(data):
+        smoothed.append(smoothed[-1])
+    return np.array(smoothed)
+
+def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10):
+
+    data = read_csv(log_dir + "/" + filename)
+    return_mean = data['rollout/return_mean']
+    return_std = data['rollout/return_std']
+    return_max = data['rollout/return_max']
+    return_min = data['rollout/return_min']
+    bc_loss = data['bc/loss']
+    prob_true_act = data['bc/prob_true_act']
+
+    return_mean = smoothTriangle(return_mean.array, n_smooth)
+    return_std = smoothTriangle(return_std.array, n_smooth)
+    return_max = smoothTriangle(return_max.array, 1)
+    return_min = smoothTriangle(return_min.array, 1)
+    bc_loss = smoothTriangle(bc_loss.array, 1)
+    prob_true_act = smoothTriangle(prob_true_act.array, 1)
+
+
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
+    i = np.arange(return_mean.shape[0])
+    ax1.plot(i, return_mean)
+    ax1.fill_between(i, y1=return_mean + return_std, y2=return_mean - return_std, alpha=0.3)
+    ax1.plot(i, return_max, color='black', alpha=0.3)
+    ax1.plot(i, return_min, color='black', alpha=0.3)
+    ax1.set_title('Return')
+
+    ax2.plot(bc_loss)
+    ax2.set_title('Loss')
+
+    ax3.plot(prob_true_act)
+    ax3.set_title('Probability True Action')
+    plt.show()
