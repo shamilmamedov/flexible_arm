@@ -230,6 +230,7 @@ class SymbolicFlexibleArm3DOF:
         self.nz = 3  # algebraic states
         self.ny = 9  # 3 for active joint positions
         self.n_seg = n_seg
+        self.qa_idx = [0, 1, 2 + n_seg] # indeces of the active joitns
 
         # Process flexibility parameters
         if self.n_seg > 0:
@@ -244,8 +245,9 @@ class SymbolicFlexibleArm3DOF:
             self.D2 = np.diag(flexibility_params['D2'])
             self.D3 = np.diag(flexibility_params['D3'])
 
-        # Load the forward dynamics alogirthm function ABA
+        # Load the forward dynamics alogirthm function ABA and RNEA
         casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
 
         # Get function for the forward kinematics and velocities
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
@@ -369,11 +371,17 @@ class SymbolicFlexibleArm3DOF:
         """
         return np.array(self.h(x))
 
+    def gravity_torque(self, q):
+        """ Returns the gravity torque of the active (controlled) joints
+        """
+        t_ = np.zeros_like(q)
+        return np.array(self.rnea(q, t_, t_))[self.qa_idx,:]
+
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
 
 
-def get_rest_configuration(qa, n_seg):
+def get_rest_configuration(qa: np.ndarray, n_seg: int):
     """ Computes the rest configuration of the robot based on 
     rest configuration of the active joints. (It assumes that actuators
     provide enough torque to keep the active joints at a desired position; 
@@ -382,6 +390,11 @@ def get_rest_configuration(qa, n_seg):
     :parameter qa: configration of the active joints
     :parameter n_seg: number of segments
     """
+    try:
+        qa = qa.reshape((3,))
+    except:
+        RuntimeError
+
     if n_seg == 0:
         return qa
 

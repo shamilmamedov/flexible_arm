@@ -3,6 +3,8 @@ from enum import Enum, auto
 import matplotlib.pyplot as plt
 import numpy as np
 
+n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 
+                 3: 'three', 5: 'five', 10: 'ten'}
 
 class ControlMode(Enum):
     SET_POINT = auto()

@@ -1,8 +1,7 @@
 import numpy as np
 
-
 from utils import print_timings
-from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
+from flexible_arm_3dof import (SymbolicFlexibleArm3DOF, inverse_kinematics_rb,
                                get_rest_configuration)
 from estimator import ExtendedKalmanFilter
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
@@ -33,27 +32,30 @@ if __name__ == "__main__":
     est_model = SymbolicFlexibleArm3DOF(n_seg_cont, dt=dt, integrator='cvodes')
 
     # Initial state of the real system (simulation model)
-    qa0 = np.array([0.1, 1.5, 0.5])
+    qa0 = np.array([np.pi/2, np.pi/10, -np.pi/8])
     q0 = get_rest_configuration(qa0, n_seg_sim)
     dq0 = np.zeros_like(q0)
     x0 = np.vstack((q0, dq0))
 
-    # Compute reference
-    qa_ref = qa0.copy()
-    qa_ref += np.array([1.5, 0.5, 1.5])
+    # Compute reference ee position
+    # qa_ref = qa0.copy()
+    qa_ref = np.array([0., 2*np.pi/5, -np.pi/3])
     q_ref = get_rest_configuration(qa_ref, n_seg_sim)
     pee_ref = np.array(sim_model.p_ee(q_ref))
+    print("ref: " + np.array2string(qa_ref.squeeze()))
+
 
     # Design estimator
     # initial covariance matrix
     p0_q, p0_dq = [0.05] * est_model.nq, [1e-3] * est_model.nq
     P0 = np.diag([*p0_q, *p0_dq])
     # process noise covariance
-    q_q, q_dq = [1e-2] * est_model.nq, [5e-1] * est_model.nq
+    q_q = [1e-4, *[1e-3] * (est_model.nq - 1)]
+    q_dq = [1e-1, *[5e-1] * (est_model.nq - 1)]
     Q = np.diag([*q_q, *q_dq])
     # measurement noise covaiance
     r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
-    R = np.diag([*r_q, *r_dq, *r_pee])
+    R = 10*np.diag([*r_q, *r_dq, *r_pee])
 
     # initial state for the estimator
     qa0_est = qa0.copy()
@@ -63,6 +65,8 @@ if __name__ == "__main__":
 
     E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
 
+
+    # Design controller
     if controller == 'MPC':
         # Initial state of the MPC controller
         # which initial state guess of the state estimator
@@ -71,14 +75,19 @@ if __name__ == "__main__":
         # Initial value of the end-effector
         pee_0 = np.array(cont_model.p_ee(q0_est))
 
+        # Instantiate an MPC conttroller
         mpc_options = Mpc3dofOptions(n_seg=n_seg_cont, tf=1)
         controller = Mpc3Dof(model=cont_model, x0=x0_mpc, pee_0=pee_0, options=mpc_options)
-        
-        # reference input (can be initialzed using RNEA for rigid body model)
-        u_ref = np.zeros((cont_model.nu, 1))
 
-        # reference for the mpc controller
-        controller.set_reference_point(p_ee_ref=pee_ref, x_ref=x_mpc_ref, u_ref=u_ref)
+        # Provide reference for the mpc controller
+        # get qa from IK of the rigid body approximation
+        qa_ik = inverse_kinematics_rb(pee_ref, qa0)
+        q_ref_mpc = get_rest_configuration(qa_ik, n_seg_cont)
+        dq_ref_mpc = np.zeros_like(q_ref_mpc)
+        x_ref_mpc = np.vstack((q_ref_mpc, dq_ref_mpc))
+        # reference input (can be initialzed using RNEA for rigid body model)
+        u_ref = cont_model.gravity_torque(q_ref_mpc)
+        controller.set_reference_point(p_ee_ref=pee_ref, x_ref=x_ref_mpc, u_ref=u_ref)
     elif controller == 'NN':
         controller = NNController(nn_file="bc_policy_1", n_seg=n_seg_cont)
 
@@ -95,13 +104,14 @@ if __name__ == "__main__":
         print_timings(t_mean, t_std, t_min, t_max)
 
 
+    # Process the simulation results
     # Parse joint positions
     n_skip = 1
     q = x[::n_skip, :sim_model.nq]
 
     # Visualization
-    plotting.plot_controls(t[:-1], u)
-    plotting.plot_measurements(t, y)
+    plotting.plot_controls(t[:-1], u, u_ref)
+    plotting.plot_measurements(t, y, pee_ref)
 
     # Animate simulated motion
     animator = Panda3dAnimator(sim_model.urdf_path, dt*n_skip, q).play(3)

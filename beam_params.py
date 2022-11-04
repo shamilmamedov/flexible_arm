@@ -1,5 +1,8 @@
 import numpy as np
+import yaml
+import os
 
+from utils import n_seg_int2str
 
 def inertial_params_rectangle(a, h, l, rho):
     """ Inertial parameters of the rectangular beam
@@ -73,14 +76,26 @@ def spring_params_cylinder(d, l, E, G):
 
 
 if __name__ == "__main__":
-    # Parameters of the beam
+    """ Parameters of the beam. As a material reference
+    alimunium or stainless steel can be chosen. For stainless
+    steel: E = 1.9e+11, G = 74e+9. For alimunium: E = 88.5e+9,
+    G = 34e+9
+    """
+    material = 'steel' # 'steel', 'aluminium'
     L = 0.5
     a = 0.05
     h = 0.002
-    E = 1.9e11
-    G = 74e+9
     rho = 7.87e3
     zeta = 5e-3
+    if material == 'steel':
+        E = 1.9e+11
+        G = 74e+9
+    elif material == 'aluminium':
+        E = 88.5e+9
+        G = 34e+9
+    else:
+        raise ValueError
+
 
     m, rc, I = inertial_params_rectangle(a, h, L, rho)
     k = spring_params_rectangle(a, h, L, E, G)
@@ -88,7 +103,7 @@ if __name__ == "__main__":
     d = 2*zeta*wn
 
     # Consider 5 segments
-    n_seg = 0
+    n_seg = 1
     if n_seg > 0:
         # Get the length of the primary-divison and the mass. These 
         # parameters are used for computing stiffness and damping parameters
@@ -124,3 +139,22 @@ if __name__ == "__main__":
         print(f"Link COM = {rc}")
         print(f"Link moment of inertia = {I}")
     
+
+    update_model_params = False
+    if update_model_params:
+        model_folder = 'models/three_dof/' + \
+                       n_seg_int2str[n_seg] + '_segments/'
+        params_file = 'fp.yml'
+        params_path = os.path.join(model_folder, params_file)
+
+        K = [x[2].item() for x in sde_k]
+        D = [x[2].item() for x in sde_d]
+        flex_params = {'K2': K, 'K3': K, 'D2': D, 'D3': D}
+        yaml_result = yaml.dump(flex_params, default_flow_style=None)
+        print(yaml_result)
+
+        with open(params_path, 'w') as stream:
+            try:
+                stream.write(yaml_result)
+            except yaml.YAMLError as exc:
+                print(exc)

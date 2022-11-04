@@ -2,12 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_controls(t: np.ndarray, u: np.ndarray):
-    u_lbls = [f'u_{k} [Nm]' for k in range(1,4)]
+def plot_controls(t: np.ndarray, u: np.ndarray, u_ref: np.ndarray = None):
+    """
+    :parameter t: time
+    :parameter u: [n x 3] vector of control inputs
+    :parameter u_ref: [3] or [3 x 1] vector of reference input
+    """
+    u_lbls = [fr'$\tau_{k}$ [Nm]' for k in range(1,4)]
     fig, axs = plt.subplots(3,1, sharex=True, figsize=(6,8))
 
     for k, ax in enumerate(axs.reshape(-1)):
         ax.plot(t, u[:,k])
+        if u_ref is not None:
+            ax.axhline(u_ref[k], ls='--', color='red')
         ax.set_ylabel(u_lbls[k])
         ax.grid(alpha=0.5)
     axs[2].set_xlabel('t [s]')
@@ -21,7 +28,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     dqa = y[:,3:6]
     pee = y[:,6:9]
 
-    qa_lbls = [f'qa_{k} [rad]' for k in range(1,4)]
+    qa_lbls = [fr'$qa_{k}$ [rad]' for k in range(1,4)]
     _, axs_q = plt.subplots(3,1, sharex=True, figsize=(6,8))
     for k, ax in enumerate(axs_q.reshape(-1)):
         ax.plot(t, qa[:,k])
@@ -30,7 +37,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     axs_q[2].set_xlabel('t [s]')
     plt.tight_layout()
 
-    dqa_lbls = [f'dqa_{k} [rad/s]' for k in range(1,4)]
+    dqa_lbls = [fr'$\dot qa_{k}$ [rad/s]' for k in range(1,4)]
     _, axs_dq = plt.subplots(3,1, sharex=True, figsize=(6,8))
     for k, ax in enumerate(axs_dq.reshape(-1)):
         ax.plot(t, dqa[:,k])
@@ -38,7 +45,7 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
         ax.grid(alpha=0.5)
     plt.tight_layout()
 
-    pee_lbls = ['pee_x [m]', 'pee_y [m]', 'pee_z [m]']
+    pee_lbls = [r'$p_{ee,x}$ [m]', r'$p_{ee,y}$ [m]', r'$p_{ee,z}$ [m]']
     _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
     for k, ax in enumerate(axs_pee.reshape(-1)):
         ax.plot(t, pee[:,k])
