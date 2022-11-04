@@ -45,8 +45,8 @@ if __name__ == "__main__":
     n_iter = 500
 
     # Create FlexibleArm instance
-    n_seg = 3
-    n_seg_mpc = 3
+    n_seg = 1
+    n_seg_mpc = 1
 
     fa_ld = FlexibleArm3DOF(n_seg_mpc)
     fa = FlexibleArm3DOF(n_seg)
@@ -65,26 +65,26 @@ if __name__ == "__main__":
     q_ref[1 + n_seg + 1] += 1
 
     # MPC has other model states
-    q0_mpc = deepcopy(q)
-    dq0_mpc = deepcopy(dq)
+    q0_mpc = np.zeros((fa_ld.nq, 1))
+    dq0_mpc = np.zeros_like(q0_mpc)
     x0_mpc = np.vstack((q0_mpc, dq0_mpc))
     _, qee0 = fa_ld.fk_ee(q0_mpc)
 
     # saftey filter
     # Create mpc options and controller
-    n_seg_mpc = 3
-    safety_options = SafetyFilter3dofOptions(n_links=n_seg_mpc)
-    safety_filter = SafetyFilter3Dof(model=fa_sym_ld,model_nonsymbolic=fa_ld, x0=x0_mpc, x0_ee=qee0, options=safety_options)
+    safety_options = SafetyFilter3dofOptions(n_seg=n_seg_mpc)
+    safety_filter = SafetyFilter3Dof(model=fa_sym_ld, model_nonsymbolic=fa_ld, x0=x0_mpc, x0_ee=qee0,
+                                     options=safety_options)
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
     # Controller
     # controller = DummyController()
     PDController3DofSafe = get_safe_controller_class(PDController3Dof, safety_filter=safety_filter)
-    C = PDController3DofSafe(Kp=(0.5, 12, 3), Kd=(0.025, 0.025, 0.025), n_seg=n_seg, q_ref=q_ref)
+    C = PDController3DofSafe(Kp=(0.2, 3, 3), Kd=(0.025, 0.025, 0.025), n_seg=n_seg, q_ref=q_ref)
 
     # Estimator
     # E = None
-    est_model = SymbolicFlexibleArm3DOF(3, ts=ts)
+    est_model = SymbolicFlexibleArm3DOF(3, dt=ts)
     P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
     q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
     Q = np.diag([*q_q, *q_dq])
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # Simulate
     integrator = 'LSODA'
     sim = Simulator(fa, C, integrator, None)
-    x, u, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Print timing
@@ -108,11 +108,11 @@ if __name__ == "__main__":
     n_skip = 2
     q = x[::n_skip, :fa.nq]
 
-    #plot_real_states_vs_estimate(t, x, x_hat)
-    #plot_joint_positions(t[::10], q, n_seg, q_ref)
+    # plot_real_states_vs_estimate(t, x, x_hat)
+    # plot_joint_positions(t[::10], q, n_seg, q_ref)
 
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
-    urdf_path = 'models/three_dof/three_segments/flexible_arm_3dof_3s.urdf'
+    urdf_path = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf'
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(30)
