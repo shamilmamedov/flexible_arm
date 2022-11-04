@@ -9,7 +9,7 @@ from controller import NNController
 from simulation import SimulatorOptions, Simulator
 from animation import Panda3dAnimator
 import plotting
-
+import kpi
 
 if __name__ == "__main__":
     # Model discretization parameters
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     dt = 0.01 
 
     # Number of simulation iterations
-    n_iter = 200
+    n_iter = 100
 
     # Controller
     controllers = ['MPC', 'NN']
@@ -103,6 +103,15 @@ if __name__ == "__main__":
         t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
         print_timings(t_mean, t_std, t_min, t_max)
 
+
+    # Compute KPIs
+    q = x[:, :sim_model.nq]
+    ns2g = kpi.execution_time(q, sim_model, pee_ref, 0.05)
+    print(f"Time to reach a ball around the goal = {t[ns2g]}")
+
+    q_kpi = q[:ns2g,:]
+    pl = kpi.path_length(q_kpi, sim_model)
+    print(f"Path length = {pl:.4f}")
 
     # Process the simulation results
     # Parse joint positions
