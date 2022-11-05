@@ -56,6 +56,8 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
             inside[k] = True
 
     if np.all(inside[n_first_entry:]):
+        dn = ns - n_first_entry
+        print(f"The EE stayed inside the ball for {dn} samples")
         return n_first_entry
     else:
         return NotImplementedError

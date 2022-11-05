@@ -312,7 +312,7 @@ class SymbolicFlexibleArm3DOF:
         # Create an integrator
         dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
         if integrator == 'collocation':
-            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 1, 
+            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 
                     'simplify': True, 'collocation_scheme': 'radau',
                     'rootfinder':'fast_newton','expand': True, 
                     'interpolation_order': 3}
@@ -396,7 +396,7 @@ def get_rest_configuration(qa: np.ndarray, n_seg: int):
         RuntimeError
 
     if n_seg == 0:
-        return qa
+        return qa.reshape((3,1))
 
     # Path to a folder with model description
     model_folder = 'models/three_dof/' + \
