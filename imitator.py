@@ -117,7 +117,7 @@ class Imitator:
                 np.random.seed(seed + simulation_count)
             sim = Simulator(self.env.model_sym, controller, 'cvodes', self.estimator, opts=sim_opts)
             x0 = self.env.reset()
-            x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
+            x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
             t = np.arange(0, n_iter + 1) * self.env.dt
 
             # Parse joint positions
@@ -151,7 +151,7 @@ class Imitator:
             self.expert_controller.set_reference_point(x_ref=self.env.x_final,
                                                        p_ee_ref=self.env.xee_final,
                                                        u_ref=np.array([0, 0, 0]))
-            x, u, y, xhat = sim.simulate(x0.flatten(), self.env.dt, n_iter)
+            x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
             t = np.arange(0, n_iter + 1) * self.env.dt
 
             # Parse joint positions

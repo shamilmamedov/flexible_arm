@@ -8,9 +8,10 @@ from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from integrator import RK4
 
 # Measurement noise covairance parameters
-R_Q = [3e-6]*3
-R_DQ = [2e-3]*3
-R_PEE = [1e-4]*3
+R_Q = [3e-6] * 3
+R_DQ = [2e-3] * 3
+R_PEE = [1e-4] * 3
+
 
 @dataclass
 class SimulatorOptions:
@@ -22,13 +23,15 @@ class SimulatorOptions:
     R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
     # R: np.ndarray = np.zeros((9,9))
     contr_input_states: str = 'real'
+    dt: float = 0.01
+    n_iter: float = 100
 
 
 class Simulator:
     """ Implements a simulator for FlexibleArm
     """
 
-    def __init__(self, robot, controller, integrator, estimator=None, 
+    def __init__(self, robot, controller, integrator, estimator=None,
                  opts: SimulatorOptions = SimulatorOptions()) -> None:
         if integrator in ['collocation', 'cvodes']:
             assert isinstance(robot, SymbolicFlexibleArm3DOF)
@@ -41,7 +44,64 @@ class Simulator:
 
         # Sanity checks
         if self.opts.contr_input_states == 'estimated':
-            assert(estimator is not None)
+            assert (estimator is not None)
+
+        # Create an integrator for collocation method
+        if self.integrator in ['collocation', 'cvodes']:
+            dae = {'x': self.robot.x, 'p': self.robot.u, 'ode': self.robot.rhs}
+            if self.integrator == 'collocation':
+                opts = {'t0': 0, 'tf': self.opts.dt, 'number_of_finite_elements': 3,
+                        'simplify': True, 'collocation_scheme': 'radau',
+                        'rootfinder': 'fast_newton', 'expand': True,
+                        'interpolation_order': 3}
+            else:
+                opts = {'t0': 0, 'tf': self.opts.dt, 'abstol': self.opts.atol, 'reltol': self.opts.rtol,
+                        'nonlinear_solver_iteration': 'newton', 'expand': True,
+                        'linear_multistep_method': 'bdf'}
+            I = cs.integrator('I', self.integrator, dae, opts)
+            x_next = I(x0=self.robot.x, p=self.robot.u)["xf"]
+            self.F = cs.Function('F', [self.robot.x, self.robot.u], [x_next])
+        self.x = None
+        self.u = None
+        self.y = None
+        self.nx_est = None
+        self.x_hat = None
+        self.k = 0
+
+    def reset(self, x0, n_iter: int = None):
+        self.k = 0
+        if n_iter is not None:
+            self.opts.n_iter = n_iter
+
+        if self.estimator is not None:
+            self.estimator.x_hat = np.expand_dims(x0, 1)
+            self.nx_est = np.shape(self.estimator.x_hat)[0]
+            self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
+        else:
+            self.x_hat = None
+
+        self.x = np.zeros((self.opts.n_iter + 1, self.robot.nx))
+        self.u = np.zeros((self.opts.n_iter, self.robot.nu))
+        self.y = np.zeros((self.opts.n_iter + 1, self.robot.ny))
+
+        self.x[0, :] = x0
+        self.y[0, :] = (self.robot.output(self.x[[0], :].T).flatten() +
+                        multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
+
+        self.x_hat[self.k, :] = self.estimator.estimate(
+            self.y[[self.k], :].T).flatten()
+
+        # Compute control action
+        if self.opts.contr_input_states == 'real':
+            qk = self.x[[self.k], :self.robot.nq].T
+            dqk = self.x[[self.k], self.robot.nq:].T
+        elif self.opts.contr_input_states == 'estimated':
+            qk = self.x_hat[[self.k], :int(self.nx_est / 2)].T
+            dqk = self.x_hat[[self.k], int(self.nx_est / 2):].T
+        else:
+            raise NotImplementedError
+
+        return np.vstack((qk, dqk))
 
     @staticmethod
     def ode_wrapper(t, x, robot, tau):
@@ -49,7 +109,7 @@ class Simulator:
         """
         return robot.ode(x, tau)
 
-    def step(self, x, u, dt) -> np.ndarray:
+    def integrator_step(self, x, u, dt) -> np.ndarray:
         """ Implements one step of the simulation
 
         :parameter x: [nx x 1] (initial) state
@@ -58,7 +118,7 @@ class Simulator:
         """
         if self.integrator in ['RK45', 'LSODA']:
             sol = solve_ivp(self.ode_wrapper, [0, dt], x.flatten(), args=(self.robot, u),
-                            vectorized=True, method=self.integrator, 
+                            vectorized=True, method=self.integrator,
                             rtol=self.opts.rtol, atol=self.opts.atol)
             x_next = sol.y[:, -1]
         elif self.integrator == 'RK4':
@@ -69,63 +129,47 @@ class Simulator:
             raise ValueError
         return x_next
 
-    def simulate(self, x0, dt, n_iter):
-        # Create an integrator for collocation method
-        if self.integrator in ['collocation', 'cvodes']:
-            dae = {'x': self.robot.x, 'p': self.robot.u, 'ode': self.robot.rhs}
-            if self.integrator == 'collocation':
-                opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 
-                        'simplify': True, 'collocation_scheme': 'radau',
-                        'rootfinder':'fast_newton','expand': True, 
-                        'interpolation_order': 3}
-            else:
-                opts = {'t0': 0, 'tf': dt, 'abstol':self.opts.atol, 'reltol':self.opts.rtol,
-                        'nonlinear_solver_iteration': 'newton', 'expand': True,
-                        'linear_multistep_method': 'bdf'}
-            I = cs.integrator('I', self.integrator, dae, opts)
-            x_next = I(x0=self.robot.x, p=self.robot.u)["xf"]
-            self.F = cs.Function('F', [self.robot.x, self.robot.u], [x_next])
+    def step(self, input_tau):
+
+        self.u[[self.k], :] = input_tau
+
+        # Perform an integration step
+        x_next = self.integrator_step(self.x[[self.k], :].T, self.u[[self.k], :].T, self.opts.dt)
+        self.x[self.k + 1, :] = x_next
+
+        # Compute output of the system
+        self.y[self.k + 1, :] = (self.robot.output(self.x[[self.k + 1], :].T).flatten() +
+                                 multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
+
+        self.k += 1
 
         if self.estimator is not None:
-            nx_est = np.shape(self.estimator.x_hat)[0]
-            x_hat = np.zeros((n_iter+1, nx_est))
+            self.x_hat[self.k, :] = self.estimator.estimate(
+                self.y[[self.k], :].T, self.u[self.k - 1, :]).flatten()
+
+        # Compute control action
+        if self.opts.contr_input_states == 'real':
+            qk = self.x[[self.k], :self.robot.nq].T
+            dqk = self.x[[self.k], self.robot.nq:].T
+        elif self.opts.contr_input_states == 'estimated':
+            qk = self.x_hat[[self.k], :int(self.nx_est / 2)].T
+            dqk = self.x_hat[[self.k], int(self.nx_est / 2):].T
         else:
-            x_hat = None
+            raise NotImplementedError
 
-        x = np.zeros((n_iter+1, self.robot.nx))
-        u = np.zeros((n_iter, self.robot.nu))
-        y = np.zeros((n_iter+1, self.robot.ny))
-        x[0, :] = x0
-        y[0, :] = (self.robot.output(x[[0], :].T).flatten() + 
-                   multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
+        return np.vstack((qk, dqk))
+
+    def simulate(self, x0, n_iter: int = None):
+        state = self.reset(x0, n_iter)
+        nq = int(state.shape[0] / 2)
+        qk, dqk = state[0:nq, :], state[nq:, :]
+
         for k in range(n_iter):
-            if self.estimator is not None:
-                if k == 0:
-                    x_hat[k, :] = self.estimator.estimate(
-                                    y[[k], :].T).flatten()
-                else:
-                    x_hat[k, :] = self.estimator.estimate(
-                                    y[[k], :].T, u[k-1, :]).flatten()
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k)
+            state = self.step(input_tau=tau)
+            qk, dqk = state[0:nq, :], state[nq:, :]
 
-            # Compute control action
-            if self.opts.contr_input_states == 'real':
-                qk = x[[k], :self.robot.nq].T
-                dqk = x[[k], self.robot.nq:].T
-            elif self.opts.contr_input_states == 'estimated':
-                qk = x_hat[[k], :self.robot.nq].T
-                dqk = x_hat[[k], self.robot.nq:].T
-            tau = self.controller.compute_torques(qk, dqk, t=dt*k)
-            u[[k], :] = tau
-
-            # Perform an integration step
-            x_next = self.step(x[[k], :].T,  u[[k], :].T, dt)
-            x[k+1, :] = x_next
-
-            # Compute output of the system
-            y[k+1, :] = (self.robot.output(x[[k+1], :].T).flatten() + 
-                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
-
-        return x, u, y, x_hat
+        return self.x, self.u, self.y, self.x_hat
 
 
 if __name__ == "__main__":

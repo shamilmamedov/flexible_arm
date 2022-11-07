@@ -63,12 +63,17 @@ class FlexibleArmEnv(gym.Env):
             sim_opts = SimulatorOptions(contr_input_states='estimated')
         else:
             sim_opts = SimulatorOptions()
-        self.simulator = Simulator(self.model_sym, controller=None, integrator='RK45',
+        sim_opts.dt = self.options.dt
+        self.simulator = Simulator(self.model_sym, controller=None, integrator='cvodes',
                                    estimator=estimator, opts=sim_opts)
 
         # Define observation space
-        self.observation_space = spaces.Box(np.array([-np.pi * 200] * self.model.nx),
-                                            np.array([np.pi * 200] * self.model.nx), dtype=np.float64)
+        if estimator is None:
+            self.observation_space = spaces.Box(np.array([-np.pi * 200] * self.model.nx),
+                                                np.array([np.pi * 200] * self.model.nx), dtype=np.float64)
+        else:
+            self.observation_space = spaces.Box(np.array([-np.pi * 200] * estimator.model.nx),
+                                                np.array([np.pi * 200] * estimator.model.nx), dtype=np.float64)
 
         # Define action space
         self.action_space = spaces.Box(-options.maximum_torques, options.maximum_torques, dtype=np.float64)
@@ -96,8 +101,8 @@ class FlexibleArmEnv(gym.Env):
         # end position
         self.x_final, self.xee_final = self.sample_rand_config(qa_mean=self.options.qa_end,
                                                                qa_range=self.options.qa_range_end)
-        if self.simulator.estimator is not None:
-            self.simulator.estimator.x_hat = copy(np.expand_dims(self._state, 1))
+
+        self.simulator.reset(x0=self._state)
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -113,11 +118,8 @@ class FlexibleArmEnv(gym.Env):
         TODO: Make sure actions are in the action space;
               Clip actions if necessary 
         """
-        s = self._state
-        assert s is not None, "Call reset before using object."
-
         # Take action
-        self._state = self.simulator.step(s, a, self.dt)
+        self._state = self.simulator.step(a)
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
@@ -131,7 +133,7 @@ class FlexibleArmEnv(gym.Env):
         # Other outputs
         info = {}
 
-        return (self._state, reward, done, info)
+        return (self._state[:,0], reward, done, info)
 
     def _terminal(self, dist: float):
         if dist < self.options.goal_dist_euclid:

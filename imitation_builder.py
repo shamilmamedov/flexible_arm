@@ -11,6 +11,7 @@ class ImitationBuilder(ABC):
     def __init__(self, n_seg: int, n_seg_mpc: int, dt: float, tf: float, dir_rel: str, use_estimator: bool = True):
         self.imitator_options = ImitatorOptions(dt=dt)
         self.imitator_options.environment_options.n_seg = n_seg
+        self.imitator_options.environment_options.dt = dt
         self.imitator_options.logdir_rel = "/data/imitation" + dir_rel
 
         # Create FlexibleArm instances
