@@ -74,8 +74,8 @@ class Simulator:
             self.opts.n_iter = n_iter
 
         if self.estimator is not None:
-            self.estimator.x_hat = np.expand_dims(x0, 1)
-            self.nx_est = np.shape(self.estimator.x_hat)[0]
+            #self.estimator.x_hat = np.expand_dims(x0, 1)
+            self.nx_est = self.estimator.model.nx
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
         else:
             self.x_hat = None
