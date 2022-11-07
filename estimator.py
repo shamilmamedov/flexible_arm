@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 
-
 class BaseEstimator(ABC):
     """ Abstract base class for estimators.
     All the estimators should implement estimate method

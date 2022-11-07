@@ -74,8 +74,17 @@ class Simulator:
             self.opts.n_iter = n_iter
 
         if self.estimator is not None:
-            #self.estimator.x_hat = np.expand_dims(x0, 1)
+            # initialize estimator initial state x0
+            # todo: Shamil check this please
             self.nx_est = self.estimator.model.nx
+            x_hat = np.zeros((self.nx_est, 1))
+            x_hat[0:1, 0] = x0[0:1]
+            x_hat[1 + self.estimator.model.n_seg + 1] = x0[1 + 1 + self.robot.n_seg]
+            x_hat[self.estimator.model.nq:self.estimator.model.nq+1, 0] = x0[self.robot.nq:self.robot.nq+1]
+            x_hat[self.estimator.model.nq+1 + self.estimator.model.n_seg + 1] = x0[self.robot.nq+1 + 1 + self.robot.n_seg]
+            self.estimator.x_hat = x_hat
+
+            # initialize datastructure
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
         else:
             self.x_hat = None

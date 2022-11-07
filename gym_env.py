@@ -10,6 +10,7 @@ import numpy as np
 from typing import Tuple
 from gym import spaces
 
+from estimator import ExtendedKalmanFilter
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF, get_rest_configuration
 from simulation import Simulator, SimulatorOptions
 
@@ -19,6 +20,7 @@ class FlexibleArmEnvOptions:
     """
     Options for imitation learning
     """
+
     def __init__(self, dt: float = 0.01):
         self.qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
         self.qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
@@ -38,12 +40,15 @@ class FlexibleArmEnv(gym.Env):
 
     """
 
-    def __init__(self, options: FlexibleArmEnvOptions, estimator=None) -> None:
+    def __init__(self, options: FlexibleArmEnvOptions, estimator: ExtendedKalmanFilter = None) -> None:
         """
         :parameter n_seg: number of segments per link
         :parameter dt: stepsize of the integrator
         :parameter q0: initial rest configuration of the robot
         """
+        #if estimator is not None:
+        #    assert estimator.x_hat is not None, "Estimator needs to be initialized"
+
         self.options = options
         self.model = FlexibleArm3DOF(options.n_seg)
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -133,7 +138,7 @@ class FlexibleArmEnv(gym.Env):
         # Other outputs
         info = {}
 
-        return (self._state[:,0], reward, done, info)
+        return (self._state[:, 0], reward, done, info)
 
     def _terminal(self, dist: float):
         if dist < self.options.goal_dist_euclid:
