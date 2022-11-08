@@ -11,6 +11,7 @@ from animation import Panda3dAnimator
 import plotting
 import kpi
 
+
 if __name__ == "__main__":
     # Model discretization parameters
     n_seg_sim = 10

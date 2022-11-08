@@ -81,8 +81,8 @@ class Mpc3Dof(BaseController):
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
         if pee_0 is None:
             pee_0 = np.zeros((3, 1))
-        self.u_max = np.array([20, 10, 10])  # [Nm]
-        self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
+        self.u_max = model.tau_max  # [Nm]
+        self.dq_active_max = model.dqa_max  # [rad/s]
 
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()

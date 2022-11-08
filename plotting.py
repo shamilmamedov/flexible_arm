@@ -58,6 +58,20 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     plt.show()
 
 
+def plot_ee_positions(t: np.ndarray, pee: np.ndarray, pee_ref: np.ndarray = None):
+    pee_lbls = [r'$p_{ee,x}$ [m]', r'$p_{ee,y}$ [m]', r'$p_{ee,z}$ [m]']
+    _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    for k, ax in enumerate(axs_pee.reshape(-1)):
+        ax.plot(t, pee[:,k])
+        if pee_ref is not None:
+            ax.plot(t, pee_ref[:, k], ls='--', color='red')
+        ax.set_ylabel(pee_lbls[k])
+        ax.grid(alpha=0.5)
+    plt.tight_layout()
+
+    plt.show()
+
+
 def plot_joint_positions(t: np.ndarray, q: np.ndarray, 
                          n_seg: int, q_ref: np.ndarray = None):
     """ Plots positions of the active joints
@@ -65,13 +79,14 @@ def plot_joint_positions(t: np.ndarray, q: np.ndarray,
     qa_idx = [0, 1, 1 + (n_seg + 1)]
     qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
 
-    _, axs = plt.subplots(3, 1)
+    _, axs = plt.subplots(3, 1, sharex=True)
     for k, (ax, qk) in enumerate(zip(axs.T, q[:, [qa_idx]].T)):
         ax.plot(t, qk.flatten())
         if q_ref is not None:
             ax.axhline(q_ref[qa_idx[k]], ls='--')
         ax.set_ylabel(qa_lbls[k])
         ax.grid(alpha=0.5)
+    plt.tight_layout()
     plt.show()
 
 
@@ -158,5 +173,19 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
     plt.show()
 
 
-def plot_joint_velocities():
-    pass
+def plot_joint_velocities(t: np.ndarray, dq: np.ndarray, 
+                         n_seg: int, dq_ref: np.ndarray = None):
+    """ Plots positions of the active joints
+    """
+    dqa_idx = [0, 1, 1 + (n_seg + 1)]
+    dqa_lbls = [r"$\dot q_{a 1}$", r"$\dot q_{a 2}$", r"$\dot q_{a 3}$"]
+
+    _, axs = plt.subplots(3, 1, sharex=True)
+    for k, (ax, dqk) in enumerate(zip(axs.T, dq[:, [dqa_idx]].T)):
+        ax.plot(t, dqk.flatten())
+        if dq_ref is not None:
+            ax.axhline(dq_ref[dqa_idx[k]], ls='--')
+        ax.set_ylabel(dqa_lbls[k])
+        ax.grid(alpha=0.5)
+    plt.tight_layout()
+    plt.show()

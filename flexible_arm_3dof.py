@@ -232,6 +232,10 @@ class SymbolicFlexibleArm3DOF:
         self.n_seg = n_seg
         self.qa_idx = [0, 1, 2 + n_seg] # indeces of the active joitns
 
+        # Velocity and torque limits
+        self.tau_max = np.array([20, 10, 10])
+        self.dqa_max = np.array([2.5, 3.5, 3.5])
+
         # Process flexibility parameters
         if self.n_seg > 0:
             params_file = 'flexibility_params.yml'
@@ -298,15 +302,15 @@ class SymbolicFlexibleArm3DOF:
         self.z = z
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
-                               ['x', 'u'], ['dx']).expand()
-        self.h = cs.Function('h', [self.x], [h], ['x'], ['h']).expand()
+                               ['x', 'u'], ['dx'])
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
-                                 ['x', 'u'], ['df_dx']).expand()
+                                 ['x', 'u'], ['df_dx'])
         self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
-                                 ['x', 'u'], ['df_du']).expand()
+                                 ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], 
-                                 ['x'], ['dy_dx']).expand()
+                                 ['x'], ['dy_dx'])
 
 
         # Create an integrator
@@ -314,11 +318,11 @@ class SymbolicFlexibleArm3DOF:
         if integrator == 'collocation':
             opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 
                     'simplify': True, 'collocation_scheme': 'radau',
-                    'rootfinder':'fast_newton','expand': True, 
+                    'rootfinder':'fast_newton','expand': True,  # fast_newton, newton
                     'interpolation_order': 3}
         elif integrator == 'cvodes':
             opts = {'t0': 0, 'tf': dt, 
-                    'nonlinear_solver_iteration': 'functional', 'expand': True,
+                    'nonlinear_solver_iteration': 'functional', # 'expand': True,
                     'linear_multistep_method': 'bdf'}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
@@ -381,7 +385,7 @@ class SymbolicFlexibleArm3DOF:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
 
 
-def get_rest_configuration(qa: np.ndarray, n_seg: int):
+def get_rest_configuration(qa: np.ndarray, n_seg: int) -> np.ndarray:
     """ Computes the rest configuration of the robot based on 
     rest configuration of the active joints. (It assumes that actuators
     provide enough torque to keep the active joints at a desired position; 
