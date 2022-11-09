@@ -56,7 +56,7 @@ if __name__ == "__main__":
     opts = SimulatorOptions(contr_input_states='real') # 'real', 'estimated'
     integrator = 'cvodes'
     sim = Simulator(fa, C, integrator, E, opts)
-    x, u, y, x_hat = sim.simulate(x0.flatten(), dt, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), n_iter)
     t = np.arange(0, n_iter + 1) * dt
 
     # Parse joint positions and plot active joints positions

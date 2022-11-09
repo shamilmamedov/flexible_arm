@@ -231,6 +231,7 @@ class SymbolicFlexibleArm3DOF:
         self.ny = 9  # 3 for active joint positions
         self.n_seg = n_seg
         self.qa_idx = [0, 1, 2 + n_seg] # indeces of the active joitns
+        self.dqa_idx = [self.nq + i for i in self.qa_idx]
 
         # Velocity and torque limits
         self.tau_max = np.array([20, 10, 10])

@@ -83,7 +83,7 @@ if __name__ == "__main__":
     n_iter = 100
     sim_opts = SimulatorOptions(contr_input_states='estimated', dt=dt)
     sim = Simulator(fa_sym_hd, controller, 'cvodes', E, opts=sim_opts)
-    x, u, y, xhat = sim.simulate(x0.flatten(),  n_iter)
+    x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
     t = np.arange(0, n_iter + 1) * dt
 
     # Print timing
