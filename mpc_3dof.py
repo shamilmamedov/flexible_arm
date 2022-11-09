@@ -265,7 +265,7 @@ class Mpc3Dof(BaseController):
             p_eval[i, :] = pee[:, 0]
         self.inter_pee = interp1d(t_eval, p_eval, axis=0, bounds_error=False, fill_value=p_eval[-1, :])
 
-    def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None):
+    def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
         Main control loop function that computes the torques at a specific time. The time is only required if a
         reference trajectory is used.

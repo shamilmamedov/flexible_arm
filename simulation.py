@@ -18,10 +18,10 @@ class SimulatorOptions:
     """
     NOTE R is the covariance of the measurements error
     """
-    rtol: float = 1e-8 # 1e-6, 1e-8
-    atol: float = 1e-10 # 1e-8, 1e-10
+    rtol: float = 1e-8  # 1e-6, 1e-8
+    atol: float = 1e-10  # 1e-8, 1e-10
     # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    R: np.ndarray = np.zeros((9,9))
+    R: np.ndarray = np.zeros((9, 9))
     contr_input_states: str = 'real'
     dt: float = 0.01
     n_iter: float = 100
@@ -80,8 +80,9 @@ class Simulator:
             x_hat = np.zeros((self.nx_est, 1))
             x_hat[0:1, 0] = x0[0:1]
             x_hat[1 + self.estimator.model.n_seg + 1] = x0[1 + 1 + self.robot.n_seg]
-            x_hat[self.estimator.model.nq:self.estimator.model.nq+1, 0] = x0[self.robot.nq:self.robot.nq+1]
-            x_hat[self.estimator.model.nq+1 + self.estimator.model.n_seg + 1] = x0[self.robot.nq+1 + 1 + self.robot.n_seg]
+            x_hat[self.estimator.model.nq:self.estimator.model.nq + 1, 0] = x0[self.robot.nq:self.robot.nq + 1]
+            x_hat[self.estimator.model.nq + 1 + self.estimator.model.n_seg + 1] = x0[
+                self.robot.nq + 1 + 1 + self.robot.n_seg]
             self.estimator.x_hat = x_hat
 
             # initialize datastructure
@@ -97,8 +98,9 @@ class Simulator:
         self.y[0, :] = (self.robot.output(self.x[[0], :].T).flatten() +
                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
-        self.x_hat[self.k, :] = self.estimator.estimate(
-            self.y[[self.k], :].T).flatten()
+        if self.estimator is not None:
+            self.x_hat[self.k, :] = self.estimator.estimate(
+                self.y[[self.k], :].T).flatten()
 
         # Compute control action
         if self.opts.contr_input_states == 'real':
@@ -174,7 +176,7 @@ class Simulator:
         qk, dqk = state[0:nq, :], state[nq:, :]
 
         for k in range(n_iter):
-            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k)
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k, y=self.y[-1, :].T)
             state = self.step(input_tau=tau)
             qk, dqk = state[0:nq, :], state[nq:, :]
 

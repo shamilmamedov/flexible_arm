@@ -114,5 +114,6 @@ if __name__ == "__main__":
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
+    #urdf_path = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf'
     urdf_path = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf'
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(30)

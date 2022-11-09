@@ -12,10 +12,11 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from estimator import ExtendedKalmanFilter
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from simulation import Simulator
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF, get_rest_configuration
+    from flexible_arm_3dof import FlexibleArm3DOF
 
 
 @dataclass
@@ -95,7 +96,7 @@ class SafetyFilter3Dof:
         self.nz = nz
 
         # define constraints
-        #ocp.model.con_h_expr = constraint_expr
+        # ocp.model.con_h_expr = constraint_expr
 
         # some checks
         assert (nu == options.r_diag.shape[0])
@@ -225,11 +226,10 @@ class SafetyFilter3Dof:
                                                                                     R * 1e-1,
                                                                                     np.zeros_like(Z)))
         self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
-        """
-        # Create model instances
-        #est_model = SymbolicFlexibleArm3DOF(options.n_seg, dt=self.options.tf/self.options.n, integrator='collocation')
 
-        
+        # Create model instances
+        est_model = SymbolicFlexibleArm3DOF(options.n_seg, dt=self.options.tf / options.n, integrator='collocation')
+
         # Design estimator
         # initial covariance matrix
         p0_q = [0.05] * est_model.nq  # 0.05, 0.1
@@ -250,7 +250,7 @@ class SafetyFilter3Dof:
         x0_est = np.vstack((q0_est, dq0_est))
 
         self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
-        """
+        self.u_pre = None
 
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """
@@ -278,17 +278,29 @@ class SafetyFilter3Dof:
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def filter(self, q: np.ndarray, dq: np.ndarray, u0: np.ndarray):
+    def filter(self, u0: np.ndarray, y: np.ndarray):
+        # first estimate state
+        y = np.expand_dims(y, 1)
+        if self.u_pre is None:
+            self.x_hat = self.E.estimate(y).flatten()
+        else:
+            self.x_hat = self.E.estimate(y, self.u_pre).flatten()
+
+        print(self.x_hat[0])
         # set initial state
         start_time = time.time()
-        xcurrent = np.vstack((q, dq))
+        xcurrent = self.x_hat  # np.vstack((q, dq))
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
         # simulate states
         # set u0 reference
         stage = 0
-        yref = np.vstack((np.zeros((self.nx, 1)), np.expand_dims(u0.transpose(),1), np.zeros((self.nz, 1)))).flatten()
+        if u0.shape.__len__() <= 1:
+            u0 = np.expand_dims(u0.transpose(), 1)
+        else:
+            u0 = u0.transpose()
+        yref = np.vstack((np.zeros((self.nx, 1)), u0, np.zeros((self.nz, 1)))).flatten()
         self.acados_ocp_solver.cost_set(stage, "yref", yref)
 
         # acados solve NLP
@@ -308,6 +320,7 @@ class SafetyFilter3Dof:
         # print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
+        self.u_pre = u_output
         return u_output
 
     def get_timing_statistics(self, mode=0) -> Tuple[float, float, float, float]:
@@ -337,10 +350,11 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
         def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
             safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
 
-        def compute_torques(self, q, dq, t=None):
+        def compute_torques(self, q, dq, t=None, y=None):
+            assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
-            u_safe = safety_filter.filter(u0=u, q=q, dq=dq)
-            print(u-u_safe)
+            u_safe = safety_filter.filter(u0=u, y=y)
+            #print(u - u_safe)
             return u_safe
 
         def get_timing_statistics_filter(self):
