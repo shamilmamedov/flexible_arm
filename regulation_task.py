@@ -13,8 +13,8 @@ import kpi
 
 if __name__ == "__main__":
     # Model discretization parameters
-    n_seg_sim = 10
-    n_seg_cont = 3
+    n_seg_sim = 2
+    n_seg_cont = 2
 
     # Sampling time for both controller and simulator
     dt = 0.01
@@ -64,6 +64,7 @@ if __name__ == "__main__":
     x0_est = np.vstack((q0_est, dq0_est))
 
     E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
+    E = None
 
     # Design controller
     if cont_name == 'MPC':
@@ -94,7 +95,7 @@ if __name__ == "__main__":
         raise NotImplementedError
 
     # Simulate the robot
-    sim_opts = SimulatorOptions(contr_input_states='estimated')
+    sim_opts = SimulatorOptions(contr_input_states='real')
     sim_opts.dt = dt
     sim = Simulator(sim_model, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
@@ -107,12 +108,15 @@ if __name__ == "__main__":
 
     # Compute KPIs
     q = x[:, :sim_model.nq]
+    dq = x[:, sim_model.nq:]
     ns2g = kpi.execution_time(q, sim_model, pee_ref, 0.05)
     print(f"Time to reach a ball around the goal = {t[ns2g]}")
 
     q_kpi = q[:ns2g, :]
     pl = kpi.path_length(q_kpi, sim_model)
     print(f"Path length = {pl:.4f}")
+
+    kpi.constraint_violation(q, dq, u, sim_model)
 
     # Process the simulation results
     # Parse joint positions

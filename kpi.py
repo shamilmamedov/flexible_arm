@@ -61,3 +61,20 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
         return n_first_entry
     else:
         return NotImplementedError
+
+
+def constraint_violation(q: np.ndarray, dq: np.ndarray, u: np.ndarray,
+                         model: SymbolicFlexibleArm3DOF):
+    ns_q = q.shape[0]
+    u_constr_violated = np.full_like(u, False)
+    dqa_constr_violated = np.full((ns_q, 3), False)
+
+    for k, uk in enumerate(u):
+        u_constr_violated[k,:] = np.logical_or(uk > model.tau_max, 
+                                               uk < -model.tau_max) 
+
+    for k, dqak in enumerate(dq[:,model.qa_idx]) :
+        dqa_constr_violated[k,:] = np.logical_or(dqak > model.dqa_max,
+                                                 dqak < -model.dqa_max)
+
+    return np.sum(u_constr_violated, axis=0), np.sum(dqa_constr_violated, axis=0)
