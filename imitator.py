@@ -137,22 +137,25 @@ class Imitator:
 
     def render_expert(self, n_episodes: int = 1, n_replay: int = 2, show_plot: bool = True, seed: int = None):
         # simulate
-        n_iter = 500
-        if self.estimator is not None:
-            sim_opts = SimulatorOptions(contr_input_states='estimated')
-        else:
-            sim_opts = SimulatorOptions()
-
+        nq = int(self.expert_controller.options.q_diag.shape[0] / 2)
+        dt = self.options.environment_options.dt
         for simulation_count in range(n_episodes):
             if seed is not None:
                 np.random.seed(seed + simulation_count)
-            sim = Simulator(self.env.model_sym, self.expert_controller, 'cvodes', self.estimator, opts=sim_opts)
-            x0 = self.env.reset()
+            state = self.env.reset()
+            qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
+            self.expert_controller.reset()
             self.expert_controller.set_reference_point(x_ref=self.env.x_final,
                                                        p_ee_ref=self.env.xee_final,
                                                        u_ref=np.array([0, 0, 0]))
-            x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
-            t = np.arange(0, n_iter + 1) * self.env.dt
+            for i in range(self.env.max_intg_steps):
+                a = self.expert_controller.compute_torques(q=qk, dq=dqk, t=simulation_count * dt)
+                state, reward, done, info = self.env.step(a)
+                qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
+                if done:
+                    break
+            x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
+            t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
 
             # Parse joint positions
             n_skip = 1

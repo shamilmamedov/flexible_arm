@@ -69,6 +69,7 @@ class FlexibleArmEnv(gym.Env):
         else:
             sim_opts = SimulatorOptions()
         sim_opts.dt = self.options.dt
+        sim_opts.n_iter = self.max_intg_steps
         self.simulator = Simulator(self.model_sym, controller=None, integrator='cvodes',
                                    estimator=estimator, opts=sim_opts)
 
