@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # Simulate
     integrator = 'LSODA'
     sim = Simulator(fa, C, integrator, None)
-    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Print timing

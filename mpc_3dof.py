@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from tempfile import mkdtemp
+
 import numpy as np
 import scipy
 from scipy.interpolate import interp1d
@@ -110,6 +112,9 @@ class Mpc3Dof(BaseController):
         assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
         assert (nu == options.r_diag.shape[0])
         assert (nz == options.z_diag.shape[0] == options.z_e_diag.shape[0])
+
+        ocp.model.name = "mpc_" + str(options.n) + "_" + str(options.n_seg)
+        ocp.code_export_directory = mkdtemp()
 
         # set dimensions
         ocp.dims.N = options.n
