@@ -18,10 +18,10 @@ class SimulatorOptions:
     """
     NOTE R is the covariance of the measurements error
     """
-    rtol: float = 1e-3
-    atol: float = 1e-6
-    R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    # R: np.ndarray = np.zeros((9,9))
+    rtol: float = 1e-8 # 1e-6, 1e-8
+    atol: float = 1e-10 # 1e-8, 1e-10
+    # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
+    R: np.ndarray = np.zeros((9,9))
     contr_input_states: str = 'real'
     dt: float = 0.01
     n_iter: float = 100

@@ -11,12 +11,12 @@ from poly5_planner import initial_guess_for_active_joints, get_reference_for_all
 if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
-Q_QA = .1  # penalty on active joints positions
-Q_QP = 0.1  # penalty on passive joints positions
-Q_DQA = 10.  # penalty on active joints velocities
-Q_DQP = 0.001  # penalty on passive joints velocities
-Q_DQA_E = 1  # penalty on terminal active joints velocities
-Q_QA_E = .1  # penalty on terminal active joints velocities
+Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
+Q_QP = 0.001  # penalty on passive joints positions # 0.1
+Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,  
+Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
+Q_DQA_E = 1.  # penalty on terminal active joints velocities
+Q_QA_E = 0.1  # penalty on terminal active joints velocities
 
 
 @dataclass
@@ -27,7 +27,7 @@ class Mpc3dofOptions:
 
     def __init__(self, n_seg: int, tf: float = 2):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
-        self.n: int = 100  # number of discretization points
+        self.n: int = 30  # number of discretization points
         self.tf: float = tf  # time horizon
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
@@ -55,7 +55,7 @@ class Mpc3dofOptions:
                                              [Q_DQP] * (self.n_seg))  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
-        self.r_diag: np.ndarray = np.array([1e0, 1e0, 1e0]) * 1e-1
+        self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
 
@@ -81,8 +81,8 @@ class Mpc3Dof(BaseController):
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
         if pee_0 is None:
             pee_0 = np.zeros((3, 1))
-        self.u_max = np.array([20, 10, 10])  # [Nm]
-        self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
+        self.u_max = model.tau_max  # [Nm]
+        self.dq_active_max = model.dqa_max  # [rad/s]
 
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()
