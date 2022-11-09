@@ -37,7 +37,7 @@ _, x_ee_ref = fa_ld.fk_ee(q_ref)
 _, xee0 = fa_ld.fk_ee(q0)
 
 # create expert MPC
-mpc_options = Mpc3dofOptions(n_links=n_seg)
+mpc_options = Mpc3dofOptions(n_seg=n_seg)
 mpc_options.n = 30
 mpc_options.tf = 1
 mpc_options.r_diag *= 10

@@ -7,9 +7,9 @@ import pinocchio as pin
 import pandas as pd
 
 from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
-                               get_rest_configuration)
+                               get_rest_configuration, inverse_kinematics_rb)
 from estimator import ExtendedKalmanFilter
-from simulation import Simulator
+from simulation import Simulator, SimulatorOptions
 from controller import DummyController, PDController3Dof, FeedforwardController
 
 
@@ -209,134 +209,26 @@ def test_rest_configuration_computation():
             qa = np.array([0, np.pi/2, 0])
             q = get_rest_configuration(qa, n_seg)
             qp = q[list(idxs_p)]
-            np.testing.assert_array_equal(qp, np.zeros(2*n_seg))
+            np.testing.assert_array_equal(qp, np.zeros((2*n_seg,1)))
 
         qa = np.random.randn(3)
         q = get_rest_configuration(qa, n_seg)
 
 
-def compare_different_discretization():
-    """ Compares models with different discretization -- starting 
-    from a rigid body model and until a fine grid of 10 discretization
-    points -- in simulatoin. For every simulation the same integrator, 
-    controller and initial state are chosen.   
+def test_inverse_kinematics():
     """
-    # Simulation parametes
-    ts = 0.001
-    n_iter = 750
+    TODO it is difficult to test because the IK can
+    come up with any of the three configurations
+    """
+    model_folder = 'models/three_dof/zero_segments/'
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
 
-    # Create FlexibleArm instance
-    n_segs = [0, 1, 2, 3, 5, 10]
-    fas = [FlexibleArm3DOF(n_seg) for n_seg in n_segs]
+    for k in range(2):
+        q = -np.pi + 2*np.pi*np.random.uniform(size=(3,))
+        pee = np.array(fkp(q))
+        q_ik = inverse_kinematics_rb(pee)
+        print(f'iter {k}')
 
-    # Initial state; the same for all models
-    Q = [np.zeros((m.nq, 1)) for m in fas]
-    dQ = [np.zeros((m.nq, 1)) for m in fas]
-    X0 = [np.vstack((q, dq)) for q, dq in zip(Q, dQ)]
-
-    # Reference; the same for all models but because of
-    Q_ref = [np.zeros((m.nq, 1)) for m in fas]
-    for q_ref, n_seg in zip(Q_ref, n_segs):
-        q_ref[:2, 0] += [1., 0.5]
-        q_ref[1 + n_seg + 1] += 1
-
-    # Estimator
-    E = None
-
-    # Controller
-    # controller = DummyController()
-    Kp = (40, 30, 25)
-    Kd = (1.5, 0.25, 0.25)
-
-    # Controller for the rigid body approximation
-    C_0s = PDController3Dof(Kp, Kd, n_segs[0], Q_ref[0])
-
-    # Simulators
-    integrator = 'LSODA'
-    # S = [Simulator(fa, c, integrator, E) for fa, c in zip(fas, C)]
-    # Simulator for the rigid body approximation
-    S_0s = Simulator(fas[0], C_0s, integrator, E)
-
-    # Simulate the rigid body approxmiation
-    x_0s, u_0s, y_0s, _ = S_0s.simulate(X0[0].flatten(), ts, n_iter)
-    
-
-    # Create feedforward cotnrollers for RFEM models
-    C = [FeedforwardController(u_0s) for _ in n_segs[1:]]
-    
-    # Create simulators for RFEM models
-    S = [Simulator(fa, c, integrator, E) for fa, c in zip(fas[1:], C)]
-
-    # Simulate REFEM models
-    x_1s, u_1s, y_1s, _ = S[0].simulate(X0[1].flatten(), ts, n_iter)
-    x_2s, u_2s, y_2s, _ = S[1].simulate(X0[2].flatten(), ts, n_iter)
-    x_3s, u_3s, y_3s, _ = S[2].simulate(X0[3].flatten(), ts, n_iter)
-    x_5s, u_5s, y_5s, _ = S[3].simulate(X0[4].flatten(), ts, n_iter)
-    x_10s, u_10s, y_10s, _ = S[4].simulate(X0[5].flatten(), ts, n_iter)
-
-    t = np.arange(0, n_iter + 1) * ts
-
-    # Find the norm of the difference betweem 10s and other models
-    delta_0s = y_10s - y_0s
-    delta_1s = y_10s - y_1s
-    delta_2s = y_10s - y_2s
-    delta_3s = y_10s - y_3s
-    delta_5s = y_10s - y_5s
-
-    norm_delta_0s = np.linalg.norm(delta_0s, axis=0).reshape(1,-1)
-    norm_delta_1s = np.linalg.norm(delta_1s, axis=0).reshape(1,-1)
-    norm_delta_2s = np.linalg.norm(delta_2s, axis=0).reshape(1,-1)
-    norm_delta_3s = np.linalg.norm(delta_3s, axis=0).reshape(1,-1)
-    norm_delta_5s = np.linalg.norm(delta_5s, axis=0).reshape(1,-1)
-
-    norm_delta = np.vstack((norm_delta_0s, norm_delta_1s, norm_delta_2s,
-                            norm_delta_3s, norm_delta_5s))
-
-    cols = ['|delta qa_1|', '|delta qa_2|', '|delta qa_3|', 
-            '|delta dqa_1|', '|delta dqa_2|', '|delta dqa_3|', 
-            '|delta ee_x|', '|delta ee_y|', '|delta ee_z|']
-
-    df = pd.DataFrame(norm_delta, columns=cols, index=[0, 1, 2, 3, 5])
-    print(df.iloc[:,6:])
-
-
-    # Plot outputs
-    y_lbls = [r'$\mathrm{ee}_x$ [m]', r'$\mathrm{ee}_y$ [m]',
-              r'$\mathrm{ee}_z$ [m]']
-    legends = [f'{n_seg}s' for n_seg in n_segs]
-    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
-    for k, ax in enumerate(axs.reshape(-1)):
-        ax.plot(t, y_0s[:, 6+k], label=legends[0])
-        ax.plot(t, y_1s[:, 6+k], label=legends[1])
-        ax.plot(t, y_2s[:, 6+k], label=legends[2])
-        ax.plot(t, y_3s[:, 6+k], label=legends[3])
-        ax.plot(t, y_5s[:, 6+k], ls='--', label=legends[4])
-        ax.plot(t, y_10s[:, 6+k], ls='-.', label=legends[5])
-        ax.set_ylabel(y_lbls[k])
-        ax.grid(alpha=0.5)
-        ax.legend()
-    ax.set_xlabel('t [s]')
-    plt.tight_layout()
-
-    # Plot controls
-    y_lbls = [r'$\tau$ [m]', r'$\tau$ [m]', r'$\tau$ [m]']
-    _, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 7))
-    for k, ax in enumerate(axs.reshape(-1)):
-        ax.plot(t[:-1], u_0s[:, k], label=legends[0])
-        ax.plot(t[:-1], u_1s[:, k], label=legends[1])
-        ax.plot(t[:-1], u_2s[:, k], label=legends[2])
-        ax.plot(t[:-1], u_3s[:, k], label=legends[3])
-        ax.plot(t[:-1], u_5s[:, k], ls='--', label=legends[4])
-        ax.plot(t[:-1], u_10s[:, k], ls='-.', label=legends[5])
-        ax.set_ylabel(y_lbls[k])
-        ax.set_xlim([0, 0.025])
-        ax.grid(alpha=0.5)
-        ax.legend()
-    ax.set_xlabel('t [s]')
-    plt.tight_layout()
-
-    plt.show()
- 
 
 def compare_discretized_num_sym_models():
     # Simulation parametes
@@ -397,12 +289,12 @@ def compare_discretized_num_sym_models():
 
 def compare_different_integrators():
     # Simulation parametes
-    ts = 0.001
+    dt = 0.001
     n_iter = 100
 
     # Models
     n_seg = 10
-    model = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+    model = SymbolicFlexibleArm3DOF(n_seg, dt=dt)
 
     # Initial states
     q = np.zeros((model.nq, 1)) 
@@ -420,13 +312,16 @@ def compare_different_integrators():
     # Controller
     Kp = (40, 30, 25)
     Kd = (1.5, 0.25, 0.25)
-    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+    # C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+    C = DummyController()
 
     # Simulators
     intg1 = 'LSODA'
     intg2 = 'RK45'
     intg3 = 'collocation'
     intg4 = 'cvodes'
+
+    sim_opts = SimulatorOptions(dt=dt, n_iter=n_iter)
 
     S1 = Simulator(model, C, intg1, E)
     S2 = Simulator(model, C, intg2, E)
@@ -435,22 +330,22 @@ def compare_different_integrators():
 
     # Simulate the rigid body approxmiation
     t0_LSODA = time.time()
-    x1, u1, y1, _ = S1.simulate(x0.flatten(), ts, n_iter)
+    x1, u1, y1, _ = S1.simulate(x0.flatten())
     tf_LSODA = time.time()
 
     t0_RK45 = time.time()
-    x2, u2, y2, _ = S2.simulate(x0.flatten(), ts, n_iter)
+    x2, u2, y2, _ = S2.simulate(x0.flatten())
     tf_RK45 = time.time()
 
     t0_clc = time.time()
-    x3, u3, y3, _ = S3.simulate(x0.flatten(), ts, n_iter)
+    x3, u3, y3, _ = S3.simulate(x0.flatten())
     tf_clc = time.time()
 
     t0_cvd = time.time()
-    x4, u4, y4, _ = S4.simulate(x0.flatten(), ts, n_iter)
+    x4, u4, y4, _ = S4.simulate(x0.flatten())
     tf_cvd = time.time()
     
-    t = np.arange(0, n_iter + 1) * ts
+    t = np.arange(0, n_iter + 1) * dt
 
     print('Execution time LSODA:', tf_LSODA-t0_LSODA)
     print('Execution time RK45:', tf_RK45-t0_RK45)
@@ -484,6 +379,7 @@ if __name__ == "__main__":
     test_SymbolicFlexibleArm()
     test_EKF()
     test_rest_configuration_computation()
+    test_inverse_kinematics()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
-    # compare_different_integrators()
+    compare_different_integrators()

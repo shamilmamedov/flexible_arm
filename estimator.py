@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 
 from flexible_arm_3dof import SymbolicFlexibleArm3DOF
 
-
 class BaseEstimator(ABC):
     """ Abstract base class for estimators.
     All the estimators should implement estimate method
@@ -29,20 +28,31 @@ class ExtendedKalmanFilter(BaseEstimator):
         :parameter Q: state covariance matrix
         :parameter R: measurement covariance matrix
         """
+        # Store them for resetting
+        self.x0_hat = x0_hat
+        self.P0 = P0
+
         self.model = model
         self.P = P0
         self.Q = Q
         self.R = R
         self.x_hat = x0_hat
 
-    def compute_Kalman_gain(self, C):
+    def reset(self) -> None:
+        """ Resets the estimator to initial state estimate 
+        and covariance matrrix
+        """
+        self.x_hat = self.x0_hat
+        self.P = self.P0
+
+    def compute_Kalman_gain(self, C: np.ndarray) -> np.ndarray:
         """ Computes Kalman Gain given C
         """
         t_ = self.R + C @ self.P @ C.T
         L = self.P @ C.T @ np.linalg.pinv(t_)
         return L
 
-    def update(self, y):
+    def update(self, y: np.ndarray) -> np.ndarray:
         """ Implements correction equations of the EKF
         """
         # Linearize measurement equation
@@ -58,7 +68,7 @@ class ExtendedKalmanFilter(BaseEstimator):
         self.P = self.P - L @ C @ self.P
         return self.x_hat
 
-    def predict(self, u):
+    def predict(self, u: np.ndarray):
         """ Implements prediction equations of the EKF
         """
         # Linearize state transition equations
@@ -70,7 +80,7 @@ class ExtendedKalmanFilter(BaseEstimator):
         # Predict next state
         self.x_hat = np.array(self.model.F(self.x_hat, u))
 
-    def estimate(self, y, u=None):
+    def estimate(self, y: np.ndarray, u: np.ndarray = None) -> np.ndarray:
         """ Combines estimation and prediction
 
         In the iteration when there is no control input available

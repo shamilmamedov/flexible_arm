@@ -230,6 +230,12 @@ class SymbolicFlexibleArm3DOF:
         self.nz = 3  # algebraic states
         self.ny = 9  # 3 for active joint positions
         self.n_seg = n_seg
+        self.qa_idx = [0, 1, 2 + n_seg] # indeces of the active joitns
+        self.dqa_idx = [self.nq + i for i in self.qa_idx]
+
+        # Velocity and torque limits
+        self.tau_max = np.array([20, 10, 10])
+        self.dqa_max = np.array([2.5, 3.5, 3.5])
 
         # Process flexibility parameters
         if self.n_seg > 0:
@@ -244,8 +250,9 @@ class SymbolicFlexibleArm3DOF:
             self.D2 = np.diag(flexibility_params['D2'])
             self.D3 = np.diag(flexibility_params['D3'])
 
-        # Load the forward dynamics alogirthm function ABA
+        # Load the forward dynamics alogirthm function ABA and RNEA
         casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
 
         # Get function for the forward kinematics and velocities
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
@@ -296,27 +303,27 @@ class SymbolicFlexibleArm3DOF:
         self.z = z
         self.rhs = rhs
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
-                               ['x', 'u'], ['dx']).expand()
-        self.h = cs.Function('h', [self.x], [h], ['x'], ['h']).expand()
+                               ['x', 'u'], ['dx'])
+        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
-                                 ['x', 'u'], ['df_dx']).expand()
+                                 ['x', 'u'], ['df_dx'])
         self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
-                                 ['x', 'u'], ['df_du']).expand()
+                                 ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], 
-                                 ['x'], ['dy_dx']).expand()
+                                 ['x'], ['dy_dx'])
 
 
         # Create an integrator
         dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
         if integrator == 'collocation':
-            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 1, 
+            opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 
                     'simplify': True, 'collocation_scheme': 'radau',
-                    'rootfinder':'fast_newton','expand': True, 
+                    'rootfinder':'fast_newton','expand': True,  # fast_newton, newton
                     'interpolation_order': 3}
         elif integrator == 'cvodes':
             opts = {'t0': 0, 'tf': dt, 
-                    'nonlinear_solver_iteration': 'functional', 'expand': True,
+                    'nonlinear_solver_iteration': 'functional', # 'expand': True,
                     'linear_multistep_method': 'bdf'}
         I = cs.integrator('I', integrator, dae, opts)
         x_next = I(x0=self.x, p=self.u)["xf"]
@@ -369,11 +376,17 @@ class SymbolicFlexibleArm3DOF:
         """
         return np.array(self.h(x))
 
+    def gravity_torque(self, q):
+        """ Returns the gravity torque of the active (controlled) joints
+        """
+        t_ = np.zeros_like(q)
+        return np.array(self.rnea(q, t_, t_))[self.qa_idx,:]
+
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
 
 
-def get_rest_configuration(qa, n_seg):
+def get_rest_configuration(qa: np.ndarray, n_seg: int) -> np.ndarray:
     """ Computes the rest configuration of the robot based on 
     rest configuration of the active joints. (It assumes that actuators
     provide enough torque to keep the active joints at a desired position; 
@@ -382,8 +395,13 @@ def get_rest_configuration(qa, n_seg):
     :parameter qa: configration of the active joints
     :parameter n_seg: number of segments
     """
+    try:
+        qa = qa.reshape((3,))
+    except:
+        RuntimeError
+
     if n_seg == 0:
-        return qa
+        return qa.reshape((3,1))
 
     # Path to a folder with model description
     model_folder = 'models/three_dof/' + \
@@ -436,6 +454,32 @@ def get_rest_configuration(qa, n_seg):
     return q.reshape(-1,1)
 
 
+def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
+    """ Numerically computes the inverse kineamtics for the
+    zero segment model i.e. for the rigid body approximation
+
+    :parameter pee: the end-effector position
+    """
+    # Load the forward kinematics function
+    model_folder = 'models/three_dof/zero_segments/'
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
+
+    # Create symbolic variables for joint angles and
+    # create a function for solving ik
+    q = cs.SX.sym('q', 3)
+    f = cs.Function ('f', [q], [fkp(q) - pee])
+
+    # Create a root finder
+    F = cs.rootfinder('F', 'newton', f)
+
+    # Solve IK problem
+    if q_guess is None:
+        q_guess = np.array([0, 0.1, -0.1])
+        
+    q_num = F(q_guess)
+    return (np.array(q_num) + np.pi) % (2 * np.pi) - np.pi
+
+
 if __name__ == "__main__":
     n_seg = 3
     # arm = FlexibleArm(n_seg)
@@ -449,16 +493,21 @@ if __name__ == "__main__":
     # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
     # print(sarm)
 
-    n_seg = 10
+    n_seg = 0
     model_folder = 'models/three_dof/' + \
                        n_seg_int2str[n_seg] + '_segments/'
     urdf_path = os.path.join(model_folder, 
                 'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
 
     # qa = np.random.randn(3)
-    # qa = np.array([0, np.pi/2, 0])
-    qa = np.zeros(3)
+    # qa = np.array([np.pi/2, np.pi/10, -np.pi/8])
+    qa = np.array([0., 2*np.pi/5, -np.pi/3])
+    # qa = np.zeros(3)
     q = get_rest_configuration(qa, n_seg)
+
+    fkp = cs.Function.load(model_folder + 'fkp.casadi')
+    pee = np.array(fkp(q))
+    q_ik = inverse_kinematics_rb(pee)
 
     q = np.repeat(q.reshape(1,-1), 50, axis=0)
     
