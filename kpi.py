@@ -57,10 +57,10 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
 
     if np.all(inside[n_first_entry:]):
         dn = ns - n_first_entry
-        print(f"The EE stayed inside the ball for {dn} samples")
+        # print(f"The EE stayed inside the ball for {dn} samples")
         return n_first_entry
     else:
-        return NotImplementedError
+        raise NotImplementedError
 
 
 def constraint_violation(q: np.ndarray, dq: np.ndarray, u: np.ndarray,
