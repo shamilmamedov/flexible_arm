@@ -9,12 +9,14 @@ import plotting
 
 
 class OCPOptions:
-    def __init__(self, dt: float, tf: float) -> None:
+    def __init__(self, dt: float, tf: float, n_seg: int) -> None:
+        nq = 1 + 2 * (n_seg + 1)
+
         self.dt = dt
         self.tf = tf
         self.N = int(tf/dt)
-        self.Q = np.diag([*[0.1]*3, *[0.1]*3])
-        self.Qe = np.diag([*[0]*3, *[10]*3])
+        self.Q = np.diag([*[0.1]*nq, *[0.1]*nq])
+        self.Qe = np.diag([*[0]*nq, *[10]*nq])
         self.R = np.diag([0.01, 0.001, 0.01])
         self.V = 1e+3*np.diag([1., 1.2, 1.])
         self.Ve = 1e+3*np.diag([1] * 3)
@@ -51,8 +53,9 @@ class OptimalControlProblem:
             opti.subject_to(x_next == x_sym[k+1,:].T)
 
             # Path constraints
+            dqak = x_sym[k, self.model.dqa_idx].T
             opti.subject_to(opti.bounded(-self.model.dqa_max, 
-                        x_sym[k, self.model.nq:].T, self.model.dqa_max))
+                            dqak, self.model.dqa_max))
 
             opti.subject_to(opti.bounded(-self.model.tau_max, 
                             u_sym[k,:].T, self.model.tau_max))
@@ -62,7 +65,7 @@ class OptimalControlProblem:
         dq_t0 = x_sym[0, self.model.nq:]
         pee_t0 = self.model.p_ee(q_t0)
         opti.subject_to(pee_t0 == pee_ref[0,:])
-        opti.subject_to(dq_t0.T == np.zeros(3))
+        opti.subject_to(dq_t0.T == np.zeros(self.model.nq))
 
         q_tf = x_sym[-1, :self.model.nq]
         pee_tf = self.model.p_ee(q_tf)
@@ -147,7 +150,7 @@ if __name__ == "__main__":
     pee_ref = Poly5Trajectory(pee_t0, pee_tf, tf, dt).design_traj()[0]
 
     # Design and solve OCP
-    opts = OCPOptions(dt, tf)
+    opts = OCPOptions(dt, tf, n_seg_ocp)
     ocp = OptimalControlProblem(model, pee_ref, opts)
     t_opt, q_opt, dq_opt, u_opt = ocp.solve(q_t0)
 
