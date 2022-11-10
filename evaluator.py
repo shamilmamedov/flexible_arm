@@ -231,7 +231,7 @@ class Evaluator:
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
             for i in range(self.env.max_intg_steps):
-                a = controller.compute_torques(q=qk, dq=dqk, t=simulation_count * dt)
+                a = controller.compute_torques(q=qk, dq=dqk, t=simulation_count * dt, y=self.env.simulator.y[i,:])
                 state, reward, done, info = self.env.step(a)
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
@@ -267,4 +267,4 @@ class Evaluator:
 
             self.nn_safety_kpi.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
                                     epsilon=self.epsilons, safety_violation=0))
-            #animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(50)
+            animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(50)

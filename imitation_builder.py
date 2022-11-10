@@ -148,13 +148,13 @@ class ImitationBuilder_Wall(ImitationBuilder):
         self.mpc_options.wall_pos_side = False  # defines the allowed side of the wall
 
         self.safety_options.n = 10  # number of discretization points
-        self.safety_options.tf = 0.1  # time horizon
+        self.safety_options.tf = 0.10  # time horizon
         self.safety_options.nlp_iter = 100  # number of iterations of the nonlinear solver
-        self.safety_options.z_diag = np.array([0] * 3) * 1e1
-        self.safety_options.z_e_diag = np.array([0] * 3) * 1e3
+        self.safety_options.z_diag = np.array([0] * 3)
+        self.safety_options.z_e_diag = np.array([0] * 3)
         self.safety_options.r_diag = np.array([1., 1., 1.]) * 1e1
         self.safety_options.w2_slack_speed = 1e3
-        self.safety_options.w2_slack_wall = 1e5
+        self.safety_options.w2_slack_wall = 3e5
         self.safety_options.wall_constraint_on = self.mpc_options.wall_constraint_on  # choose whether we activate the wall constraint
         self.safety_options.wall_axis = self.mpc_options.wall_axis  # Wall axis: 0,1,2 -> x,y,z
         self.safety_options.wall_value = self.mpc_options.wall_value  # wall height value on axis
