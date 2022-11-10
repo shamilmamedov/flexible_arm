@@ -5,10 +5,12 @@ from flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicF
 from gym_env import FlexibleArmEnv
 from imitator import ImitatorOptions, Imitator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
+from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 
 
 class ImitationBuilder(ABC):
-    def __init__(self, n_seg: int, n_seg_mpc: int, dt: float, tf: float, dir_rel: str, use_estimator: bool = True):
+    def __init__(self, n_seg: int, n_seg_mpc: int, n_seg_safety: int, dt: float, tf: float, dir_rel: str,
+                 use_estimator: bool = True):
         self.imitator_options = ImitatorOptions(dt=dt)
         self.imitator_options.environment_options.n_seg = n_seg
         self.imitator_options.environment_options.dt = dt
@@ -19,6 +21,9 @@ class ImitationBuilder(ABC):
 
         # Create mpc options and controller
         self.mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=tf)
+
+        # create safety filter
+        self.safety_options = SafetyFilter3dofOptions(n_seg=n_seg_safety)
 
         # Create estimator
         if use_estimator:
@@ -39,26 +44,33 @@ class ImitationBuilder(ABC):
     def build(self):
         self.pre_build()
 
-        # construct controller:
-        controller = Mpc3Dof(model=self.fa_sym_ld, options=self.mpc_options)
-
         # get reward of expert policy
         env = FlexibleArmEnv(options=self.imitator_options.environment_options, estimator=self.estimator)
+
+        # create safety filter
+        fa_sym_ld = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
+        fa_sym = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
+        safety_filter = SafetyFilter3Dof(model=fa_sym_ld, model_nonsymbolic=fa_sym,
+                                         options=self.safety_options)
+
+        # construct controller:
+        controller = Mpc3Dof(model=self.fa_sym_ld, options=self.mpc_options)
 
         # create imitator and train
         imitator = Imitator(options=self.imitator_options, expert_controller=controller, estimator=self.estimator)
 
-        return imitator, env, controller
+        return imitator, env, controller, safety_filter
 
 
 class ImitationBuilder_Stabilization(ImitationBuilder):
     def __init__(self):
         n_seg = 3
         n_seg_mpc = 3
+        n_seg_safety = 1
         dt = 0.01
         tf = 0.3
         dir_rel = "/stabilization"
-        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, dt=dt, tf=tf, dir_rel=dir_rel)
+        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, n_seg_safety=n_seg_safety, dt=dt, tf=tf, dir_rel=dir_rel)
 
     def pre_build(self):
         self.imitator_options.environment_options.qa_start = np.array([1.5, 0.0, 1.5])
@@ -84,15 +96,29 @@ class ImitationBuilder_Stabilization(ImitationBuilder):
         self.mpc_options.wall_value = 0.5  # wall height value on axis
         self.mpc_options.wall_pos_side = True  # defines the allowed side of the wall
 
+        self.safety_options.n = 10  # number of discretization points
+        self.safety_options.tf = 0.1  # time horizon
+        self.safety_options.nlp_iter = 100  # number of iterations of the nonlinear solver
+        self.safety_options.z_diag = np.array([0] * 3) * 1e1
+        self.safety_options.z_e_diag = np.array([0] * 3) * 1e3
+        self.safety_options.r_diag = np.array([1., 1., 1.]) * 1e1
+        self.safety_options.w2_slack_speed = 1e3
+        self.safety_options.w2_slack_wall = 1e5
+        self.safety_options.wall_constraint_on = self.mpc_options.wall_constraint_on  # choose whether we activate the wall constraint
+        self.safety_options.wall_axis = self.mpc_options.wall_axis  # Wall axis: 0,1,2 -> x,y,z
+        self.safety_options.wall_value = self.mpc_options.wall_value  # wall height value on axis
+        self.safety_options.wall_pos_side = self.mpc_options.wall_pos_side  # defines the allowed side of the wall
+
 
 class ImitationBuilder_Wall(ImitationBuilder):
     def __init__(self):
         n_seg = 3
         n_seg_mpc = 3
+        n_seg_safety = 1
         dt = 0.01
         tf = 0.3
         dir_rel = "/wall"
-        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, dt=dt, tf=tf, dir_rel=dir_rel)
+        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, n_seg_safety=n_seg_safety, dt=dt, tf=tf, dir_rel=dir_rel)
 
     def pre_build(self):
         delta_wall_angle = np.pi / 40
@@ -120,3 +146,16 @@ class ImitationBuilder_Wall(ImitationBuilder):
         self.mpc_options.wall_axis = 1  # Wall axis: 0,1,2 -> x,y,z
         self.mpc_options.wall_value = 0.0  # wall height value on axis
         self.mpc_options.wall_pos_side = False  # defines the allowed side of the wall
+
+        self.safety_options.n = 10  # number of discretization points
+        self.safety_options.tf = 0.1  # time horizon
+        self.safety_options.nlp_iter = 100  # number of iterations of the nonlinear solver
+        self.safety_options.z_diag = np.array([0] * 3) * 1e1
+        self.safety_options.z_e_diag = np.array([0] * 3) * 1e3
+        self.safety_options.r_diag = np.array([1., 1., 1.]) * 1e1
+        self.safety_options.w2_slack_speed = 1e3
+        self.safety_options.w2_slack_wall = 1e5
+        self.safety_options.wall_constraint_on = self.mpc_options.wall_constraint_on  # choose whether we activate the wall constraint
+        self.safety_options.wall_axis = self.mpc_options.wall_axis  # Wall axis: 0,1,2 -> x,y,z
+        self.safety_options.wall_value = self.mpc_options.wall_value  # wall height value on axis
+        self.safety_options.wall_pos_side = self.mpc_options.wall_pos_side  # defines the allowed side of the wall

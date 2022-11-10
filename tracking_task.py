@@ -13,18 +13,25 @@ import kpi
 
 if __name__ == "__main__":
     # Model discretization parameters
-    n_seg_sim = 2
+    n_seg_sim = 10
     n_seg_cont = 2
 
     # Sampling time for both controller and simulator
     dt = 0.01
 
     # Number of simulation iterations
-    n_iter = 100
+    n_iter = 150
 
-    # Controller
+    # Controller choice
     controllers = ['MPC', 'NN']
     cont_name = controllers[0]
+
+    # Trajectory parameters: the end-effector position
+    # that specifies the center of the circle
+    T_traj = 0.75
+    R_circle = 0.2
+    qa_t0_traj = np.array([0., 2*np.pi/5, -np.pi/3])
+
 
     # Create model instances
     sim_model = SymbolicFlexibleArm3DOF(n_seg_sim)
@@ -74,7 +81,9 @@ if __name__ == "__main__":
         controller = Mpc3Dof(model=cont_model, x0=x0_mpc, pee_0=pee_0, options=mpc_options)
         assert mpc_options.get_sampling_time() == dt
 
-        controller.set_reference_trajectory(q_t0=q0_est.copy())
+
+        pee_iterp_fcn = controller.set_reference_trajectory(
+                            qa_t0=qa_t0_traj, tf=T_traj, r=R_circle)
     elif cont_name == 'NN':
         controller = NNController(nn_file="bc_policy_1", n_seg=n_seg_cont)
     else:
@@ -82,7 +91,7 @@ if __name__ == "__main__":
 
 
     # Simulate the robot
-    sim_opts = SimulatorOptions(contr_input_states='real')
+    sim_opts = SimulatorOptions(contr_input_states='estimated')
     sim_opts.dt = dt
     sim = Simulator(sim_model, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
@@ -96,7 +105,9 @@ if __name__ == "__main__":
     # Compute KPIs
     q = x[:, :sim_model.nq]
     dq = x[:, sim_model.nq:]
-    kpi.constraint_violation(q, dq, u, sim_model)
+    u_viol, dqa_viol = kpi.constraint_violation(q, dq, u, sim_model)
+    print(f"Control constraint violation: {u_viol.tolist()}")
+    print(f"Velocity constraint violation: {dqa_viol.tolist()}")
 
     # Process the simulation results
     # Parse joint positions
@@ -106,7 +117,7 @@ if __name__ == "__main__":
     # Visualization
     # plotting.plot_real_states_vs_estimate(t, x, xhat, n_seg_sim, n_seg_cont)
     # plotting.plot_controls(t[:-1], u, u_ref)
-    plotting.plot_measurements(t, y)
+    plotting.plot_measurements(t, y, pee_iterp_fcn(t))
 
     # Animate simulated motion
     animator = Panda3dAnimator(sim_model.urdf_path, dt * n_skip, q).play(2)

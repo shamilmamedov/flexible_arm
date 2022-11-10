@@ -50,7 +50,10 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     for k, ax in enumerate(axs_pee.reshape(-1)):
         ax.plot(t, pee[:,k])
         if pee_ref is not None:
-            ax.axhline(pee_ref[k], ls='--', color='red')
+            if pee_ref.size == 3:
+                ax.axhline(pee_ref[k], ls='--', color='red')
+            else:
+                ax.plot(t, pee_ref[:,k], ls='--', color='red')
         ax.set_ylabel(pee_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()

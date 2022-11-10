@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from copy import deepcopy
 
 import matplotlib
@@ -95,7 +94,7 @@ if __name__ == "__main__":
     # Simulate
     integrator = 'LSODA'
     sim = Simulator(fa, C, integrator, None)
-    x, u, y, x_hat = sim.simulate(x0.flatten(), ts, n_iter)
+    x, u, y, x_hat = sim.simulate(x0.flatten(), n_iter)
     t = np.arange(0, n_iter + 1) * ts
 
     # Print timing
@@ -114,5 +113,6 @@ if __name__ == "__main__":
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
+    #urdf_path = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf'
     urdf_path = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf'
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(30)
