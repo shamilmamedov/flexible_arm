@@ -176,7 +176,7 @@ class Simulator:
         qk, dqk = state[0:nq, :], state[nq:, :]
 
         for k in range(n_iter):
-            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k, y=self.y[-1, :].T)
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k, y=self.y[k, :].T)
             state = self.step(input_tau=tau)
             qk, dqk = state[0:nq, :], state[nq:, :]
 

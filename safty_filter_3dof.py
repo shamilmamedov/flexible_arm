@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 import time
 from tempfile import mkdtemp
@@ -250,7 +251,6 @@ class SafetyFilter3Dof:
         x0_est = np.vstack((q0_est, dq0_est))
 
         self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
-        self.u_pre = None
 
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """
@@ -278,15 +278,14 @@ class SafetyFilter3Dof:
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def filter(self, u0: np.ndarray, y: np.ndarray):
+    def filter(self, u0: np.ndarray, y: np.ndarray, u_pre_safe: np.ndarray):
         # first estimate state
         y = np.expand_dims(y, 1)
-        if self.u_pre is None:
+        if u_pre_safe is None:
             self.x_hat = self.E.estimate(y).flatten()
         else:
-            self.x_hat = self.E.estimate(y, self.u_pre).flatten()
+            self.x_hat = self.E.estimate(y, u_pre_safe).flatten()
 
-        print(self.x_hat[0])
         # set initial state
         start_time = time.time()
         xcurrent = self.x_hat  # np.vstack((q, dq))
@@ -317,10 +316,8 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
-        # print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
-        self.u_pre = u_output
         return u_output
 
     def get_timing_statistics(self, mode=0) -> Tuple[float, float, float, float]:
@@ -346,6 +343,7 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
     class ControllerSafetyWrapper(base_controller_class):
         def __init__(self, *args, **kwargs):
             super(ControllerSafetyWrapper, self).__init__(*args, **kwargs)
+            self.u_pre_safe = None
 
         def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
             safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
@@ -353,8 +351,9 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
         def compute_torques(self, q, dq, t=None, y=None):
             assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
-            u_safe = safety_filter.filter(u0=u, y=y)
+            u_safe = safety_filter.filter(u0=u, y=y, u_pre_safe=self.u_pre_safe)
             #print(u - u_safe)
+            self.u_pre_safe = u_safe
             return u_safe
 
         def get_timing_statistics_filter(self):
