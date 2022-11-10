@@ -36,6 +36,8 @@ class SafetyFilter3dofOptions:
         self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
+        self.w_reg_dq: float = 0.1
+        self.w_reg_dq_terminal: float = 1e2
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
         self.wall_axis: int = 0  # Wall axis: 0,1,2 -> x,y,z
         self.wall_value: float = 0.  # wall height value on axis
@@ -114,9 +116,9 @@ class SafetyFilter3Dof:
         q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_diag[0:int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2):] = 1
+        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
         q_e_diag[0:int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2):] = 1e5
+        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 

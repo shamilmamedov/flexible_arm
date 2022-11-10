@@ -18,7 +18,7 @@ if __name__ == "__main__":
         plot_training(log_dir=experiment_dir)
 
     imitation_builder_wall = ImitationBuilder_Wall()
-    evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=3, policy_dir=experiment_dir)
+    evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=10, policy_dir=experiment_dir)
     evaluator.evaluate_nn_safe(policy_dir=experiment_dir)
     evaluator.evaluate_nn(policy_dir=experiment_dir)
     evaluator.evaluate_expert()
