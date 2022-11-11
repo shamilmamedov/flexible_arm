@@ -3,11 +3,13 @@ from tempfile import mkdtemp
 
 import numpy as np
 import scipy
-from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt 
+from scipy.interpolate import interp1d, CubicSpline
 from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
+from optimal_planner import design_optimal_circular_trajectory
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
@@ -242,28 +244,28 @@ class Mpc3Dof(BaseController):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
-    def set_reference_trajectory(self, q_t0, pee_tf, tf, fun_forward_pee):
-        """
-        Sets a reference point which will be transformed into a guiding trajectory and can be used alternatively to
-        set_reference_point() method.
-        The function precomputes a spline for joint positions with quintic polynoms.
-
-        @param q_t0: Position states at time 0
-        @param pee_tf: Endeffector reference state at final time tf
-        @param tf: Final time tf
-        @param fun_forward_pee: Function, that computes q->p_ee
-        """
-        n_eval = 100
-        t_eval = np.linspace(0, tf, 100)
-        n_seg = int((self.nx - 2) / (2 * 2) - 1)
-        t, q, dq = get_reference_for_all_joints(q_t0, pee_tf, tf, ts=self.options.tf / n_eval, n_seg=n_seg)
+    def set_reference_trajectory(self, qa_t0, tf: float = 0.75, r: float = 0.2):
+        # qa_t0 = (q_t0.flatten())[self.fa_model.qa_idx]
+        t, q, dq, u, pee = design_optimal_circular_trajectory(
+            self.fa_model.n_seg, qa_t0, r=r, tf=tf, visualize=False
+        )
         self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
         self.inter_t2dq = interp1d(t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :])
-        p_eval = np.zeros((t_eval.__len__(), 3))
-        for i in range(t_eval.__len__()):
-            _, pee = fun_forward_pee(self.inter_t2q(t_eval[i]))
-            p_eval[i, :] = pee[:, 0]
-        self.inter_pee = interp1d(t_eval, p_eval, axis=0, bounds_error=False, fill_value=p_eval[-1, :])
+        self.inter_t2u = interp1d(t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :])
+        self.inter_pee = interp1d(t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :])
+
+        # self.interp_t2q = CubicSpline(t, q, axis=0, extrapolate='periodic')
+        # self.inter_t2dq = CubicSpline(t, dq, axis=0, extrapolate='periodic')
+        # self.inter_t2u = CubicSpline(t[:-1], u, axis=0, extrapolate='periodic')
+        # self.inter_pee = CubicSpline(t, pee, axis=0, extrapolate='periodic')
+        
+        # tt = np.linspace(0, 2*tf, 50)
+        # _, ax = plt.subplots()
+        # ax.plot(t, pee[:,1])
+        # ax.plot(tt, self.inter_pee(tt)[:,1])
+        # plt.show()
+        return self.inter_pee
+                
 
     def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
@@ -287,11 +289,11 @@ class Mpc3Dof(BaseController):
             dq_ref_vec = self.inter_t2dq(t_vec)
             pee_ref_vec = self.inter_pee(t_vec)
             x_vec = np.hstack((q_ref_vec, dq_ref_vec))
-            u_ref = np.zeros((self.nu, 1))
+            u_ref = self.inter_t2u(t_vec)
 
             for stage in range(self.options.n):
                 yref = np.vstack((np.expand_dims(x_vec[stage, :], 1),
-                                  u_ref,
+                                  np.expand_dims(u_ref[stage, :], 1),
                                   np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
                 self.acados_ocp_solver.cost_set(stage, "yref", yref)
             stage = self.options.n

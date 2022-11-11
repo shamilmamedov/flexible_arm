@@ -20,8 +20,8 @@ class SimulatorOptions:
     """
     rtol: float = 1e-8  # 1e-6, 1e-8
     atol: float = 1e-10  # 1e-8, 1e-10
-    # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    R: np.ndarray = np.zeros((9, 9))
+    R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
+    # R: np.ndarray = np.zeros((9, 9))
     contr_input_states: str = 'real'
     dt: float = 0.01
     n_iter: float = 100
@@ -74,16 +74,8 @@ class Simulator:
             self.opts.n_iter = n_iter
 
         if self.estimator is not None:
-            # initialize estimator initial state x0
-            # todo: Shamil check this please
             self.nx_est = self.estimator.model.nx
-            x_hat = np.zeros((self.nx_est, 1))
-            x_hat[0:1, 0] = x0[0:1]
-            x_hat[1 + self.estimator.model.n_seg + 1] = x0[1 + 1 + self.robot.n_seg]
-            x_hat[self.estimator.model.nq:self.estimator.model.nq + 1, 0] = x0[self.robot.nq:self.robot.nq + 1]
-            x_hat[self.estimator.model.nq + 1 + self.estimator.model.n_seg + 1] = x0[
-                self.robot.nq + 1 + 1 + self.robot.n_seg]
-            self.estimator.x_hat = x_hat
+            self.estimator.reset()
 
             # initialize datastructure
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
@@ -99,8 +91,8 @@ class Simulator:
                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
         if self.estimator is not None:
-            self.x_hat[self.k, :] = self.estimator.estimate(
-                self.y[[self.k], :].T).flatten()
+            self.x_hat[0, :] = self.estimator.estimate(
+                               self.y[[0], :].T).flatten()
 
         # Compute control action
         if self.opts.contr_input_states == 'real':
@@ -140,7 +132,7 @@ class Simulator:
             raise ValueError
         return x_next
 
-    def step(self, input_tau):
+    def step(self, input_tau: np.ndarray):
 
         self.u[[self.k], :] = input_tau
 
@@ -152,11 +144,13 @@ class Simulator:
         self.y[self.k + 1, :] = (self.robot.output(self.x[[self.k + 1], :].T).flatten() +
                                  multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
-        self.k += 1
-
+        # Estimate states if needed
         if self.estimator is not None:
-            self.x_hat[self.k, :] = self.estimator.estimate(
-                self.y[[self.k], :].T, self.u[self.k - 1, :]).flatten()
+            self.x_hat[self.k + 1, :] = self.estimator.estimate(
+                                        self.y[[self.k + 1], :].T, self.u[self.k, :]).flatten()
+
+        # Increement the counter
+        self.k += 1
 
         # Compute control action
         if self.opts.contr_input_states == 'real':
@@ -175,8 +169,8 @@ class Simulator:
         nq = int(state.shape[0] / 2)
         qk, dqk = state[0:nq, :], state[nq:, :]
 
-        for k in range(n_iter):
-            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k, y=self.y[k, :].T)
+        for k in range(self.opts.n_iter):
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k)
             state = self.step(input_tau=tau)
             qk, dqk = state[0:nq, :], state[nq:, :]
 

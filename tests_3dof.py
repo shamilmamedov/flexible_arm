@@ -9,7 +9,7 @@ import pandas as pd
 from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
                                get_rest_configuration, inverse_kinematics_rb)
 from estimator import ExtendedKalmanFilter
-from simulation import Simulator
+from simulation import Simulator, SimulatorOptions
 from controller import DummyController, PDController3Dof, FeedforwardController
 
 
@@ -289,12 +289,12 @@ def compare_discretized_num_sym_models():
 
 def compare_different_integrators():
     # Simulation parametes
-    ts = 0.001
+    dt = 0.001
     n_iter = 100
 
     # Models
     n_seg = 10
-    model = SymbolicFlexibleArm3DOF(n_seg, ts=ts)
+    model = SymbolicFlexibleArm3DOF(n_seg, dt=dt)
 
     # Initial states
     q = np.zeros((model.nq, 1)) 
@@ -312,13 +312,16 @@ def compare_different_integrators():
     # Controller
     Kp = (40, 30, 25)
     Kd = (1.5, 0.25, 0.25)
-    C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+    # C = PDController3Dof(Kp, Kd, n_seg, q_ref)
+    C = DummyController()
 
     # Simulators
     intg1 = 'LSODA'
     intg2 = 'RK45'
     intg3 = 'collocation'
     intg4 = 'cvodes'
+
+    sim_opts = SimulatorOptions(dt=dt, n_iter=n_iter)
 
     S1 = Simulator(model, C, intg1, E)
     S2 = Simulator(model, C, intg2, E)
@@ -327,22 +330,22 @@ def compare_different_integrators():
 
     # Simulate the rigid body approxmiation
     t0_LSODA = time.time()
-    x1, u1, y1, _ = S1.simulate(x0.flatten(), ts, n_iter)
+    x1, u1, y1, _ = S1.simulate(x0.flatten())
     tf_LSODA = time.time()
 
     t0_RK45 = time.time()
-    x2, u2, y2, _ = S2.simulate(x0.flatten(), ts, n_iter)
+    x2, u2, y2, _ = S2.simulate(x0.flatten())
     tf_RK45 = time.time()
 
     t0_clc = time.time()
-    x3, u3, y3, _ = S3.simulate(x0.flatten(), ts, n_iter)
+    x3, u3, y3, _ = S3.simulate(x0.flatten())
     tf_clc = time.time()
 
     t0_cvd = time.time()
-    x4, u4, y4, _ = S4.simulate(x0.flatten(), ts, n_iter)
+    x4, u4, y4, _ = S4.simulate(x0.flatten())
     tf_cvd = time.time()
     
-    t = np.arange(0, n_iter + 1) * ts
+    t = np.arange(0, n_iter + 1) * dt
 
     print('Execution time LSODA:', tf_LSODA-t0_LSODA)
     print('Execution time RK45:', tf_RK45-t0_RK45)
@@ -379,4 +382,4 @@ if __name__ == "__main__":
     test_inverse_kinematics()
     # compare_different_discretization()
     # compare_discretized_num_sym_models()
-    # compare_different_integrators()
+    compare_different_integrators()

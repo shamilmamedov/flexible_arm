@@ -28,11 +28,22 @@ class ExtendedKalmanFilter(BaseEstimator):
         :parameter Q: state covariance matrix
         :parameter R: measurement covariance matrix
         """
+        # Store them for resetting
+        self.x0_hat = x0_hat
+        self.P0 = P0
+
         self.model = model
         self.P = P0
         self.Q = Q
         self.R = R
         self.x_hat = x0_hat
+
+    def reset(self) -> None:
+        """ Resets the estimator to initial state estimate 
+        and covariance matrrix
+        """
+        self.x_hat = self.x0_hat
+        self.P = self.P0
 
     def compute_Kalman_gain(self, C: np.ndarray) -> np.ndarray:
         """ Computes Kalman Gain given C

@@ -30,22 +30,30 @@ def plot_circle(circ: np.ndarray, circ_ref: np.ndarray = None):
     plt.show()
 
 
-def design_optimal_circular_trajectory(r: float = 0.2, tf: float = 0.7, visualize: bool = False):
+def design_optimal_circular_trajectory(n_seg: int, qa_t0: np.ndarray, r: float = 0.2, 
+                                       tf: float = 0.75, visualize: bool = False):
     """
+    Designs the trajectory using the rigid body approximation, and then
+    extends to flexible robot by setting positions and velocities of the
+    passive joitns to zero
+
+    :paramneter n_seg: number of segments for flexible links
+    :parameter qa_t0: a configuration that sepcifies where the
+                      trajectory should begin. It implicitly 
+                      specifies the center of the circle
     :parameter r: radius of the circle
     :parameter tf: trajectory execution time
     """
     # Trajectory and model parameters/opts
-    dt = 0.01
+    dt = 0.02
     N = int(tf/dt)
 
-    # Specify the model
+    # Instantiate the model used for planning
     n_seg_ocp = 0
     model = SymbolicFlexibleArm3DOF(n_seg=n_seg_ocp, dt=dt,
                                     integrator='cvodes')
 
     # Specify the initial rest position of the robot
-    qa_t0 = np.array([0., 2*np.pi/5, -np.pi/3])
     q_t0 = get_rest_configuration(qa_t0, n_seg_ocp)
     pee_t0 = np.array(model.p_ee(q_t0))
 
@@ -57,7 +65,7 @@ def design_optimal_circular_trajectory(r: float = 0.2, tf: float = 0.7, visualiz
     pee_ref = circle(c, r, a, b, s)
 
     # Design and solve OCP
-    opts = OCPOptions(dt, tf)
+    opts = OCPOptions(dt, tf, n_seg_ocp)
     assert opts.N == N
 
     ocp = OptimalControlProblem(model, pee_ref, opts)
@@ -81,8 +89,18 @@ def design_optimal_circular_trajectory(r: float = 0.2, tf: float = 0.7, visualiz
         # Visualize optimal motion
         Panda3dAnimator(model.urdf_path, dt, q_opt).play(5)
 
-    return t_opt, q_opt, dq_opt, u_opt, pee_opt
+    # Extend the trajectory for flexible model
+    model_full = SymbolicFlexibleArm3DOF(n_seg=n_seg)
+    q_ref = np.zeros((opts.N+1, model_full.nq))
+    dq_ref = np.zeros((opts.N+1, model_full.nq))
+
+    q_ref[:, model_full.qa_idx] = q_opt
+    dq_ref[:, model_full.qa_idx] = dq_opt
+
+    return t_opt, q_ref, dq_ref, u_opt, pee_opt
 
 
 if __name__ == "__main__":
-    design_optimal_circular_trajectory(visualize=True)
+    qa_t0 = np.array([0., 2*np.pi/5, -np.pi/3])
+    _, q_ref, dq_ref, _, _ = design_optimal_circular_trajectory(3, qa_t0, visualize=False)
+    print("Finished")

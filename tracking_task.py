@@ -13,18 +13,25 @@ import kpi
 
 if __name__ == "__main__":
     # Model discretization parameters
-    n_seg_sim = 2
+    n_seg_sim = 10
     n_seg_cont = 2
 
     # Sampling time for both controller and simulator
     dt = 0.01
 
     # Number of simulation iterations
-    n_iter = 100
+    n_iter = 150
 
-    # Controller
+    # Controller choice
     controllers = ['MPC', 'NN']
     cont_name = controllers[0]
+
+    # Trajectory parameters: the end-effector position
+    # that specifies the center of the circle
+    T_traj = 0.75
+    R_circle = 0.2
+    qa_t0_traj = np.array([0., 2*np.pi/5, -np.pi/3])
+
 
     # Create model instances
     sim_model = SymbolicFlexibleArm3DOF(n_seg_sim)
@@ -32,18 +39,12 @@ if __name__ == "__main__":
     est_model = SymbolicFlexibleArm3DOF(n_seg_cont, dt=dt, integrator='collocation')
 
     # Initial state of the real system (simulation model)
-    qa0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+    qa0 = np.array([0., 2*np.pi/5, -np.pi/3])
     q0 = get_rest_configuration(qa0, n_seg_sim)
     dq0 = np.zeros_like(q0)
     x0 = np.vstack((q0, dq0))
 
-    # Compute reference ee position
-    # qa_ref = qa0.copy()
-    qa_ref = np.array([0., 2 * np.pi / 5, -np.pi / 3])
-    q_ref = get_rest_configuration(qa_ref, n_seg_sim)
-    pee_ref = np.array(sim_model.p_ee(q_ref))
-    print("ref: " + np.array2string(qa_ref.squeeze()))
-
+    
     # Design estimator
     # initial covariance matrix
     p0_q = [0.05] * est_model.nq  # 0.05, 0.1
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     x0_est = np.vstack((q0_est, dq0_est))
 
     E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
-    E = None
+
 
     # Design controller
     if cont_name == 'MPC':
@@ -80,22 +81,17 @@ if __name__ == "__main__":
         controller = Mpc3Dof(model=cont_model, x0=x0_mpc, pee_0=pee_0, options=mpc_options)
         assert mpc_options.get_sampling_time() == dt
 
-        # Provide reference for the mpc controller
-        # get qa from IK of the rigid body approximation
-        qa_ik = inverse_kinematics_rb(pee_ref, qa0)
-        q_ref_mpc = get_rest_configuration(qa_ik, n_seg_cont)
-        dq_ref_mpc = np.zeros_like(q_ref_mpc)
-        x_ref_mpc = np.vstack((q_ref_mpc, dq_ref_mpc))
-        # reference input (can be initialzed using RNEA for rigid body model)
-        u_ref = cont_model.gravity_torque(q_ref_mpc)
-        controller.set_reference_point(p_ee_ref=pee_ref, x_ref=x_ref_mpc, u_ref=u_ref)
+
+        pee_iterp_fcn = controller.set_reference_trajectory(
+                            qa_t0=qa_t0_traj, tf=T_traj, r=R_circle)
     elif cont_name == 'NN':
         controller = NNController(nn_file="bc_policy_1", n_seg=n_seg_cont)
     else:
         raise NotImplementedError
 
+
     # Simulate the robot
-    sim_opts = SimulatorOptions(contr_input_states='real')
+    sim_opts = SimulatorOptions(contr_input_states='estimated')
     sim_opts.dt = dt
     sim = Simulator(sim_model, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
@@ -109,14 +105,9 @@ if __name__ == "__main__":
     # Compute KPIs
     q = x[:, :sim_model.nq]
     dq = x[:, sim_model.nq:]
-    ns2g = kpi.execution_time(q, sim_model, pee_ref, 0.05)
-    print(f"Time to reach a ball around the goal = {t[ns2g]}")
-
-    q_kpi = q[:ns2g, :]
-    pl = kpi.path_length(q_kpi, sim_model)
-    print(f"Path length = {pl:.4f}")
-
-    kpi.constraint_violation(q, dq, u, sim_model)
+    u_viol, dqa_viol = kpi.constraint_violation(q, dq, u, sim_model)
+    print(f"Control constraint violation: {u_viol.tolist()}")
+    print(f"Velocity constraint violation: {dqa_viol.tolist()}")
 
     # Process the simulation results
     # Parse joint positions
@@ -126,7 +117,7 @@ if __name__ == "__main__":
     # Visualization
     # plotting.plot_real_states_vs_estimate(t, x, xhat, n_seg_sim, n_seg_cont)
     # plotting.plot_controls(t[:-1], u, u_ref)
-    plotting.plot_measurements(t, y, pee_ref)
+    plotting.plot_measurements(t, y, pee_iterp_fcn(t))
 
     # Animate simulated motion
     animator = Panda3dAnimator(sim_model.urdf_path, dt * n_skip, q).play(2)
