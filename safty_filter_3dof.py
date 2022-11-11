@@ -34,8 +34,10 @@ class SafetyFilter3dofOptions:
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
+        self.r_diag_rollout: np.ndarray = np.array([1., 1., 1.]) * 1e-4
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
+        self.w1_slack_wall: float = 1
         self.w_reg_dq: float = 0.1
         self.w_reg_dq_terminal: float = 1e2
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
@@ -123,6 +125,7 @@ class SafetyFilter3Dof:
         Q_e = np.diagflat(q_e_diag)
 
         R = np.diagflat(options.r_diag)
+        R_rollout = np.diagflat(options.r_diag_rollout)
         Z = np.diagflat(options.z_diag)
         Z_e = np.diagflat(options.z_e_diag)
 
@@ -144,7 +147,7 @@ class SafetyFilter3Dof:
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.zl = np.array([0] * 3 + [options.w1_slack_wall] * n_wall_constraints)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
@@ -226,7 +229,7 @@ class SafetyFilter3Dof:
                                                                                     np.zeros_like(Z)))
             else:
                 self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q,
-                                                                                    R * 1e-1,
+                                                                                    R_rollout,
                                                                                     np.zeros_like(Z)))
         self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
 
@@ -354,11 +357,11 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
             assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
             u_safe = safety_filter.filter(u0=u, y=y, u_pre_safe=self.u_pre_safe)
-            #print(u - u_safe)
+            # print(u - u_safe)
             self.u_pre_safe = u_safe
             return u_safe
 
-        def get_timing_statistics_filter(self):
+        def get_timing_statistics(self):
             return safety_filter.get_timing_statistics()
 
     return ControllerSafetyWrapper

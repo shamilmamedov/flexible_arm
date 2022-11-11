@@ -42,8 +42,9 @@ class Kpi:
 
 
 class Evaluator:
-    def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None, render: bool = False):
-        self.imitator, self.env, self.controller, self.safety_filter = builder.build()
+    def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None,
+                 render: bool = False, show_plots: bool = False):
+        self.imitator, self.env, self.expert_controller, self.safety_filter = builder.build()
         self.env.stop_if_goal_condition = False
         self.n_episodes = n_episodes
         self.animate = False
@@ -56,6 +57,7 @@ class Evaluator:
         self.policy_dir = policy_dir
         self.epsilons = [0.2, 0.1, 0.05, 0.025]
         self.render = render
+        self.show_plots = show_plots
 
     def print_result(self):
         assert self.expert_kpis.__len__() > 0 and self.nn_kpis.__len__() > 0
@@ -146,62 +148,63 @@ class Evaluator:
 
         print(tabulate([data_mpc, data_nn, data_nns], headers=header))
 
+    def post_evaluation(self, controller, timing_container, kpi_container):
+
+        x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
+        t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
+
+        # Visualization
+        if self.show_plots:
+            plotting.plot_measurements(t, y, self.env.xee_final)
+
+        t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
+        timing_container.append(Timings(min=t_min, max=t_max, std=t_std, mean=t_mean))
+        # print_timings(t_mean, t_std, t_min, t_max)
+
+        # Compute KPIs
+        q = x[:, :self.env.model.nq]
+        t_epsilons = []
+        pls = []
+        for epsilon in self.epsilons:
+            ns2g = kpi.execution_time(q, self.env.simulator.robot, self.env.xee_final, epsilon)
+            pl = -1
+            if ns2g >= 0:
+                q_kpi = q[:ns2g, :]
+                pl = kpi.path_length(q_kpi, self.env.simulator.robot)
+            t_epsilons.append(ns2g)
+            pls.append(pl)
+
+        kpi_container.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
+                                 epsilon=self.epsilons, safety_violation=0))
+
+        if self.render:
+            animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt, q).play(1)
+
     def evaluate_expert(self, seed: int = 1, show_plots: bool = False):
         # simulate
-        nq = int(self.controller.options.q_diag.shape[0] / 2)
+        nq = int(self.expert_controller.options.q_diag.shape[0] / 2)
         dt = self.imitator.options.environment_options.dt
         for simulation_count in range(self.n_episodes):
             if seed is not None:
                 np.random.seed(seed + simulation_count)
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
-            self.controller.reset()
-            q_mpc = get_rest_configuration(self.env.xee_final[:, 0], self.controller.options.n_seg)
+            self.expert_controller.reset()
+            q_mpc = get_rest_configuration(self.env.xee_final[:, 0], self.expert_controller.options.n_seg)
             dq_mpc = np.zeros_like(q_mpc)
             x_mpc = np.vstack((q_mpc, dq_mpc))
-            self.controller.set_reference_point(x_ref=x_mpc,
-                                                p_ee_ref=self.env.xee_final,
-                                                u_ref=np.array([0, 0, 0]))
+            self.expert_controller.set_reference_point(x_ref=x_mpc,
+                                                       p_ee_ref=self.env.xee_final,
+                                                       u_ref=np.array([0, 0, 0]))
             for i in range(self.env.max_intg_steps):
-                a = self.controller.compute_torques(q=qk, dq=dqk, t=simulation_count * dt)
+                a = self.expert_controller.compute_torques(q=qk, dq=dqk, t=simulation_count * dt)
                 state, reward, done, info = self.env.step(a)
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
-            t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
 
-            # Parse joint positions
-            n_skip = 1
-            q = x[::n_skip, :self.env.model_sym.nq]
-
-            # Visualization
-            if show_plots:
-                plotting.plot_controls(t[:-1], u)
-                plotting.plot_measurements(t, y)
-
-            t_mean, t_std, t_min, t_max = self.controller.get_timing_statistics()
-            self.expert_timings.append(Timings(min=t_min, max=t_max, std=t_std, mean=t_mean))
-            # print_timings(t_mean, t_std, t_min, t_max)
-
-            # Compute KPIs
-            q = x[:, :self.env.model.nq]
-            t_epsilons = []
-            pls = []
-            for epsilon in self.epsilons:
-                ns2g = kpi.execution_time(q, self.env.simulator.robot, self.env.xee_final, epsilon)
-                pl = -1
-                if ns2g > 0:
-                    q_kpi = q[:ns2g, :]
-                    pl = kpi.path_length(q_kpi, self.env.simulator.robot)
-                t_epsilons.append(ns2g)
-                pls.append(pl)
-
-            self.expert_kpis.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
-                                        epsilon=self.epsilons, safety_violation=0))
-
-            if self.render:
-                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)
+            self.post_evaluation(controller=self.expert_controller, timing_container=self.expert_timings,
+                                 kpi_container=self.expert_kpis)
 
     def evaluate_nn(self, seed: int = 1, show_plots: bool = False,
                     policy_dir: str = None, filename: str = "trained_policy"):
@@ -210,8 +213,8 @@ class Evaluator:
                 raise NotImplementedError
             policy_dir = self.policy_dir
         filename = policy_dir + "/" + filename
-        controller = NNController(nn_file=filename, n_seg=self.controller.options.n_seg)
-        nq = int(self.controller.options.q_diag.shape[0] / 2)
+        controller = NNController(nn_file=filename, n_seg=self.expert_controller.options.n_seg)
+        nq = int(self.expert_controller.options.q_diag.shape[0] / 2)
         dt = self.imitator.options.environment_options.dt
 
         for simulation_count in range(self.n_episodes):
@@ -225,40 +228,8 @@ class Evaluator:
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
-            t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
-
-            # Parse joint positions
-            n_skip = 1
-            q = x[::n_skip, :self.env.model_sym.nq]
-
-            # Visualization
-            if show_plots:
-                plotting.plot_controls(t[:-1], u)
-                plotting.plot_measurements(t, y)
-
-            t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
-            self.nn_timings.append(Timings(min=t_min, max=t_max, std=t_std, mean=t_mean))
-            # print_timings(t_mean, t_std, t_min, t_max)
-
-            # Compute KPIs
-            q = x[:, :self.env.model.nq]
-            t_epsilons = []
-            pls = []
-            for epsilon in self.epsilons:
-                ns2g = kpi.execution_time(q, self.env.simulator.robot, self.env.xee_final, epsilon)
-                pl = -1
-                if ns2g > 0:
-                    q_kpi = q[:ns2g, :]
-                    pl = kpi.path_length(q_kpi, self.env.simulator.robot)
-                t_epsilons.append(ns2g)
-                pls.append(pl)
-
-            self.nn_kpis.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
-                                    epsilon=self.epsilons, safety_violation=0))
-
-            if self.render:
-                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)
+            self.post_evaluation(controller=controller, timing_container=self.nn_timings,
+                                 kpi_container=self.nn_kpis)
 
     def evaluate_nn_safe(self, seed: int = 1, show_plots: bool = False,
                          policy_dir: str = None, filename: str = "trained_policy"):
@@ -269,9 +240,9 @@ class Evaluator:
         filename = policy_dir + "/" + filename
 
         NNControllerSafe = get_safe_controller_class(NNController, safety_filter=self.safety_filter)
-        controller = NNControllerSafe(nn_file=filename, n_seg=self.controller.options.n_seg)
+        controller = NNControllerSafe(nn_file=filename, n_seg=self.expert_controller.options.n_seg)
 
-        nq = int(self.controller.options.q_diag.shape[0] / 2)
+        nq = int(self.expert_controller.options.q_diag.shape[0] / 2)
         dt = self.imitator.options.environment_options.dt
 
         for simulation_count in range(self.n_episodes):
@@ -285,36 +256,5 @@ class Evaluator:
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
-            t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
-
-            # Parse joint positions
-            n_skip = 1
-            q = x[::n_skip, :self.env.model_sym.nq]
-
-            # Visualization
-            if show_plots:
-                plotting.plot_controls(t[:-1], u)
-                plotting.plot_measurements(t, y)
-
-            t_mean, t_std, t_min, t_max = controller.get_timing_statistics_filter()
-            self.nn_safety_timings.append(Timings(min=t_min, max=t_max, std=t_std, mean=t_mean))
-            # print_timings(t_mean, t_std, t_min, t_max)
-
-            # Compute KPIs
-            q = x[:, :self.env.model.nq]
-            t_epsilons = []
-            pls = []
-            for epsilon in self.epsilons:
-                ns2g = kpi.execution_time(q, self.env.simulator.robot, self.env.xee_final, epsilon)
-                pl = -1
-                if ns2g > 0:
-                    q_kpi = q[:ns2g, :]
-                    pl = kpi.path_length(q_kpi, self.env.simulator.robot)
-                t_epsilons.append(ns2g)
-                pls.append(pl)
-
-            self.nn_safety_kpi.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
-                                          epsilon=self.epsilons, safety_violation=0))
-            if self.render:
-                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)
+            self.post_evaluation(controller=controller, timing_container=self.nn_safety_timings,
+                                 kpi_container=self.nn_safety_kpi)

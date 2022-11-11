@@ -7,6 +7,7 @@ if __name__ == "__main__":
     PLOT_TRAINING = False
     RUN_EVALUATOR = True
     RENDER = False
+    SHOW_PLOTS = True
 
     experiment_dir = "data/imitation/wall2/version2"
 
@@ -16,8 +17,10 @@ if __name__ == "__main__":
 
     if RUN_EVALUATOR:
         imitation_builder_wall = ImitationBuilder_Wall2()
-        evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=1, policy_dir=experiment_dir, render=RENDER)
-        evaluator.evaluate_expert()
+        evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=1, policy_dir=experiment_dir,
+                              render=RENDER, show_plots=SHOW_PLOTS)
         evaluator.evaluate_nn_safe(policy_dir=experiment_dir)
+        evaluator.evaluate_expert()
         evaluator.evaluate_nn(policy_dir=experiment_dir)
+
         evaluator.print_result()
