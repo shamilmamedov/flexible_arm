@@ -27,12 +27,20 @@ class ImitationBuilder(ABC):
 
         # Create estimator
         if use_estimator:
-            est_model = SymbolicFlexibleArm3DOF(n_seg=n_seg_mpc, dt=dt)
-            P0 = 0.01 * np.ones((est_model.nx, est_model.nx))
-            q_q, q_dq = [1e-2] * est_model.nq, [1e-1] * est_model.nq
+            # Design estimator
+            # initial covariance matrix
+            est_model = SymbolicFlexibleArm3DOF(n_seg=n_seg_mpc, dt=dt, integrator='collocation')
+            p0_q = [0.05] * est_model.nq  # 0.05, 0.1
+            p0_dq = [1e-3] * est_model.nq
+            P0 = np.diag([*p0_q, *p0_dq])
+            # process noise covariance
+            q_q = [1e-4, *[1e-3] * (est_model.nq - 1)]
+            q_dq = [1e-1, *[5e-1] * (est_model.nq - 1)]  # 5e-1, 10e-1
             Q = np.diag([*q_q, *q_dq])
-            r_q, r_dq, r_pee = [3e-4] * 3, [6e-2] * 3, [1e-2] * 3
-            R = np.diag([*r_q, *r_dq, *r_pee])
+            # measurement noise covaiance
+            r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
+            R = 10 * np.diag([*r_q, *r_dq, *r_pee])
+
             self.estimator = ExtendedKalmanFilter(est_model, None, P0, Q, R)
         else:
             self.estimator = None
@@ -128,12 +136,63 @@ class ImitationBuilder_Wall(ImitationBuilder):
             np.array([-delta_wall_angle, np.pi / 7, -np.pi / 5])
         self.imitator_options.environment_options.qa_range_start = np.array([np.pi, np.pi / 2, np.pi / 2])
         self.imitator_options.environment_options.qa_range_end = np.array([.0, .0, .0])
-        self.imitator_options.environment_options.n_seg = 3
         self.imitator_options.environment_options.render_mode = None
         self.imitator_options.environment_options.maximum_torques = np.array([20, 10, 10])
         self.imitator_options.environment_options.goal_dist_euclid = 0.01
         self.imitator_options.environment_options.sim_time = 3
         self.imitator_options.environment_options.goal_min_time = 1
+
+        self.imitator_options.n_episodes = 100 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
+        self.imitator_options.rollout_round_min_episodes = 10  # option for dagger algorithm.
+        self.imitator_options.rollout_round_min_timesteps = 5000  # option for dagger algorithm.
+
+        self.mpc_options.n = 30  # number of discretization points
+        self.mpc_options.nlp_iter = 50  # number of iterations of the nonlinear solver
+        self.mpc_options.condensing_relative = 1  # relative factor of condensing [0-1]
+        self.mpc_options.wall_constraint_on = True  # choose whether we activate the wall constraint
+        self.mpc_options.wall_axis = 1  # Wall axis: 0,1,2 -> x,y,z
+        self.mpc_options.wall_value = 0.0  # wall height value on axis
+        self.mpc_options.wall_pos_side = False  # defines the allowed side of the wall
+
+        self.safety_options.n = 20  # number of discretization points
+        self.safety_options.tf = 0.20  # time horizon
+        self.safety_options.nlp_iter = 100  # number of iterations of the nonlinear solver
+        self.safety_options.z_diag = np.array([0] * 3)
+        self.safety_options.z_e_diag = np.array([0] * 3)
+        self.safety_options.r_diag = np.array([1., 1., 1.]) * 1e2
+        self.safety_options.w_reg_dq = 0.01
+        self.safety_options.w_reg_dq_terminal = 1e-2
+        self.safety_options.w2_slack_speed = 1e3
+        self.safety_options.w2_slack_wall = 3e5
+        self.safety_options.wall_constraint_on = self.mpc_options.wall_constraint_on  # choose whether we activate the wall constraint
+        self.safety_options.wall_axis = self.mpc_options.wall_axis  # Wall axis: 0,1,2 -> x,y,z
+        self.safety_options.wall_value = self.mpc_options.wall_value  # wall height value on axis
+        self.safety_options.wall_pos_side = self.mpc_options.wall_pos_side  # defines the allowed side of the wall
+
+
+class ImitationBuilder_Wall2(ImitationBuilder):
+    def __init__(self):
+        n_seg = 10
+        n_seg_mpc = 2
+        n_seg_safety = 1
+        dt = 0.01
+        tf = 0.3
+        dir_rel = "/wall2"
+        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, n_seg_safety=n_seg_safety, dt=dt, tf=tf, dir_rel=dir_rel)
+
+    def pre_build(self):
+        delta_wall_angle = np.pi / 40
+        self.imitator_options.environment_options.qa_start = \
+            np.array([-np.pi / 4 - delta_wall_angle, np.pi / 7, -np.pi / 5])
+        self.imitator_options.environment_options.qa_end = \
+            np.array([-delta_wall_angle, np.pi / 7, -np.pi / 5])
+        self.imitator_options.environment_options.qa_range_start = np.array([np.pi/2, np.pi / 4, np.pi / 4])
+        self.imitator_options.environment_options.qa_range_end = np.array([.0, .0, .0])
+        self.imitator_options.environment_options.render_mode = None
+        self.imitator_options.environment_options.maximum_torques = np.array([20, 10, 10])
+        self.imitator_options.environment_options.goal_dist_euclid = 0.01
+        self.imitator_options.environment_options.sim_time = 4
+        self.imitator_options.environment_options.goal_min_time = 1.5
 
         self.imitator_options.n_episodes = 100 * 1000  # number of training episodes (1000 ~ 1 minute on laptop)
         self.imitator_options.rollout_round_min_episodes = 10  # option for dagger algorithm.

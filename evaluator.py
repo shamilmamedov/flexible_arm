@@ -4,6 +4,7 @@ from typing import List, Tuple
 import plotting
 from animation import Panda3dAnimator
 from controller import NNController
+from flexible_arm_3dof import get_rest_configuration
 from imitation_builder import ImitationBuilder
 import numpy as np
 
@@ -41,8 +42,9 @@ class Kpi:
 
 
 class Evaluator:
-    def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None):
+    def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None, render: bool = False):
         self.imitator, self.env, self.controller, self.safety_filter = builder.build()
+        self.env.stop_if_goal_condition = False
         self.n_episodes = n_episodes
         self.animate = False
         self.expert_timings = []
@@ -53,6 +55,7 @@ class Evaluator:
         self.nn_safety_kpi = []
         self.policy_dir = policy_dir
         self.epsilons = [0.2, 0.1, 0.05, 0.025]
+        self.render = render
 
     def print_result(self):
         assert self.expert_kpis.__len__() > 0 and self.nn_kpis.__len__() > 0
@@ -74,20 +77,20 @@ class Evaluator:
         data_nn[0] = "NN"
         data_nns[0] = "safe NN"
 
-        data_mpc[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.expert_timings]))*1e3)
-        data_mpc[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.expert_timings]))*1e3)
-        data_mpc[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.expert_timings]))*1e3)
-        data_mpc[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.expert_timings]))*1e3)
+        data_mpc[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.expert_timings])) * 1e3)
+        data_mpc[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.expert_timings])) * 1e3)
+        data_mpc[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.expert_timings])) * 1e3)
+        data_mpc[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.expert_timings])) * 1e3)
 
-        data_nn[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.nn_timings]))*1e3)
-        data_nn[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.nn_timings]))*1e3)
-        data_nn[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.nn_timings]))*1e3)
-        data_nn[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.nn_timings]))*1e3)
+        data_nn[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.nn_timings])) * 1e3)
+        data_nn[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.nn_timings])) * 1e3)
+        data_nn[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.nn_timings])) * 1e3)
+        data_nn[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.nn_timings])) * 1e3)
 
-        data_nns[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.nn_safety_timings]))*1e3)
-        data_nns[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.nn_safety_timings]))*1e3)
-        data_nns[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.nn_safety_timings]))*1e3)
-        data_nns[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.nn_safety_timings]))*1e3)
+        data_nns[3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in self.nn_safety_timings])) * 1e3)
+        data_nns[4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in self.nn_safety_timings])) * 1e3)
+        data_nns[1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in self.nn_safety_timings])) * 1e3)
+        data_nns[2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in self.nn_safety_timings])) * 1e3)
 
         for cnt_eps, epsilon in enumerate(self.expert_kpis[0].epsilon):
             nn_path_lens = [kpi.path_len[cnt_eps] for kpi in self.nn_kpis]
@@ -120,34 +123,26 @@ class Evaluator:
                 if self.nn_safety_kpi[i].path_len[cnt_eps] > 0:
                     nn_safe_t_eps_normalized.append(
                         self.nn_safety_kpi[i].t_epsilon[cnt_eps] / self.expert_kpis[i].t_epsilon[cnt_eps])
-            # print("---------------------------------------")
-            # print("Epsilon: {}m".format(epsilon))
-            # print("Failed NN: {}%".format(fail_count_nn / total_count * 100))
-            # print("Path Lenghts NN: {} +- {}m".format(np.mean(np.array(nn_paths_normalized)),
-            #                                          np.std(np.array(nn_paths_normalized))))
+
+            acc_str = "{:4.4f}"
             data_mpc[5 + 3 * cnt_eps] = 0.
-            data_mpc[7 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(expert_paths)),
-                                                                     np.std(np.array(expert_paths)))
-            data_mpc[6 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(expert_times)),
-                                                                     np.std(np.array(expert_times)))
+            data_mpc[7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(expert_paths)),
+                                                                          np.std(np.array(expert_paths)))
+            data_mpc[6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(expert_times)),
+                                                                          np.std(np.array(expert_times)))
 
             data_nn[5 + 3 * cnt_eps] = fail_count_nn / total_count * 100
-            data_nn[7 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(nn_paths_normalized)),
-                                                                    np.std(np.array(nn_paths_normalized)))
-            data_nn[6 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(nn_t_eps_normalized)),
-                                                                    np.std(np.array(nn_t_eps_normalized)))
+            data_nn[7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_paths_normalized)),
+                                                                         np.std(np.array(nn_paths_normalized)))
+            data_nn[6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_t_eps_normalized)),
+                                                                         np.std(np.array(nn_t_eps_normalized)))
             # print("Path Times NN: {} +- {}m".format(np.mean(np.array(nn_t_eps_normalized)),
             #                                        np.std(np.array(nn_t_eps_normalized))))
             data_nns[5 + 3 * cnt_eps] = fail_count_nn_safe / total_count * 100
-            data_nns[7 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(nn_safe_paths_normalized)),
-                                                                       np.std(np.array(nn_safe_paths_normalized)))
-            data_nns[6 + 3 * cnt_eps] = "{:4.2f} +- {:4.2f}".format(np.mean(np.array(nn_safe_t_eps_normalized)),
-                                                                       np.std(np.array(nn_safe_t_eps_normalized)))
-            # print("Failed NN safe: {}%".format(fail_count_nn_safe / total_count * 100))
-            # print("Path Lenghts NN safe: {} +- {}m".format(np.mean(np.array(nn_safe_paths_normalized)),
-            #                                               np.std(np.array(nn_safe_paths_normalized))))
-            # print("Path Times NN safe: {} +- {}m".format(np.mean(np.array(nn_safe_t_eps_normalized)),
-            #                                             np.std(np.array(nn_safe_t_eps_normalized))))
+            data_nns[7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_paths_normalized)),
+                                                                          np.std(np.array(nn_safe_paths_normalized)))
+            data_nns[6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_t_eps_normalized)),
+                                                                          np.std(np.array(nn_safe_t_eps_normalized)))
 
         print(tabulate([data_mpc, data_nn, data_nns], headers=header))
 
@@ -161,7 +156,10 @@ class Evaluator:
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
             self.controller.reset()
-            self.controller.set_reference_point(x_ref=self.env.x_final,
+            q_mpc = get_rest_configuration(self.env.xee_final[:, 0], self.controller.options.n_seg)
+            dq_mpc = np.zeros_like(q_mpc)
+            x_mpc = np.vstack((q_mpc, dq_mpc))
+            self.controller.set_reference_point(x_ref=x_mpc,
                                                 p_ee_ref=self.env.xee_final,
                                                 u_ref=np.array([0, 0, 0]))
             for i in range(self.env.max_intg_steps):
@@ -202,6 +200,9 @@ class Evaluator:
             self.expert_kpis.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
                                         epsilon=self.epsilons, safety_violation=0))
 
+            if self.render:
+                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)
+
     def evaluate_nn(self, seed: int = 1, show_plots: bool = False,
                     policy_dir: str = None, filename: str = "trained_policy"):
         if policy_dir is None:
@@ -236,7 +237,7 @@ class Evaluator:
                 plotting.plot_controls(t[:-1], u)
                 plotting.plot_measurements(t, y)
 
-            t_mean, t_std, t_min, t_max = self.controller.get_timing_statistics()
+            t_mean, t_std, t_min, t_max = controller.get_timing_statistics()
             self.nn_timings.append(Timings(min=t_min, max=t_max, std=t_std, mean=t_mean))
             # print_timings(t_mean, t_std, t_min, t_max)
 
@@ -255,6 +256,9 @@ class Evaluator:
 
             self.nn_kpis.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
                                     epsilon=self.epsilons, safety_violation=0))
+
+            if self.render:
+                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)
 
     def evaluate_nn_safe(self, seed: int = 1, show_plots: bool = False,
                          policy_dir: str = None, filename: str = "trained_policy"):
@@ -312,4 +316,5 @@ class Evaluator:
 
             self.nn_safety_kpi.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
                                           epsilon=self.epsilons, safety_violation=0))
-            #animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(50)
+            if self.render:
+                animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt * n_skip, q).play(1)

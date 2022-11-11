@@ -86,6 +86,7 @@ class FlexibleArmEnv(gym.Env):
 
         self.render_mode = options.render_mode
         self.goal_dist_counter = 0
+        self.stop_if_goal_condition = True
 
         self._state = None
 
@@ -115,8 +116,10 @@ class FlexibleArmEnv(gym.Env):
         self.goal_dist_counter = 0
 
         # Get observations and info
-        observation = self._state
-
+        if self.simulator.estimator is None:
+            observation = self._state
+        else:
+            observation = self.simulator.estimator.x_hat[:,0]
         return observation
 
     def step(self, a) -> Tuple[np.ndarray, float, bool, dict]:
@@ -125,7 +128,11 @@ class FlexibleArmEnv(gym.Env):
               Clip actions if necessary 
         """
         # Take action
-        self._state = self.simulator.step(a)
+        if self.simulator.estimator is None:
+            self._state = self.simulator.step(a)
+        else:
+            self.simulator.step(a)
+            self._state = self.simulator.x[self.simulator.k, :]
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
@@ -139,7 +146,13 @@ class FlexibleArmEnv(gym.Env):
         # Other outputs
         info = {}
 
-        return (self._state[:, 0], reward, done, info)
+        # Get observations and info
+        if self.simulator.estimator is None:
+            observation = self._state[:, 0]
+        else:
+            observation = self.simulator.estimator.x_hat[:, 0]
+
+        return (observation, reward, done, info)
 
     def _terminal(self, dist: float):
         if dist < self.options.goal_dist_euclid:
@@ -148,8 +161,8 @@ class FlexibleArmEnv(gym.Env):
             self.goal_dist_counter = 0
 
         done = False
-        if self.goal_dist_counter >= self.options.goal_min_time / self.options.dt:
+        if (self.goal_dist_counter >= self.options.goal_min_time / self.options.dt) and self.stop_if_goal_condition:
             done = True
-        if self.no_intg_steps > self.max_intg_steps:
+        if self.no_intg_steps >= self.max_intg_steps:
             done = True
         return bool(done)
