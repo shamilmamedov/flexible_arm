@@ -7,21 +7,23 @@ from controller import PDController3Dof, FeedforwardController
 from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from animation import Panda3dAnimator
+import plotting
 
 
 # Simulation parameters
 RTOL = 1e-10
 ATOL = 1e-12
 DT = 0.001
-N_ITER = 1500
+N_ITER = 3500
 
 
-def compare_different_discretizations(save_figure: bool = False):
+def compare_different_discretizations(save_figure: bool = False, latexify: bool = False):
     """ Compares models with different discretization -- starting 
     from a rigid body model and until a fine grid of 10 discretization
     points -- in simulatoin. For every simulation the same integrator, 
     controller and initial state are chosen.   
     """
+
     # Create FlexibleArm instance
     n_segs = [0, 1, 2, 3, 5, 10]
     fas = [SymbolicFlexibleArm3DOF(n_seg) for n_seg in n_segs]
@@ -107,10 +109,14 @@ def compare_different_discretizations(save_figure: bool = False):
 
 
     # Plot outputs
+    fig_width, fig_height = 5.25, 2
+    if latexify:
+        plotting.latexify(fig_width, fig_height)
+    
     y_lbls = [r'$p_{\mathrm{ee},x}$ [m]', r'$p_{\mathrm{ee},y}$ [m]',
               r'$p_{\mathrm{ee},z}$ [m]']
     legends = [f'{n_seg}s' for n_seg in n_segs]
-    fig, axs = plt.subplots(1, 2, sharex=True, figsize=(10, 3))
+    fig, axs = plt.subplots(1, 2, sharex=True, figsize=(fig_width, fig_height))
     y_lims = [[-0.05, 0.85], [0.23, 0.75]]
     t_ = [0, 2]
     for k, ax in enumerate(axs.reshape(-1)):
@@ -123,7 +129,7 @@ def compare_different_discretizations(save_figure: bool = False):
         ax.set_ylabel(y_lbls[t_[k]])
         ax.grid(alpha=0.5)
         ax.set_ylim(y_lims[k])
-        ax.legend()
+        ax.legend(ncol=2)
         ax.set_xlabel(r'$t$ [s]')
     plt.tight_layout()
 
@@ -151,4 +157,4 @@ def compare_different_discretizations(save_figure: bool = False):
  
  
 if __name__ == "__main__":
-    compare_different_discretizations(save_figure=True)
+    compare_different_discretizations(save_figure=False, latexify=False)

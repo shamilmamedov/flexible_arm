@@ -1,5 +1,43 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+
+def latexify(fig_width=None, fig_height=None):
+    """Set up matplotlib's RC params for LaTeX plotting.
+    Call this before plotting a figure.
+    Parameters
+    ----------
+    fig_width : float, optional, inches
+    fig_height : float,  optional, inches
+    columns : {1, 2}
+    """
+
+    # code adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
+
+    # Width and max height in inches for IEEE journals taken from
+    # computer.org/cms/Computer.org/Journal%20templates/transactions_art_guide.pdf
+
+    if fig_width is None:
+        fig_width = 5  # width in inches
+
+    if fig_height is None:
+        golden_mean = (np.sqrt(5)-1.0)/2.0    # Aesthetic ratio
+        fig_height = fig_width*golden_mean # height in inches
+
+
+    params = {#'backend': 'ps',
+              'text.latex.preamble': r"\usepackage{gensymb} \usepackage{amsmath}",
+              'axes.labelsize': 10, # fontsize for x and y labels (was 10)
+              'axes.titlesize': 10,
+              'legend.fontsize': 8,
+              'xtick.labelsize': 10,
+              'ytick.labelsize': 10,
+              'text.usetex': True,
+              'figure.figsize': [fig_width, fig_height],
+              'font.family': 'serif'
+    }
+
+    matplotlib.rcParams.update(params)
 
 
 def plot_controls(t: np.ndarray, u: np.ndarray, u_ref: np.ndarray = None):
