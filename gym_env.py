@@ -71,8 +71,7 @@ class FlexibleArmEnv(gym.Env):
             sim_opts = SimulatorOptions()
         sim_opts.dt = self.options.dt
         sim_opts.n_iter = self.max_intg_steps
-        if estimator is not None:
-            sim_opts.R = self.options.sim_noise_R
+        sim_opts.R = self.options.sim_noise_R
         self.simulator = Simulator(self.model_sym, controller=None, integrator='cvodes',
                                    estimator=estimator, opts=sim_opts)
 

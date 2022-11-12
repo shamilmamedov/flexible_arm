@@ -40,7 +40,8 @@ class Kpi:
     path_len: List = field(default_factory=lambda: [])
     t_epsilon: List = field(default_factory=lambda: [])
     epsilon: List = field(default_factory=lambda: [])
-    safety_violation: int = 0
+    wall_penetrations: List = field(default_factory=lambda: [])
+    speed_violation: List = field(default_factory=lambda: [])
 
 
 class Evaluator:
@@ -66,24 +67,24 @@ class Evaluator:
             n_mpc = []
         self.n_mpc = n_mpc
 
-    def evaluate_all(self, policy_dir):
+    def evaluate_all(self, policy_dir, save_file_name: str = 'expert_eval.txt'):
         self.evaluate_expert()
         self.evaluate_nn(policy_dir=policy_dir)
         self.evaluate_nn_safe(policy_dir=policy_dir)
         for n in self.n_mpc:
             self.evaluate_n_mpc(n=n)
 
-        data = [self.expert_kpis,self.expert_timings,
-                self.nn_kpis,self.nn_timings,
-                self.nn_safety_kpi,self.nn_safety_timings,
-                self.mpc_n_kpis,self.mpc_n_timings]
+        data = [self.expert_kpis, self.expert_timings,
+                self.nn_kpis, self.nn_timings,
+                self.nn_safety_kpi, self.nn_safety_timings,
+                self.mpc_n_kpis, self.mpc_n_timings]
 
-        dbfile = open(self.policy_dir+'expert_eval.txt', 'wb')
+        dbfile = open(self.policy_dir + save_file_name, 'wb')
         pickle.dump(data, dbfile)
         dbfile.close()
 
-    def print_all(self):
-        dbfile = open(self.policy_dir+'expert_eval.txt', 'rb')
+    def print_all(self, save_file_name: str = 'expert_eval.txt'):
+        dbfile = open(self.policy_dir + save_file_name, 'rb')
         [self.expert_kpis, self.expert_timings,
          self.nn_kpis, self.nn_timings,
          self.nn_safety_kpi, self.nn_safety_timings,
@@ -194,13 +195,30 @@ class Evaluator:
             data[2][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_t_eps_normalized)),
                                                                          np.std(np.array(nn_safe_t_eps_normalized)))
             for i in range(len(self.n_mpc)):
-                data[3+i][5 + 3 * cnt_eps] = fail_counts_nmpc[i] / total_count * 100
-                data[3+i][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                data[3 + i][5 + 3 * cnt_eps] = fail_counts_nmpc[i] / total_count * 100
+                data[3 + i][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
                     np.mean(np.array(nmpc_paths_normalized[i])),
                     np.std(np.array(nmpc_paths_normalized[i])))
-                data[3+i][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                data[3 + i][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
                     np.mean(np.array(nmpc_t_eps_normalized[i])),
                     np.std(np.array(nmpc_t_eps_normalized[i])))
+
+        kpis = [self.expert_kpis, self.nn_kpis, self.nn_safety_kpi, *self.mpc_n_kpis]
+        for i, kpi in zip(range(n_row), kpis):
+            wall_max = []
+            for iteration_kpi in kpi:
+                if len(iteration_kpi.wall_penetrations) > 0:
+                    wall_max.append(np.mean(np.array(iteration_kpi.wall_penetrations)))
+                else:
+                    wall_max.append(0)
+            data[i][-1] = np.mean(np.array(wall_max))
+            speed_max = []
+            for iteration_kpi in kpi:
+                if len(iteration_kpi.speed_violation) > 0:
+                    speed_max.append(np.mean(np.array(iteration_kpi.speed_violation)))
+                else:
+                    speed_max.append(0)
+            data[i][-2] = np.mean(np.array(speed_max))
 
         print(tabulate(data, headers=header))
 
@@ -208,6 +226,23 @@ class Evaluator:
 
         x, u, y, xhat = self.env.simulator.x, self.env.simulator.u, self.env.simulator.y, self.env.simulator.x_hat
         t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
+
+        n_iter, _ = y.shape
+        skip_steps = 10
+        wall_penetrations = []
+        for i in range(skip_steps, n_iter):
+            if y[i, 1 + 6] > 0:
+                wall_penetrations.append(y[i, 1 + 6])
+        speed_violation = []
+        nq = self.env.simulator.robot.nq
+        qa_idx = self.env.simulator.robot.qa_idx
+        for i in range(skip_steps, n_iter):
+            pos_volation = np.min(self.env.simulator.robot.dqa_max - x[i, nq + np.array(qa_idx)])
+            if pos_volation < 0:
+                speed_violation.append(-pos_volation)
+            neg_volation = np.max(-self.env.simulator.robot.dqa_max - x[i, nq + np.array(qa_idx)])
+            if neg_volation > 0:
+                speed_violation.append(neg_volation)
 
         # Visualization
         if self.show_plots:
@@ -231,7 +266,8 @@ class Evaluator:
             pls.append(pl)
 
         kpi_container.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
-                                 epsilon=self.epsilons, safety_violation=0))
+                                 epsilon=self.epsilons, speed_violation=speed_violation,
+                                 wall_penetrations=wall_penetrations))
 
         if self.render:
             animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt, q).play(1)
