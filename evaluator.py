@@ -171,7 +171,7 @@ class Evaluator:
             if ns2g >= 0:
                 q_kpi = q[:ns2g, :]
                 pl = kpi.path_length(q_kpi, self.env.simulator.robot)
-            t_epsilons.append(ns2g)
+            t_epsilons.append(ns2g*self.env.dt)
             pls.append(pl)
 
         kpi_container.append(Kpi(path_len=pls, t_epsilon=t_epsilons,
