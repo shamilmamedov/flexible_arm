@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     if RUN_EVALUATOR:
         imitation_builder_wall = ImitationBuilder_Wall2()
-        evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=1, policy_dir=experiment_dir,
-                              render=RENDER, show_plots=SHOW_PLOTS, n_mpc=[40,80])
+        evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=2, policy_dir=experiment_dir,
+                              render=RENDER, show_plots=SHOW_PLOTS, n_mpc=[10, 20])
         evaluator.evaluate_all(policy_dir=experiment_dir)
-
+        evaluator.print_all()

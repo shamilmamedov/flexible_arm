@@ -1,3 +1,4 @@
+import pickle
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
@@ -71,6 +72,25 @@ class Evaluator:
         self.evaluate_nn_safe(policy_dir=policy_dir)
         for n in self.n_mpc:
             self.evaluate_n_mpc(n=n)
+
+        data = [self.expert_kpis,self.expert_timings,
+                self.nn_kpis,self.nn_timings,
+                self.nn_safety_kpi,self.nn_safety_timings,
+                self.mpc_n_kpis,self.mpc_n_timings]
+
+        dbfile = open(self.policy_dir+'expert_eval.txt', 'wb')
+        pickle.dump(data, dbfile)
+        dbfile.close()
+
+    def print_all(self):
+        dbfile = open(self.policy_dir+'expert_eval.txt', 'rb')
+        [self.expert_kpis, self.expert_timings,
+         self.nn_kpis, self.nn_timings,
+         self.nn_safety_kpi, self.nn_safety_timings,
+         self.mpc_n_kpis, self.mpc_n_timings] = pickle.load(dbfile)
+
+        dbfile.close()
+
         self.print_result()
 
     def print_result(self):
@@ -120,21 +140,39 @@ class Evaluator:
                 if self.nn_kpis[i].path_len[cnt_eps] > 0:
                     nn_paths_normalized.append(
                         self.nn_kpis[i].path_len[cnt_eps] / self.expert_kpis[i].path_len[cnt_eps])
-            nn_safe_paths_normalized = []
-            for i in range(total_count):
-                if self.nn_safety_kpi[i].path_len[cnt_eps] > 0:
-                    nn_safe_paths_normalized.append(
-                        self.nn_safety_kpi[i].path_len[cnt_eps] / self.expert_kpis[i].path_len[cnt_eps])
             nn_t_eps_normalized = []
             for i in range(total_count):
                 if self.nn_kpis[i].path_len[cnt_eps] > 0:
                     nn_t_eps_normalized.append(
                         self.nn_kpis[i].t_epsilon[cnt_eps] / self.expert_kpis[i].t_epsilon[cnt_eps])
+            nn_safe_paths_normalized = []
+            for i in range(total_count):
+                if self.nn_safety_kpi[i].path_len[cnt_eps] > 0:
+                    nn_safe_paths_normalized.append(
+                        self.nn_safety_kpi[i].path_len[cnt_eps] / self.expert_kpis[i].path_len[cnt_eps])
             nn_safe_t_eps_normalized = []
             for i in range(total_count):
                 if self.nn_safety_kpi[i].path_len[cnt_eps] > 0:
                     nn_safe_t_eps_normalized.append(
                         self.nn_safety_kpi[i].t_epsilon[cnt_eps] / self.expert_kpis[i].t_epsilon[cnt_eps])
+            nmpc_paths_normalized = []
+            nmpc_t_eps_normalized = []
+            fail_counts_nmpc = []
+            for cnt_nmpc in range(self.n_mpc.__len__()):
+                nmpc_paths = []
+                path_lenghts_nmpc = [kpi.path_len[cnt_eps] for kpi in self.mpc_n_kpis[cnt_nmpc]]
+                fail_counts_nmpc.append(sum(map(lambda x: x < 0., path_lenghts_nmpc)))
+                for i in range(total_count):
+                    if self.mpc_n_kpis[cnt_nmpc][i].path_len[cnt_eps] > 0:
+                        nmpc_paths.append(
+                            self.mpc_n_kpis[cnt_nmpc][i].path_len[cnt_eps] / self.expert_kpis[i].path_len[cnt_eps])
+                nmpc_paths_normalized.append(nmpc_paths)
+                nmpc_t_eps = []
+                for i in range(total_count):
+                    if self.mpc_n_kpis[cnt_nmpc][i].path_len[cnt_eps] > 0:
+                        nmpc_t_eps.append(
+                            self.mpc_n_kpis[cnt_nmpc][i].t_epsilon[cnt_eps] / self.expert_kpis[i].t_epsilon[cnt_eps])
+                nmpc_t_eps_normalized.append(nmpc_t_eps)
 
             acc_str = "{:4.4f}"
             data[0][5 + 3 * cnt_eps] = 0.
@@ -155,6 +193,14 @@ class Evaluator:
                                                                          np.std(np.array(nn_safe_paths_normalized)))
             data[2][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_t_eps_normalized)),
                                                                          np.std(np.array(nn_safe_t_eps_normalized)))
+            for i in range(len(self.n_mpc)):
+                data[3+i][5 + 3 * cnt_eps] = fail_counts_nmpc[i] / total_count * 100
+                data[3+i][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                    np.mean(np.array(nmpc_paths_normalized[i])),
+                    np.std(np.array(nmpc_paths_normalized[i])))
+                data[3+i][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                    np.mean(np.array(nmpc_t_eps_normalized[i])),
+                    np.std(np.array(nmpc_t_eps_normalized[i])))
 
         print(tabulate(data, headers=header))
 
@@ -225,6 +271,8 @@ class Evaluator:
         options.n = n
         options.tf = dt * (n - 1)
         controller = Mpc3Dof(model=fa_sym_ld, options=options)
+        self.mpc_n_timings.append([])
+        self.mpc_n_kpis.append([])
         for simulation_count in range(self.n_episodes):
             if seed is not None:
                 np.random.seed(seed + simulation_count)
@@ -243,8 +291,7 @@ class Evaluator:
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            self.mpc_n_timings.append([])
-            self.mpc_n_kpis.append([])
+
             self.post_evaluation(controller=controller, timing_container=self.mpc_n_timings[-1],
                                  kpi_container=self.mpc_n_kpis[-1])
 
