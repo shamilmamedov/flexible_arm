@@ -74,8 +74,9 @@ class Simulator:
             self.opts.n_iter = n_iter
 
         if self.estimator is not None:
+            qa_0 = x0[self.robot.qa_idx]
             self.nx_est = self.estimator.model.nx
-            self.estimator.reset()
+            self.estimator.reset(qa_0)
 
             # initialize datastructure
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
@@ -170,7 +171,8 @@ class Simulator:
         qk, dqk = state[0:nq, :], state[nq:, :]
 
         for k in range(self.opts.n_iter):
-            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k)
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k,
+                                                  y=self.y[k, :].T)
             state = self.step(input_tau=tau)
             qk, dqk = state[0:nq, :], state[nq:, :]
 

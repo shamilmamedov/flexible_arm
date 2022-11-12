@@ -44,7 +44,7 @@ if __name__ == "__main__":
     n_iter = 500
 
     # Create FlexibleArm instance
-    n_seg = 1
+    n_seg = 5
     n_seg_mpc = 1
 
     fa_ld = FlexibleArm3DOF(n_seg_mpc)
@@ -74,6 +74,7 @@ if __name__ == "__main__":
     safety_options = SafetyFilter3dofOptions(n_seg=n_seg_mpc)
     safety_filter = SafetyFilter3Dof(model=fa_sym_ld, model_nonsymbolic=fa_ld, x0=x0_mpc, x0_ee=qee0,
                                      options=safety_options)
+    #safety_filter.E.x_hat = x0_mpc
     u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
 
     # Controller
@@ -113,6 +114,6 @@ if __name__ == "__main__":
     # Animate simulated motion
     # anim = Animator(fa, q).play()
 
-    #urdf_path = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf'
-    urdf_path = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf'
+    urdf_path = 'models/three_dof/five_segments/flexible_arm_3dof_5s.urdf'
+    #urdf_path = 'models/three_dof/one_segments/flexible_arm_3dof_1s.urdf'
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(30)

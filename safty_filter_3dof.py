@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 import time
 from tempfile import mkdtemp
@@ -33,8 +34,12 @@ class SafetyFilter3dofOptions:
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
+        self.r_diag_rollout: np.ndarray = np.array([1., 1., 1.]) * 1e-4
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
+        self.w1_slack_wall: float = 1
+        self.w_reg_dq: float = 0.1
+        self.w_reg_dq_terminal: float = 1e2
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
         self.wall_axis: int = 0  # Wall axis: 0,1,2 -> x,y,z
         self.wall_value: float = 0.  # wall height value on axis
@@ -113,13 +118,14 @@ class SafetyFilter3Dof:
         q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_diag[0:int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2):] = 1
+        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
         q_e_diag[0:int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2):] = 1e5
+        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
         R = np.diagflat(options.r_diag)
+        R_rollout = np.diagflat(options.r_diag_rollout)
         Z = np.diagflat(options.z_diag)
         Z_e = np.diagflat(options.z_e_diag)
 
@@ -141,7 +147,7 @@ class SafetyFilter3Dof:
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.zl = np.array([0] * 3 + [options.w1_slack_wall] * n_wall_constraints)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
@@ -223,7 +229,7 @@ class SafetyFilter3Dof:
                                                                                     np.zeros_like(Z)))
             else:
                 self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q,
-                                                                                    R * 1e-1,
+                                                                                    R_rollout,
                                                                                     np.zeros_like(Z)))
         self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
 
@@ -250,7 +256,6 @@ class SafetyFilter3Dof:
         x0_est = np.vstack((q0_est, dq0_est))
 
         self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
-        self.u_pre = None
 
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """
@@ -278,15 +283,14 @@ class SafetyFilter3Dof:
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def filter(self, u0: np.ndarray, y: np.ndarray):
+    def filter(self, u0: np.ndarray, y: np.ndarray, u_pre_safe: np.ndarray):
         # first estimate state
         y = np.expand_dims(y, 1)
-        if self.u_pre is None:
+        if u_pre_safe is None:
             self.x_hat = self.E.estimate(y).flatten()
         else:
-            self.x_hat = self.E.estimate(y, self.u_pre).flatten()
+            self.x_hat = self.E.estimate(y, u_pre_safe).flatten()
 
-        print(self.x_hat[0])
         # set initial state
         start_time = time.time()
         xcurrent = self.x_hat  # np.vstack((q, dq))
@@ -317,10 +321,8 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
-        # print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
-        self.u_pre = u_output
         return u_output
 
     def get_timing_statistics(self, mode=0) -> Tuple[float, float, float, float]:
@@ -346,6 +348,7 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
     class ControllerSafetyWrapper(base_controller_class):
         def __init__(self, *args, **kwargs):
             super(ControllerSafetyWrapper, self).__init__(*args, **kwargs)
+            self.u_pre_safe = None
 
         def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
             safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
@@ -353,11 +356,12 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
         def compute_torques(self, q, dq, t=None, y=None):
             assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
-            u_safe = safety_filter.filter(u0=u, y=y)
-            #print(u - u_safe)
+            u_safe = safety_filter.filter(u0=u, y=y, u_pre_safe=self.u_pre_safe)
+            # print(u - u_safe)
+            self.u_pre_safe = u_safe
             return u_safe
 
-        def get_timing_statistics_filter(self):
+        def get_timing_statistics(self):
             return safety_filter.get_timing_statistics()
 
     return ControllerSafetyWrapper

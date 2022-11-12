@@ -5,3 +5,4 @@ casadi~=3.5.5
 matplotlib~=3.5.2
 stable-baselines3
 imitation
+tabulate

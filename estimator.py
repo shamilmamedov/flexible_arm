@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 
 class BaseEstimator(ABC):
     """ Abstract base class for estimators.
@@ -38,11 +38,22 @@ class ExtendedKalmanFilter(BaseEstimator):
         self.R = R
         self.x_hat = x0_hat
 
-    def reset(self) -> None:
+    def reset(self, qa: np.ndarray = None) -> None:
         """ Resets the estimator to initial state estimate 
         and covariance matrrix
+
+        :parameter qa: active joint configurations
         """
-        self.x_hat = self.x0_hat
+        if self.x0_hat is None and qa is None:
+            raise RuntimeError
+
+        if qa is not None:
+            q = get_rest_configuration(qa, self.model.n_seg)
+            dq = np.zeros_like(q)
+            x = np.vstack((q, dq))
+            self.x_hat = x
+        else:
+            self.x_hat = self.x0_hat
         self.P = self.P0
 
     def compute_Kalman_gain(self, C: np.ndarray) -> np.ndarray:
