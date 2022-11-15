@@ -19,11 +19,11 @@ def path_length(q: np.ndarray, model: SymbolicFlexibleArm3DOF) -> float:
     ns = q.shape[0]
     pee = np.zeros((ns, 3))
     for k, qk in enumerate(q):
-        pee[k,:] = np.array(model.p_ee(qk)).flatten()
+        pee[k, :] = np.array(model.p_ee(qk)).flatten()
 
     out = 0.
-    for k in range(ns-1):
-        out += np.linalg.norm(pee[k+1,:] - pee[k,:])
+    for k in range(ns - 1):
+        out += np.linalg.norm(pee[k + 1, :] - pee[k, :])
 
     return out
 
@@ -46,7 +46,7 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
     # a boolean vector indicating if the ee is inside
     # the ball of radius r
     inside = np.full((ns,), False)
-    
+
     n_first_entry = None
     for k, qk in enumerate(q):
         pee_k = np.array(model.p_ee(qk))
