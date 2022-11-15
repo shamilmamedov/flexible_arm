@@ -27,11 +27,11 @@ def latexify(fig_width=None, fig_height=None):
 
     params = {#'backend': 'ps',
               'text.latex.preamble': r"\usepackage{gensymb} \usepackage{amsmath}",
-              'axes.labelsize': 10, # fontsize for x and y labels (was 10)
-              'axes.titlesize': 10,
-              'legend.fontsize': 8,
-              'xtick.labelsize': 10,
-              'ytick.labelsize': 10,
+              'axes.labelsize': 8, # fontsize for x and y labels (was 10)
+              'axes.titlesize': 8,
+              'legend.fontsize': 6,
+              'xtick.labelsize': 8,
+              'ytick.labelsize': 8,
               'text.usetex': True,
               'figure.figsize': [fig_width, fig_height],
               'font.family': 'serif'

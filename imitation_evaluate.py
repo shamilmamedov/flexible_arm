@@ -6,7 +6,7 @@ if __name__ == "__main__":
     PLOT_TRAINING = False
     RUN_EVALUATOR = True
     RENDER = False
-    SHOW_PLOTS = False
+    SHOW_PLOTS = True
 
     experiment_dir = "data/imitation/wall3/version1"
 

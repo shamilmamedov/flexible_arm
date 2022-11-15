@@ -1,20 +1,36 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.signal import unit_impulse
 
 from simulation import Simulator, SimulatorOptions
-from controller import PDController3Dof, FeedforwardController
+from controller import (PDController3Dof, FeedforwardController,
+                        DummyController)
 from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from animation import Panda3dAnimator
 import plotting
 
 
+
 # Simulation parameters
 RTOL = 1e-10
 ATOL = 1e-12
 DT = 0.001
-N_ITER = 3500
+N_ITER = 3000
+
+def smooth_impulse_signal(N: int = 100):
+    t = np.linspace(0, 1, 101)
+
+    _, ax = plt.subplots()
+    ax.plot(t, np.sin(np.pi*t))
+    plt.show()
+
+
+def unit_step_antistep(shape, idx_range):
+    out = np.zeros(shape)
+    out[idx_range,:] = 1
+    return out
 
 
 def compare_different_discretizations(save_figure: bool = False, latexify: bool = False):
@@ -30,7 +46,9 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
 
     # Initial state; the same for all models
     # active joint configurations
-    qa = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+    # qa = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+    # qa = np.array([0., 2 * np.pi / 5, -np.pi / 3])
+    qa = np.array([0., -np.pi/2, 0.])
     # Q = [get_rest_configuration(qa, n_seg) for n_seg in n_segs]
     Q = [np.zeros((m.nq, 1)) for m in fas]
     for q, m in zip(Q, fas):
@@ -38,51 +56,38 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
     dQ = [np.zeros_like(q) for q in Q]
     X0 = [np.vstack((q, dq)) for q, dq in zip(Q, dQ)]
 
-    # Reference; the same for all models but because of
-    qa_ref = np.array([0., 2 * np.pi / 5, -np.pi / 3])
-    Q_ref = [np.zeros((m.nq, 1)) for m in fas]
-    for q_ref, n_seg in zip(Q_ref, n_segs):
-        q_ref[:2, 0] = qa_ref[:2]
-        q_ref[1 + n_seg + 1] = qa_ref[2]
-
+    
     # Estimator
     E = None
 
     # Controller
-    # controller = DummyController()
-    Kp = (20, 18, 15)
-    Kd = (3.5, 3.25, 3.25)
-
-    # Controller for the rigid body approximation
-    C_0s = PDController3Dof(Kp, Kd, n_segs[0], Q_ref[0])
+    u = np.hstack((np.zeros((N_ITER,1)), 
+                   10*unit_step_antistep((N_ITER,1), range(500,542)),
+                   5*unit_step_antistep((N_ITER,1), range(50,80))))
+    C = [FeedforwardController(u) for _ in n_segs]
+    # C = DummyController(n_joints=3)
+    # C = FeedforwardController(u)
 
     # Simulators
     sim_opts = SimulatorOptions(rtol=RTOL, atol=ATOL, R=np.zeros((9,9)), 
                                 dt=DT, n_iter=N_ITER)
     integrator = 'cvodes'
-    # Simulator for the rigid body approximation
-    S_0s = Simulator(fas[0], C_0s, integrator, E, sim_opts)
 
-    # Simulate the rigid body approxmiation
-    x_0s, u_0s, y_0s, _ = S_0s.simulate(X0[0].flatten())
-    
-    q_0s = x_0s[::10, :fas[0].nq]
-    # Panda3dAnimator(fas[0].urdf_path, DT * 10, q_0s).play(2)
-
-    # Create feedforward cotnrollers for RFEM models
-    C = [FeedforwardController(u_0s) for _ in n_segs[1:]]
-    
     # Create simulators for RFEM models
-    S = [Simulator(fa, c, integrator, E, sim_opts) for fa, c in zip(fas[1:], C)]
+    S = [Simulator(fa, c, integrator, E, sim_opts) for fa, c in zip(fas, C)]
 
     # Simulate REFEM models
-    x_1s, u_1s, y_1s, _ = S[0].simulate(X0[1].flatten())
-    x_2s, u_2s, y_2s, _ = S[1].simulate(X0[2].flatten())
-    x_3s, u_3s, y_3s, _ = S[2].simulate(X0[3].flatten())
-    x_5s, u_5s, y_5s, _ = S[3].simulate(X0[4].flatten())
-    x_10s, u_10s, y_10s, _ = S[4].simulate(X0[5].flatten())
+    x_0s, u_0s, y_0s, _ = S[0].simulate(X0[0].flatten())
+    x_1s, u_1s, y_1s, _ = S[1].simulate(X0[1].flatten())
+    x_2s, u_2s, y_2s, _ = S[2].simulate(X0[2].flatten())
+    x_3s, u_3s, y_3s, _ = S[3].simulate(X0[3].flatten())
+    x_5s, u_5s, y_5s, _ = S[4].simulate(X0[4].flatten())
+    x_10s, u_10s, y_10s, _ = S[5].simulate(X0[5].flatten())
 
     t = np.arange(0, N_ITER + 1) * DT
+
+    # q_10s = x_10s[::10, :fas[-1].nq]
+    # Panda3dAnimator(fas[-1].urdf_path, DT * 10, q_10s).play(3)
 
     # Find the norm of the difference betweem 10s and other models
     delta_0s = y_10s - y_0s
@@ -109,7 +114,7 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
 
 
     # Plot outputs
-    fig_width, fig_height = 5.25, 2
+    fig_width, fig_height = 6, 2
     if latexify:
         plotting.latexify(fig_width, fig_height)
     
@@ -117,24 +122,43 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
               r'$p_{\mathrm{ee},z}$ [m]']
     legends = [f'{n_seg}s' for n_seg in n_segs]
     fig, axs = plt.subplots(1, 2, sharex=True, figsize=(fig_width, fig_height))
-    y_lims = [[-0.05, 0.85], [0.23, 0.75]]
+    # y_lims = [[-0.05, 0.85], [0.23, 0.75]]
     t_ = [0, 2]
+    lw = 0.75
     for k, ax in enumerate(axs.reshape(-1)):
-        ax.plot(t, y_0s[:, 6+t_[k]], label=legends[0])
-        ax.plot(t, y_1s[:, 6+t_[k]], label=legends[1])
-        ax.plot(t, y_2s[:, 6+t_[k]], label=legends[2])
-        ax.plot(t, y_3s[:, 6+t_[k]], label=legends[3])
-        ax.plot(t, y_5s[:, 6+t_[k]], ls='--', label=legends[4])
-        ax.plot(t, y_10s[:, 6+t_[k]], ls='-.', label=legends[5])
+        ax.plot(t, y_0s[:, 6+t_[k]], label=legends[0], lw=lw)
+        ax.plot(t, y_1s[:, 6+t_[k]], label=legends[1], lw=lw)
+        ax.plot(t, y_2s[:, 6+t_[k]], label=legends[2], lw=lw)
+        ax.plot(t, y_3s[:, 6+t_[k]], label=legends[3], lw=lw)
+        ax.plot(t, y_5s[:, 6+t_[k]], ls='--', label=legends[4], lw=lw)
+        ax.plot(t, y_10s[:, 6+t_[k]], ls='-.', label=legends[5], lw=lw)
         ax.set_ylabel(y_lbls[t_[k]])
         ax.grid(alpha=0.5)
-        ax.set_ylim(y_lims[k])
-        ax.legend(ncol=2)
+        ax.set_xlim([0, 3])
+        # ax.set_ylim(y_lims[k])
+        # ax.legend(ncol=2)
         ax.set_xlabel(r'$t$ [s]')
+    handles, labels = axs[1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', ncol=6)
+    plt.tight_layout()
+
+    ee_axis = 1
+    fig_zoom, ax_zoom = plt.subplots()
+    ax_zoom.plot(t, y_0s[:, 6+t_[ee_axis]])
+    ax_zoom.plot(t, y_1s[:, 6+t_[ee_axis]])
+    ax_zoom.plot(t, y_2s[:, 6+t_[ee_axis]])
+    ax_zoom.plot(t, y_3s[:, 6+t_[ee_axis]])
+    ax_zoom.plot(t, y_5s[:, 6+t_[ee_axis]], ls='--')
+    ax_zoom.plot(t, y_10s[:, 6+t_[ee_axis]], ls='-.')
+    ax_zoom.set_xlim([1.6, 1.83])
+    ax_zoom.set_ylim([-0.08, -0.02])
+    ax_zoom.set_xticks([])
+    ax_zoom.set_yticks([])
     plt.tight_layout()
 
     if save_figure:
         fig.savefig('figures_L4DC/discr.pdf', format='pdf', dpi=600, bbox_inches='tight')
+        fig_zoom.savefig('figures_L4DC/discr_zoom.pdf', format='pdf', dpi=600, bbox_inches='tight')
 
     # # Plot controls
     # y_lbls = [r'$\tau$ [m]', r'$\tau$ [m]', r'$\tau$ [m]']
@@ -157,4 +181,10 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
  
  
 if __name__ == "__main__":
-    compare_different_discretizations(save_figure=False, latexify=False)
+    compare_different_discretizations(save_figure=True, latexify=True)
+    # smooth_impulse_signal()
+    # sig = unit_step_antistep((N_ITER,1), range(50,100))
+
+    # _, ax = plt.subplots()
+    # ax.plot(sig)
+    # plt.show()
