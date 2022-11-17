@@ -245,7 +245,6 @@ class Mpc3Dof(BaseController):
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
     def set_reference_trajectory(self, qa_t0, tf: float = 0.75, r: float = 0.2):
-        # qa_t0 = (q_t0.flatten())[self.fa_model.qa_idx]
         t, q, dq, u, pee = design_optimal_circular_trajectory(
             self.fa_model.n_seg, qa_t0, r=r, tf=tf, visualize=False
         )
@@ -254,19 +253,8 @@ class Mpc3Dof(BaseController):
         self.inter_t2u = interp1d(t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :])
         self.inter_pee = interp1d(t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :])
 
-        # self.interp_t2q = CubicSpline(t, q, axis=0, extrapolate='periodic')
-        # self.inter_t2dq = CubicSpline(t, dq, axis=0, extrapolate='periodic')
-        # self.inter_t2u = CubicSpline(t[:-1], u, axis=0, extrapolate='periodic')
-        # self.inter_pee = CubicSpline(t, pee, axis=0, extrapolate='periodic')
-        
-        # tt = np.linspace(0, 2*tf, 50)
-        # _, ax = plt.subplots()
-        # ax.plot(t, pee[:,1])
-        # ax.plot(tt, self.inter_pee(tt)[:,1])
-        # plt.show()
         return self.inter_pee
                 
-
     def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
         Main control loop function that computes the torques at a specific time. The time is only required if a

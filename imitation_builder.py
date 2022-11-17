@@ -9,12 +9,15 @@ from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 
 
 class ImitationBuilder(ABC):
-    def __init__(self, n_seg: int, n_seg_mpc: int, n_seg_safety: int, dt: float, tf: float, dir_rel: str):
+    def __init__(self, n_seg: int, n_seg_mpc: int, n_seg_safety: int, 
+                 dt: float, tf: float, dir_rel: str):
+
         self.imitator_options = ImitatorOptions(dt=dt)
         self.imitator_options.environment_options.n_seg = n_seg
         self.imitator_options.environment_options.dt = dt
         self.imitator_options.logdir_rel = "/data/imitation" + dir_rel
         self.dt = dt
+
         # Create FlexibleArm instances
         self.fa_sym_ld = SymbolicFlexibleArm3DOF(n_seg_mpc)
 
@@ -32,20 +35,22 @@ class ImitationBuilder(ABC):
     def build(self):
         self.pre_build()
 
-        # get reward of expert policy
-        env = FlexibleArmEnv(options=self.imitator_options.environment_options, estimator=self.estimator)
+        # crate an environment
+        env = FlexibleArmEnv(options=self.imitator_options.environment_options, 
+                             estimator=self.estimator)
 
         # create safety filter
-        fa_sym_ld = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
-        fa_sym = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
-        safety_filter = SafetyFilter3Dof(model=fa_sym_ld, model_nonsymbolic=fa_sym,
+        fa_sym_sfty = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
+        # fa_sym = SymbolicFlexibleArm3DOF(self.safety_options.n_seg)
+        safety_filter = SafetyFilter3Dof(model=fa_sym_sfty, model_nonsymbolic=None,
                                          options=self.safety_options)
 
         # construct controller:
         controller = Mpc3Dof(model=self.fa_sym_ld, options=self.mpc_options)
 
         # create imitator and train
-        imitator = Imitator(options=self.imitator_options, expert_controller=controller, estimator=self.estimator)
+        imitator = Imitator(options=self.imitator_options, expert_controller=controller, 
+                            estimator=self.estimator)
 
         return imitator, env, controller, safety_filter
 
@@ -58,7 +63,8 @@ class ImitationBuilder_Stabilization(ImitationBuilder):
         dt = 0.01
         tf = 0.3
         dir_rel = "/stabilization"
-        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, n_seg_safety=n_seg_safety, dt=dt, tf=tf, dir_rel=dir_rel)
+        super().__init__(n_seg=n_seg, n_seg_mpc=n_seg_mpc, n_seg_safety=n_seg_safety, 
+                         dt=dt, tf=tf, dir_rel=dir_rel)
 
     def pre_build(self):
         self.imitator_options.environment_options.qa_start = np.array([1.5, 0.0, 1.5])
@@ -97,7 +103,8 @@ class ImitationBuilder_Stabilization(ImitationBuilder):
         self.safety_options.wall_value = self.mpc_options.wall_value  # wall height value on axis
         self.safety_options.wall_pos_side = self.mpc_options.wall_pos_side  # defines the allowed side of the wall
 
-        est_model = SymbolicFlexibleArm3DOF(n_seg=self.mpc_options.n_seg, dt=self.dt, integrator='collocation')
+        est_model = SymbolicFlexibleArm3DOF(n_seg=self.mpc_options.n_seg, dt=self.dt, 
+                                            integrator='collocation')
         p0_q = [0.05] * est_model.nq  # 0.05, 0.1
         p0_dq = [1e-3] * est_model.nq
         P0 = np.diag([*p0_q, *p0_dq])

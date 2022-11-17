@@ -2,7 +2,8 @@ import numpy as np
 import casadi as cs
 from dataclasses import dataclass
 
-from  flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration)
+from  flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration, 
+                                inverse_kinematics_rb)
 from animation import Panda3dAnimator
 from poly5_planner import Poly5Trajectory
 import plotting
@@ -94,16 +95,34 @@ class OptimalControlProblem:
     def define_solver(self) -> None:
         # Define a solver
         p_opts = {"expand": False} # plugin options
-        s_opts = {'max_iter': 250, 'print_level': 1, # 'hessian_approximation':'limited-memory',
-                    'linear_solver':'mumps'} # solver options
+        s_opts = {'max_iter': 250, 'print_level': 1, #'hessian_approximation':'limited-memory',
+                    'linear_solver':'MA57'} # solver options
         self.__opti.solver(self.opts.solver, p_opts, s_opts)
+
+    def initial_guess(self, q_t0_guess):
+        qa_0 = np.zeros((self.opts.N+1, 3)) 
+        q_0 = np.zeros((self.opts.N+1, self.model.nq))
+        u_0 = np.zeros((self.opts.N, self.model.nu))
+        qa_guess = q_t0_guess[self.model.qa_idx]
+        for k in range(self.opts.N+1):
+            qa_guess = inverse_kinematics_rb(self.pee_ref[k,:], q_guess=qa_guess)
+            qa_0[k,:] = qa_guess.flatten()
+            q_0[[k],:] = get_rest_configuration(qa_0[k,:], self.model.n_seg).T
+            if k < self.opts.N:
+                u_0[[k],:] = self.model.gravity_torque(q_0[k,:]).T
+
+        dq_0 = np.zeros_like(q_0)
+        x_0 = np.hstack((q_0, dq_0))
+            
+        return x_0, u_0
 
     def solve(self, q_t0_guess):
         # Initial guess for the solver
         N = self.opts.N
-        x_t0 = np.vstack((q_t0_guess, np.zeros_like(q_t0_guess)))
-        x_guess = np.repeat(x_t0.T, N+1, axis=0)
-        u_guess = np.repeat(self.model.gravity_torque(q_t0_guess).T, N, axis=0)
+        x_guess, u_guess = self.initial_guess(q_t0_guess)
+        # x_t0 = np.vstack((q_t0_guess, np.zeros_like(q_t0_guess)))
+        # x_guess = np.repeat(x_t0.T, N+1, axis=0)
+        # u_guess = np.repeat(self.model.gravity_torque(q_t0_guess).T, N, axis=0)
 
         self.__opti.set_initial(self.__x_sym, x_guess)
         self.__opti.set_initial(self.__u_sym, u_guess)

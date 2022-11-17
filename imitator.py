@@ -50,6 +50,7 @@ class Imitator:
     """
 
     def __init__(self, options: ImitatorOptions, expert_controller: Mpc3Dof, estimator=None):
+        
         self.options = options
         self.expert_controller = expert_controller
         self.estimator = estimator
@@ -74,6 +75,7 @@ class Imitator:
         dq_mpc = np.zeros_like(q_mpc)
         x_mpc = np.vstack((q_mpc, dq_mpc))
         self.expert_controller.set_reference_point(p_ee_ref=self.env.xee_final, x_ref=x_mpc, u_ref=u_ref)
+        
         self.callable_expert = CallableExpert(expert_controller, observation_space=self.env.observation_space,
                                               action_space=self.env.action_space)
 

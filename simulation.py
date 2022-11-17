@@ -68,11 +68,12 @@ class Simulator:
         self.x_hat = None
         self.k = 0
 
-    def reset(self, x0, n_iter: int = None):
+    def reset(self, x0, n_iter: int = None) -> np.ndarray:
         self.k = 0
         if n_iter is not None:
             self.opts.n_iter = n_iter
 
+        # Reset the estimator
         if self.estimator is not None:
             qa_0 = x0[self.robot.qa_idx]
             self.nx_est = self.estimator.model.nx
@@ -83,19 +84,22 @@ class Simulator:
         else:
             self.x_hat = None
 
+        # Create arrays for states, controls and outputs
         self.x = np.zeros((self.opts.n_iter + 1, self.robot.nx))
         self.u = np.zeros((self.opts.n_iter, self.robot.nu))
         self.y = np.zeros((self.opts.n_iter + 1, self.robot.ny))
 
+        # Initialize states and outputs
         self.x[0, :] = x0
         self.y[0, :] = (self.robot.output(self.x[[0], :].T).flatten() +
                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
+        # Estimate the first satate
         if self.estimator is not None:
             self.x_hat[0, :] = self.estimator.estimate(
                                self.y[[0], :].T).flatten()
 
-        # Compute control action
+        # Return initial state for controller
         if self.opts.contr_input_states == 'real':
             qk = self.x[[self.k], :self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq:].T

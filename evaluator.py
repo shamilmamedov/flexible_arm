@@ -47,6 +47,7 @@ class Kpi:
 class Evaluator:
     def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None,
                  render: bool = False, show_plots: bool = False, n_mpc: List[int] = None):
+
         self.imitator, self.env, self.expert_controller, self.safety_filter = builder.build()
         self.env.stop_if_goal_condition = False
         self.n_episodes = n_episodes
@@ -282,6 +283,7 @@ class Evaluator:
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
             self.expert_controller.reset()
+            
             q_mpc = get_rest_configuration(self.env.xee_final[:, 0], self.expert_controller.options.n_seg)
             dq_mpc = np.zeros_like(q_mpc)
             x_mpc = np.vstack((q_mpc, dq_mpc))

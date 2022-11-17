@@ -51,16 +51,18 @@ class FlexibleArmEnv(gym.Env):
         #    assert estimator.x_hat is not None, "Estimator needs to be initialized"
 
         self.options = options
-        self.model = FlexibleArm3DOF(options.n_seg)
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
         self.dt = options.dt
 
         # initial position
-        self._state, _ = self.sample_rand_config(qa_mean=options.qa_start, qa_range=options.qa_range_start)
+        self._state, _ = self.sample_rand_config(qa_mean=options.qa_start, 
+                                                 qa_range=options.qa_range_start)
 
         # end position
-        self.x_final, self.xee_final = self.sample_rand_config(qa_mean=options.qa_end, qa_range=options.qa_range_end)
+        self.x_final, self.xee_final = self.sample_rand_config(qa_mean=options.qa_end, 
+                                                               qa_range=options.qa_range_end)
 
+        # counter for integfration steps and max integration steps
         self.no_intg_steps = 0
         self.max_intg_steps = int(options.sim_time / options.dt)
 
@@ -77,14 +79,18 @@ class FlexibleArmEnv(gym.Env):
 
         # Define observation space
         if estimator is None:
-            self.observation_space = spaces.Box(np.array([-np.pi * 200] * self.model.nx),
-                                                np.array([np.pi * 200] * self.model.nx), dtype=np.float64)
+            nx_ = self.model_sym.nx
+            self.observation_space = spaces.Box(np.array([-np.pi * 200] * nx_),
+                                                np.array([np.pi * 200] * nx_), 
+                                                dtype=np.float64)
         else:
             self.observation_space = spaces.Box(np.array([-np.pi * 200] * estimator.model.nx),
-                                                np.array([np.pi * 200] * estimator.model.nx), dtype=np.float64)
+                                                np.array([np.pi * 200] * estimator.model.nx), 
+                                                dtype=np.float64)
 
         # Define action space
-        self.action_space = spaces.Box(-options.maximum_torques, options.maximum_torques, dtype=np.float64)
+        self.action_space = spaces.Box(-options.maximum_torques, options.maximum_torques, 
+                                       dtype=np.float64)
 
         self.render_mode = options.render_mode
         self.goal_dist_counter = 0
@@ -93,16 +99,17 @@ class FlexibleArmEnv(gym.Env):
         self._state = None
 
     def sample_rand_config(self, qa_mean: np.ndarray, qa_range: np.ndarray):
+        """ Samples a random joint configuration from a given range using
+        uniform distrubution
+        """
         qa = np.random.uniform(-qa_range / 2, qa_range / 2) + qa_mean
         q = get_rest_configuration(qa, self.options.n_seg)
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
-        _, xee = self.model.fk_ee(q)
+        xee = np.array(self.model_sym.p_ee(q))
         return x[:, 0], xee
 
     def reset(self):
-        """
-        """
         # Reset state of the robot
         # initial position
         self._state, _ = self.sample_rand_config(qa_mean=self.options.qa_start,
@@ -129,7 +136,7 @@ class FlexibleArmEnv(gym.Env):
         TODO: Make sure actions are in the action space;
               Clip actions if necessary 
         """
-        # Take action
+        # TODO ask Rudi why? They should return the same things
         if self.simulator.estimator is None:
             self._state = self.simulator.step(a)
         else:
@@ -138,7 +145,7 @@ class FlexibleArmEnv(gym.Env):
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
-        _, x_ee = self.model.fk_ee(self._state[:int(self.model.nq)])
+        x_ee = np.array(self.model_sym.p_ee(self._state[:int(self.model_sym.nq)]))
         dist = np.linalg.norm(x_ee - self.xee_final, 2)
         reward = - dist * self.options.dt
 
@@ -152,7 +159,7 @@ class FlexibleArmEnv(gym.Env):
         if self.simulator.estimator is None:
             observation = self._state[:, 0]
         else:
-            observation = self.simulator.estimator.x_hat[:, 0]
+            observation = self.simulator.x_hat[self.no_intg_steps,:]
 
         return (observation, reward, done, info)
 
