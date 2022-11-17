@@ -59,8 +59,8 @@ class Mpc3dofOptions:
                                              [Q_DQP] * (self.n_seg))  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
-        self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
-        self.w2_slack_speed: float = 1e3
+        self.r_diag: np.ndarray = np.array([10e0, 10e0, 10e0]) * 1e-1
+        self.w2_slack_speed: float = 1e4
         self.w2_slack_wall: float = 1e5
 
     def get_sampling_time(self) -> float:
@@ -206,7 +206,7 @@ class Mpc3Dof(BaseController):
         ocp.solver_options.qp_solver_cond_N = int(options.n * options.condensing_relative)
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.solver_options.integrator_type = 'IRK'
-        ocp.solver_options.nlp_solver_type = 'SQP_RTI'  # SQP_RTI, SQP
+        ocp.solver_options.nlp_solver_type = 'SQP'  # SQP_RTI, SQP
         ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
         ocp.solver_options.sim_method_num_stages = 2

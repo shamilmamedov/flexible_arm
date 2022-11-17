@@ -60,7 +60,8 @@ def plot_controls(t: np.ndarray, u: np.ndarray, u_ref: np.ndarray = None):
     plt.show()
 
 
-def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
+def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, 
+                      dqa_max: np.ndarray = None):
     # Parse measurements
     qa = y[:,:3]
     dqa = y[:,3:6]
@@ -79,6 +80,9 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None):
     _, axs_dq = plt.subplots(3,1, sharex=True, figsize=(6,8))
     for k, ax in enumerate(axs_dq.reshape(-1)):
         ax.plot(t, dqa[:,k])
+        if dqa_max is not None:
+            ax.axhline(dqa_max[k], ls='--', color='red')
+            ax.axhline(-dqa_max[k], ls='--', color='red')
         ax.set_ylabel(dqa_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()

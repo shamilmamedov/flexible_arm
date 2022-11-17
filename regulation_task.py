@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     # Controller
     controllers = ['MPC', 'NN', 'PD']
-    cont_name = controllers[2]
+    cont_name = controllers[0]
 
     # Create model instances
     sim_model = SymbolicFlexibleArm3DOF(N_SEG_sim)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     sim_opts = SimulatorOptions(
         dt = DT,
         R = np.zeros((9, 9)),
-        contr_input_states='estimated')
+        contr_input_states='real')
     sim = Simulator(sim_model, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), N_ITER)
     t = np.arange(0, N_ITER + 1) * DT
@@ -120,16 +120,16 @@ if __name__ == "__main__":
         print_timings(t_mean, t_std, t_min, t_max)
 
     # Compute KPIs
-    # q = x[:, :sim_model.nq]
-    # dq = x[:, sim_model.nq:]
-    # ns2g = kpi.execution_time(q, sim_model, pee_ref, 0.05)
-    # print(f"Time to reach a ball around the goal = {t[ns2g]}")
+    q = x[:, :sim_model.nq]
+    dq = x[:, sim_model.nq:]
+    ns2g = kpi.execution_time(q, sim_model, pee_ref, 0.05)
+    print(f"Time to reach a ball around the goal = {t[ns2g]}")
 
-    # q_kpi = q[:ns2g, :]
-    # pl = kpi.path_length(q_kpi, sim_model)
-    # print(f"Path length = {pl:.4f}")
+    q_kpi = q[:ns2g, :]
+    pl = kpi.path_length(q_kpi, sim_model)
+    print(f"Path length = {pl:.4f}")
 
-    # kpi.constraint_violation(q, dq, u, sim_model)
+    kpi.constraint_violation(q, dq, u, sim_model)
 
     # Process the simulation results
     # Parse joint positions
@@ -138,8 +138,8 @@ if __name__ == "__main__":
 
     # Visualization
     # plotting.plot_real_states_vs_estimate(t, x, xhat, N_SEG_sim, N_SEG_cntr)
-    # plotting.plot_controls(t[:-1], u, u_ref)
-    plotting.plot_measurements(t, y, pee_ref)
+    # plotting.plot_controls(t[:-1], u, cont_model.gravity_torque(q0_est)) # u_ref
+    plotting.plot_measurements(t, y, pee_ref, dqa_max=cont_model.dqa_max)
 
     # Animate simulated motion
     animator = Panda3dAnimator(sim_model.urdf_path, DT * n_skip, q).play(2)
