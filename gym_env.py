@@ -20,20 +20,19 @@ class FlexibleArmEnvOptions:
     """
     Options for imitation learning
     """
-
-    def __init__(self, dt: float = 0.01):
-        self.qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
-        self.qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
-        self.qa_range_start: np.ndarray = np.array([np.pi, np.pi, np.pi])
-        self.qa_range_end: np.ndarray = np.array([.0, .0, .0])
-        self.n_seg: int = 3
-        self.dt: float = dt
-        self.render_mode = None
-        self.maximum_torques: np.ndarray = np.array([20, 10, 10])
-        self.goal_dist_euclid: float = 0.01
-        self.sim_time = 3
-        self.goal_min_time: float = 1
-        self.sim_noise_R: np.ndarray = None
+    dt: float = 0.01
+    n_seg: int = 3
+    sim_time: float = 3
+    qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
+    qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
+    qa_range_start: np.ndarray = np.array([np.pi, np.pi, np.pi])
+    qa_range_end: np.ndarray = np.array([.0, .0, .0])
+    render_mode = None
+    maximum_torques: np.ndarray = np.array([20, 10, 10])
+    goal_dist_euclid: float = 0.01
+    goal_min_time: float = 1
+    sim_noise_R: np.ndarray = None
+    contr_input_states: str = 'estimated'
 
 
 class FlexibleArmEnv(gym.Env):
@@ -67,13 +66,12 @@ class FlexibleArmEnv(gym.Env):
         self.max_intg_steps = int(options.sim_time / options.dt)
 
         # Simulator of the model
-        if estimator is not None:
-            sim_opts = SimulatorOptions(contr_input_states='estimated')
-        else:
-            sim_opts = SimulatorOptions()
-        sim_opts.dt = self.options.dt
-        sim_opts.n_iter = self.max_intg_steps
-        sim_opts.R = self.options.sim_noise_R
+        sim_opts = SimulatorOptions(
+            dt = self.options.dt,
+            n_iter = self.max_intg_steps,
+            R = self.options.sim_noise_R,
+            contr_input_states = self.options.contr_input_states
+        )
         self.simulator = Simulator(self.model_sym, controller=None, integrator='cvodes',
                                    estimator=estimator, opts=sim_opts)
 
@@ -125,7 +123,7 @@ class FlexibleArmEnv(gym.Env):
         self.goal_dist_counter = 0
 
         # Get observations and info
-        if self.simulator.estimator is None:
+        if self.options.contr_input_states == 'real':
             observation = self._state
         else:
             observation = self.simulator.estimator.x_hat[:,0]

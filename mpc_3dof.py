@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
-Q_QP = 0.001  # penalty on passive joints positions # 0.1
+Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001
 Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,  
 Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
 Q_DQA_E = 1.  # penalty on terminal active joints velocities
@@ -29,9 +29,9 @@ class Mpc3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_seg: int, tf: float = 2):
+    def __init__(self, n_seg: int, tf: float = 2, n: int = 30):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
-        self.n: int = 30  # number of discretization points
+        self.n: int = n  # number of discretization points
         self.tf: float = tf  # time horizon
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]

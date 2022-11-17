@@ -70,14 +70,11 @@ class ConstantController(BaseController):
     """ Controller that always returns a constant torque
     """
 
-    def __init__(self, n_joints=1, constant=0) -> None:
-        self.n_joints = n_joints
-        self.constant = constant
+    def __init__(self, tau_const: np.ndarray = np.zeros(3)) -> None:
+        self.tau_const = tau_const.flatten()
 
     def compute_torques(self, q, dq, t=None, y=None):
-        output = np.zeros((self.n_joints, 1))
-        output[0] = self.constant
-        return output
+        return self.tau_const
 
 
 class FeedforwardController(BaseController):
