@@ -120,11 +120,15 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
     
     y_lbls = [r'$p_{\mathrm{ee},x}$ [m]', r'$p_{\mathrm{ee},y}$ [m]',
               r'$p_{\mathrm{ee},z}$ [m]']
-    legends = [f'{n_seg}s' for n_seg in n_segs]
+    legends = [f'${n_seg}$ ' + '$\mathrm{seg}$' for n_seg in n_segs]
     fig, axs = plt.subplots(1, 2, sharex=True, figsize=(fig_width, fig_height))
     # y_lims = [[-0.05, 0.85], [0.23, 0.75]]
     t_ = [0, 2]
     lw = 0.75
+
+    zoom_axis = 1
+    xlim_zoom = [1.6, 1.83]
+    ylim_zoom = [-0.08, -0.02]
     for k, ax in enumerate(axs.reshape(-1)):
         ax.plot(t, y_0s[:, 6+t_[k]], label=legends[0], lw=lw)
         ax.plot(t, y_1s[:, 6+t_[k]], label=legends[1], lw=lw)
@@ -132,6 +136,11 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
         ax.plot(t, y_3s[:, 6+t_[k]], label=legends[3], lw=lw)
         ax.plot(t, y_5s[:, 6+t_[k]], ls='--', label=legends[4], lw=lw)
         ax.plot(t, y_10s[:, 6+t_[k]], ls='-.', label=legends[5], lw=lw)
+        if k == zoom_axis:
+            ax.vlines(xlim_zoom[0], ylim_zoom[0], ylim_zoom[1], colors='k', lw=0.5)
+            ax.vlines(xlim_zoom[1], ylim_zoom[0], ylim_zoom[1], colors='k', lw=0.5)
+            ax.hlines(ylim_zoom[0], xlim_zoom[0], xlim_zoom[1], colors='k', lw=0.5)
+            ax.hlines(ylim_zoom[1], xlim_zoom[0], xlim_zoom[1], colors='k', lw=0.5)
         ax.set_ylabel(y_lbls[t_[k]])
         ax.grid(alpha=0.5)
         ax.set_xlim([0, 3])
@@ -142,23 +151,24 @@ def compare_different_discretizations(save_figure: bool = False, latexify: bool 
     fig.legend(handles, labels, loc='upper center', ncol=6)
     plt.tight_layout()
 
-    ee_axis = 1
+    lw_zoom = 1.2
     fig_zoom, ax_zoom = plt.subplots()
-    ax_zoom.plot(t, y_0s[:, 6+t_[ee_axis]])
-    ax_zoom.plot(t, y_1s[:, 6+t_[ee_axis]])
-    ax_zoom.plot(t, y_2s[:, 6+t_[ee_axis]])
-    ax_zoom.plot(t, y_3s[:, 6+t_[ee_axis]])
-    ax_zoom.plot(t, y_5s[:, 6+t_[ee_axis]], ls='--')
-    ax_zoom.plot(t, y_10s[:, 6+t_[ee_axis]], ls='-.')
-    ax_zoom.set_xlim([1.6, 1.83])
-    ax_zoom.set_ylim([-0.08, -0.02])
+    ax_zoom.plot(t, y_0s[:, 6+t_[zoom_axis]], lw=lw_zoom)
+    ax_zoom.plot(t, y_1s[:, 6+t_[zoom_axis]], lw=lw_zoom)
+    ax_zoom.plot(t, y_2s[:, 6+t_[zoom_axis]], lw=lw_zoom)
+    ax_zoom.plot(t, y_3s[:, 6+t_[zoom_axis]], lw=lw_zoom)
+    ax_zoom.plot(t, y_5s[:, 6+t_[zoom_axis]], ls='--', lw=lw_zoom)
+    ax_zoom.plot(t, y_10s[:, 6+t_[zoom_axis]], ls='-.', lw=lw_zoom)
+    ax_zoom.set_xlim(xlim_zoom)
+    ax_zoom.set_ylim(ylim_zoom)
     ax_zoom.set_xticks([])
     ax_zoom.set_yticks([])
     plt.tight_layout()
 
     if save_figure:
         fig.savefig('figures_L4DC/discr.pdf', format='pdf', dpi=600, bbox_inches='tight')
-        fig_zoom.savefig('figures_L4DC/discr_zoom.pdf', format='pdf', dpi=600, bbox_inches='tight')
+        fig_zoom.savefig('figures_L4DC/discr_zoom.pdf', format='pdf', dpi=600, 
+                         bbox_inches='tight', pad_inches=0, transparent=True)
 
     # # Plot controls
     # y_lbls = [r'$\tau$ [m]', r'$\tau$ [m]', r'$\tau$ [m]']

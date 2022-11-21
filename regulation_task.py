@@ -12,7 +12,7 @@ import plotting
 import kpi
 
 
-N_SEG_sim = 2
+N_SEG_sim = 10
 N_SEG_cntr = 2
 
 DT = 0.01 # sampling time for contr and simulator
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     # Simulate the robot
     sim_opts = SimulatorOptions(
         dt = DT,
-        R = np.zeros((9, 9)),
-        contr_input_states='real')
+        # R = np.zeros((9, 9)),
+        contr_input_states='estimated')
     sim = Simulator(sim_model, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), N_ITER)
     t = np.arange(0, N_ITER + 1) * DT
