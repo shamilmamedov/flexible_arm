@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<robot name="flexible_arm_setup" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+
+<material name = "black">
+    <color rgba = "0 0 0 1"/>
+</material>
+
+<material name = "light_grey">
+    <color rgba = "0.88 0.88 0.88 1"/>
+</material>
+
+<xacro:macro name = "default_inertial" params = "mass">
+    <inertial>
+        <mass value="${mass}" />
+        <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+    </inertial>
+</xacro:macro>
+
+<!-- Wall parameters -->
+<xacro:property name="d_origin_to_wall" value="0.5" />
+<xacro:property name="wall_thickness" value="0.075" />
+<xacro:property name="wall_height" value="1.0" />
+<xacro:property name="wall_width" value="1.5" />
+
+<!-- Flexible arm -->
+<!-- <xacro:include filename="$(find fa_setup)/urdf/flexible_arm_3dof_0s.urdf" /> -->
+<xacro:include filename="/home/shamil/Desktop/phd/code/flexible_arm/models/three_dof/ten_segments/flexible_arm_3dof_10s.urdf"/>
+
+<!-- Wall -->
+<link name = "wall_link">
+    <visual>
+        <origin xyz="${d_origin_to_wall} 0 ${wall_height/2}" rpy="0 0 0" />
+        <geometry>
+            <box size="${wall_width} ${wall_thickness} ${wall_height}"/>
+        </geometry>
+        <material name = "light_grey"/>
+    </visual>
+    <collision>
+        <geometry>
+            <box size="${wall_thickness} ${wall_width} ${wall_height}"/>
+        </geometry>
+    </collision>
+    <xacro:default_inertial mass="15"/>
+</link>
+
+<joint name = "world_to_wall" type = "fixed">
+    <parent link = "world" />
+    <child link = "wall_link" />
+    <origin xyz = "${d_origin_to_wall} 0 0" />
+</joint>
+
+</robot>

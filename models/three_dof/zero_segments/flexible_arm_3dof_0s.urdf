@@ -1,7 +1,10 @@
 <?xml version="1.0"?>
 <robot name="flexible_arm">
-    <!-- All the links in this model are assumed to be rigid. The model is mainly used
-    for solving inverse kinematics at velocity level -->
+    <!-- Some parameters -->
+    <material name="grey">
+        <color rgba="0.5 0.5 0.5 1"/>
+    </material>
+
     <!-- world -->
     <link name="world"/>
 
@@ -11,6 +14,7 @@
             <geometry>
                 <cylinder radius="0.025" length="0.15"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0 0 0.075"/>
         </visual>
         <inertial>
@@ -34,6 +38,7 @@
             <geometry>
                 <box size="0.5 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.25 0 0"/>
         </visual>
         <inertial>
@@ -57,6 +62,7 @@
             <geometry>
                 <box size="0.5 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.25 0 0"/>
         </visual>
         <inertial>
@@ -81,6 +87,7 @@
             <geometry>
                 <sphere radius="0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.05 0 0"/>
         </visual>
         <inertial>
@@ -88,7 +95,7 @@
             <mass value="0" />
             <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
         </inertial>
-  </link>
+    </link>
 
     <joint name="last_link_to_load" type="fixed">
         <parent link="virtual_link3_1"/>

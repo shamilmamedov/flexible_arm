@@ -3,8 +3,9 @@
     <arg name = "model"/>
     <arg name = "use_gui" default="false" />
     
-    <!-- <param name = "robot_description" command = "$(find xacro)/xacro '$(find bh_setup)/urdf/setup_descr_beam.xacro'"/> -->
-    <param name = "robot_description" command="cat '$(find fa_setup)/urdf/flexible_arm_3dof_0s.urdf'" />
+    <param name = "robot_description" command = "$(find xacro)/xacro '$(find fa_setup)/urdf/fa_setup_descr.xacro'"/>
+    <!-- <param name = "robot_description" command="cat '$(find fa_setup)/urdf/flexible_arm_3dof_0s.urdf'" /> -->
+    
     <!-- Depending on use_gui parameter start gui or trajectory visualization -->
     <group if="$(arg use_gui)">
         <param name = "use_gui" value="true" />
@@ -12,7 +13,7 @@
     </group>
 
     <group unless="$(arg use_gui)">
-        <node name="my_node" pkg="bh_setup" type="state_pub.py" />
+        <node name="my_node" pkg="fa_setup" type="state_pub.py" />
     </group>
     
 
