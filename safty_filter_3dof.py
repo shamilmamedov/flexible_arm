@@ -247,7 +247,7 @@ class SafetyFilter3Dof:
         Q = np.diag([*q_q, *q_dq])
         # measurement noise covaiance
         r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
-        R = 10 * np.diag([*r_q, *r_dq, *r_pee])
+        R = 100 * np.diag([*r_q, *r_dq, *r_pee])
 
         # initial state for the estimator
         qa0_est = np.array([0, 0, 0])

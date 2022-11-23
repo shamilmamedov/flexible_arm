@@ -2,6 +2,7 @@ import pathlib
 from dataclasses import dataclass
 from datetime import datetime
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from imitation.algorithms import bc
@@ -146,7 +147,64 @@ def smoothTriangle(data, degree):
     return np.array(smoothed)
 
 
-def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10):
+def latexify():
+    params = {
+        "backend": "ps",
+        "text.latex.preamble": r"\usepackage{gensymb} \usepackage{amsmath}",
+        "axes.labelsize": 10,
+        "axes.titlesize": 10,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "text.usetex": True,
+        "font.family": "serif",
+    }
+
+    matplotlib.rcParams.update(params)
+
+
+@dataclass
+class Approach:
+    comp_time: float
+    constraint_violation: bool
+    t100: float
+    d100: float
+    t50: float
+    d50: float
+    t25: float
+    d25: float
+    name: str
+
+
+def plot_kpi4paper():
+    latexify()
+    approaches = []
+    approaches.append(
+        Approach(comp_time=11.8, constraint_violation=False, t100=1, d100=1, t50=1, d50=1, t25=1, d25=1,
+                               name="expert MPC"))
+    approaches.append(
+        Approach(comp_time=0.1, constraint_violation=True, t100=0.98, d100=1.01, t50=1.06, d50=1.04, t25=1.25, d25=1.06,
+                 name="NN"))
+    approaches.append(
+        Approach(comp_time=3.6, constraint_violation=False, t100=1.05, d100=1.0, t50=1.08, d50=1.01, t25=1.17, d25=1.02,
+                 name="NN+SF"))
+    approaches.append(
+        Approach(comp_time=3.6, constraint_violation=True, t100=1.05, d100=1.0, t50=1.08, d50=1.01, t25=1.17, d25=1.02,
+                 name="MPC20"))
+
+    fig, [ax1, ax2] = plt.subplots(nrows=1, ncols=2, figsize=(7, 2))
+
+
+    # ax1.set_title('Return')
+    ax1.set_xlabel('Training Sample ($10^3$)')
+    ax1.set_ylabel('Return (s)')
+
+    plt.savefig("training.pdf", bbox_inches="tight")
+    # plt.show()
+
+
+def plot4paper(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10, n_max: int = -1):
+    latexify()
     data = read_csv(log_dir + "/" + filename)
     return_mean = data['rollout/return_mean']
     return_std = data['rollout/return_std']
@@ -155,12 +213,45 @@ def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 
     bc_loss = data['bc/loss']
     prob_true_act = data['bc/prob_true_act']
 
-    return_mean = smoothTriangle(return_mean.array, n_smooth)
-    return_std = smoothTriangle(return_std.array, n_smooth)
-    return_max = smoothTriangle(return_max.array, 1)
-    return_min = smoothTriangle(return_min.array, 1)
-    bc_loss = smoothTriangle(bc_loss.array, 1)
-    prob_true_act = smoothTriangle(prob_true_act.array, 1)
+    return_mean = smoothTriangle(return_mean.array, n_smooth)[0:n_max]
+    return_std = smoothTriangle(return_std.array, n_smooth)[0:n_max]
+    return_max = smoothTriangle(return_max.array, 1)[0:n_max]
+    return_min = smoothTriangle(return_min.array, 1)[0:n_max]
+    bc_loss = smoothTriangle(bc_loss.array, 1)[0:n_max]
+    prob_true_act = smoothTriangle(prob_true_act.array, 1)[0:n_max]
+
+    fig, [ax1, ax2] = plt.subplots(nrows=1, ncols=2, figsize=(7, 2))
+    i = np.arange(return_mean.shape[0])
+    ax1.plot(i, return_mean)
+    ax1.fill_between(i, y1=return_mean + return_std, y2=return_mean - return_std, alpha=0.3)
+    # ax1.set_title('Return')
+    ax1.set_xlabel('Training Sample ($10^3$)')
+    ax1.set_ylabel('Return (s)')
+
+    ax2.plot(i, bc_loss)
+    # ax2.set_title('Return')
+    ax2.set_xlabel('Training Sample ($10^3$)')
+    ax2.set_ylabel('Loss')
+
+    plt.savefig("training.pdf", bbox_inches="tight")
+    # plt.show()
+
+
+def plot_training(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10, n_max: int = -1):
+    data = read_csv(log_dir + "/" + filename)
+    return_mean = data['rollout/return_mean']
+    return_std = data['rollout/return_std']
+    return_max = data['rollout/return_max']
+    return_min = data['rollout/return_min']
+    bc_loss = data['bc/loss']
+    prob_true_act = data['bc/prob_true_act']
+
+    return_mean = smoothTriangle(return_mean.array, n_smooth)[0:n_max]
+    return_std = smoothTriangle(return_std.array, n_smooth)[0:n_max]
+    return_max = smoothTriangle(return_max.array, 1)[0:n_max]
+    return_min = smoothTriangle(return_min.array, 1)[0:n_max]
+    bc_loss = smoothTriangle(bc_loss.array, 1)[0:n_max]
+    prob_true_act = smoothTriangle(prob_true_act.array, 1)[0:n_max]
 
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
     i = np.arange(return_mean.shape[0])

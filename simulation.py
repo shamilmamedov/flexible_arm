@@ -4,7 +4,7 @@ from scipy.integrate import solve_ivp
 from dataclasses import dataclass
 from numpy.random import multivariate_normal
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from integrator import RK4
 
 # Measurement noise covairance parameters
@@ -75,18 +75,16 @@ class Simulator:
 
         if self.estimator is not None:
             # initialize estimator initial state x0
-            # todo: Shamil check this please
             self.nx_est = self.estimator.model.nx
-            x_hat = np.zeros((self.nx_est, 1))
-            x_hat[0:1, 0] = x0[0:1]
-            x_hat[1 + self.estimator.model.n_seg + 1] = x0[1 + 1 + self.robot.n_seg]
-            x_hat[self.estimator.model.nq:self.estimator.model.nq + 1, 0] = x0[self.robot.nq:self.robot.nq + 1]
-            x_hat[self.estimator.model.nq + 1 + self.estimator.model.n_seg + 1] = x0[
-                self.robot.nq + 1 + 1 + self.robot.n_seg]
+            qa_hat = x0[[0,1,1 + 1 + self.robot.n_seg]]
+            q_ref_mpc = get_rest_configuration(qa_hat, self.estimator.model.n_seg)
+            dq_ref_mpc = np.zeros_like(q_ref_mpc)
+            x_hat = np.vstack((q_ref_mpc, dq_ref_mpc))
             self.estimator.x_hat = x_hat
 
             # initialize datastructure
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
+            self.x_hat[self.k, :] = x_hat[:,0]
         else:
             self.x_hat = None
 
@@ -98,9 +96,10 @@ class Simulator:
         self.y[0, :] = (self.robot.output(self.x[[0], :].T).flatten() +
                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
-        if self.estimator is not None:
-            self.x_hat[self.k, :] = self.estimator.estimate(
-                self.y[[self.k], :].T).flatten()
+
+        #if self.estimator is not None:
+        #   self.x_hat[self.k, :] = self.estimator.estimate(
+        #        self.y[[self.k], :].T).flatten()
 
         # Compute control action
         if self.opts.contr_input_states == 'real':
