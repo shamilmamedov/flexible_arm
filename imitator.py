@@ -220,18 +220,23 @@ def plot4paper(log_dir: str, filename: str = "progress.csv", n_smooth: int = 10,
     bc_loss = smoothTriangle(bc_loss.array, 1)[0:n_max]
     prob_true_act = smoothTriangle(prob_true_act.array, 1)[0:n_max]
 
-    fig, [ax1, ax2] = plt.subplots(nrows=1, ncols=2, figsize=(7, 2))
+    fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(3, 2))
+    ax2 = ax1.twinx()
     i = np.arange(return_mean.shape[0])
-    ax1.plot(i, return_mean)
+    line1,=ax1.plot(i, return_mean, label=r"return", linewidth=1)
     ax1.fill_between(i, y1=return_mean + return_std, y2=return_mean - return_std, alpha=0.3)
     # ax1.set_title('Return')
-    ax1.set_xlabel('Training Sample ($10^3$)')
-    ax1.set_ylabel('Return (s)')
+    ax1.set_xlabel('Training Sample [$10^3$]')
+    ax1.set_ylabel('Return [s]')
 
-    ax2.plot(i, bc_loss)
+    line2,=ax2.plot(i, bc_loss, color='tab:green', label="loss", linewidth=1)
     # ax2.set_title('Return')
-    ax2.set_xlabel('Training Sample ($10^3$)')
-    ax2.set_ylabel('Loss')
+    ax2.set_xlabel('Training Sample [$10^3$]')
+    ax2.set_ylabel(r'Loss $[\mathrm{N}^2 \mathrm{m}^2]$')
+    #ax1.legend()
+    #ax2.legend()
+    fig.legend( ncol=1,
+                loc='upper left', bbox_to_anchor=(1, 0.92))
 
     plt.savefig("training.pdf", bbox_inches="tight")
     # plt.show()

@@ -415,6 +415,7 @@ class Evaluator:
 
     def plot_eval_run(self, policy_dir: str = None, seed: int = 3, load_last_run: bool = False):
         latexify()
+        linewidth=1
         if not load_last_run:
             x_exp, u_exp, y_exp, xhat_exp, t_exp = self.evaluate_expert(seed=seed)
             x_nn, u_nn, y_nn, xhat_nn, t_nn = self.evaluate_nn(policy_dir=policy_dir, seed=seed)
@@ -434,7 +435,7 @@ class Evaluator:
         x_nn, u_nn, y_nn, xhat_nn, t_nn = x_nn[:N, :], u_nn[:N, :], y_nn[:N, :], xhat_nn[:N, :], t_nn[:N]
         x_snn, u_snn, y_snn, xhat_snn, t_snn = x_snn[:N, :], u_snn[:N, :], y_snn[:N, :], xhat_snn[:N, :], t_snn[:N]
 
-        fig1, axs = plt.subplots(3, 3, sharex=True, figsize=(6, 6))
+        fig1, axs = plt.subplots(3, 3, sharex=True, figsize=(6, 3))
         axs_q = axs[:, 0]
         axs_dq = axs[:, 1]
         axs_pee = axs[:, 2]
@@ -452,7 +453,7 @@ class Evaluator:
                                          label=labels[2], b_dq=[2.5, 3.5, 3.5], delta_dq=0.5, b_zy=0, delta_zy=0.03,
                                          color=colors[2])
         lines = [lines1[0], lines2[0], lines3[0], lines1[1], lines1[-2], lines1[-1]]
-        fig1.legend(lines, labels+["reference", "constraint", r'robust $\delta_{\{\dot{q},z}\}$'], ncol=3, loc='lower center', bbox_to_anchor=(0.5, -0.08))
+        fig1.legend(lines, labels+["reference", "constraint", r'robust $\delta_{\{\dot{q},z}\}$'], ncol=3, loc='lower center', bbox_to_anchor=(0.5, -0.15))
         plt.subplots_adjust(wspace=0.1, hspace=0.1)
         #plt.show()
         fig4, axs_u = plt.subplots(3, 1, sharex=True, figsize=(4, 6))

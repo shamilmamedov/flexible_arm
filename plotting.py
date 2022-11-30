@@ -66,63 +66,63 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, 
 
 def plot_measurements_latex(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, axs_q=None, axs_dq=None,
                             axs_pee=None, label: str = None, b_dq=None, delta_dq=None, b_zy=None, delta_zy=None,
-                            color=None):
+                            color=None, linewidth=1):
     # Parse measurements
     qa = y[:, :3]
     dqa = y[:, 3:6]
     pee = y[:, 6:9]
 
-    qa_lbls = ['$qa_{k}$ [rad]' for k in range(1, 4)]
+    qa_lbls = ['$q_{\mathrm{a},k}$ [rad]' for k in range(1, 4)]
     do_plot = True
     if axs_q is None:
         _, axs_q = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     else:
         do_plot = False
     for k, ax in enumerate(axs_q.reshape(-1)):
-        ax.plot(t, qa[:, k], label=label, color=color)
+        ax.plot(t, qa[:, k], label=label, color=color, linewidth=linewidth)
         ax.set_ylabel(qa_lbls[k])
         ax.grid(alpha=0.5)
         ax.autoscale(enable=True, axis='x', tight=True)
     axs_q[0].set_title('Joint Angles')
-    axs_q[2].set_xlabel('t (s)')
+    axs_q[2].set_xlabel('t [s]')
     plt.tight_layout()
 
-    dqa_lbls = ['$\dot{q}a_{k}$ [rad/s]' for k in range(1, 4)]
+    dqa_lbls = ['$\dot{q}_{\mathrm{a},k}$ [rad/s]' for k in range(1, 4)]
     if axs_dq is None:
         _, axs_dq = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     for k, ax in enumerate(axs_dq.reshape(-1)):
-        ax.plot(t, dqa[:, k], label=label, color=color)
+        ax.plot(t, dqa[:, k], label=label, color=color, linewidth=linewidth)
 
-        ax.axhline(b_dq[k] + delta_dq, ls='-', color='black')
+        ax.axhline(b_dq[k] + delta_dq, ls='-', color='black', linewidth=linewidth, zorder=-10)
         constraintfill = ax.fill_between(t, np.ones_like(dqa[:, k]) * (b_dq[k] + delta_dq),
                                          np.ones_like(dqa[:, k]) * b_dq[k],
                                          alpha=0.05,
-                                         color='black')
+                                         color='black', zorder=-10)
         # ax.axhline(b_dq[k], ls='--', color='black', alpha = 0.4)
-        constraintline = ax.axhline(-b_dq[k] - delta_dq, ls='-', color='black')
+        constraintline = ax.axhline(-b_dq[k] - delta_dq, ls='-', color='black', linewidth=linewidth, zorder=-10)
         ax.fill_between(t, np.ones_like(dqa[:, k]) * (-b_dq[k] - delta_dq), -np.ones_like(dqa[:, k]) * b_dq[k],
                         alpha=0.05,
-                        color='black')
+                        color='black', zorder=-10)
         # ax.axhline(-b_dq[k], ls='--', color='black', alpha=0.1)
         ax.set_ylabel(dqa_lbls[k])
         ax.grid(alpha=0.5)
         ax.autoscale(enable=True, axis='x', tight=True)
     axs_dq[0].set_title('Joint Velocities')
-    axs_dq[2].set_xlabel('t (s)')
+    axs_dq[2].set_xlabel('t [s]')
     plt.tight_layout()
 
-    pee_lbls = [r'$p_{ee,x}$ [m]', r'$p_{ee,y}$ [m]', r'$p_{ee,z}$ [m]']
+    pee_lbls = [r'$p_{\mathrm{ee},x}$ [m]', r'$p_{\mathrm{ee},y}$ [m]', r'$p_{\mathrm{ee},z}$ [m]']
     if axs_pee is None:
         _, axs_pee = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     lines = []
     for k, ax in enumerate(axs_pee.reshape(-1)):
-        line, = ax.plot(t, pee[:, k], label=label, color=color)
+        line, = ax.plot(t, pee[:, k], label=label, color=color, linewidth=linewidth)
         lines.append(line)
         if pee_ref is not None:
-            refline1 = ax.axhline(pee_ref[k], ls='--', color='black', label="reference")
+            refline1 = ax.axhline(pee_ref[k], ls='--', color='black', label="reference", linewidth=linewidth, zorder=10)
             lines.append(refline1)
         if k == 1:
-            refline2 = ax.axhline(b_zy + delta_zy, ls='-', color='black', label="constraint")
+            refline2 = ax.axhline(b_zy + delta_zy, ls='-', color='black', label="constraint", zorder=-10, linewidth=linewidth)
             # ax.axhline(b_zy, ls='--', color='black', alpha=0.4)
             ax.fill_between(t, np.ones_like(b_zy) * (b_zy + delta_zy),
                             np.ones_like(b_zy) * b_zy,
@@ -133,7 +133,7 @@ def plot_measurements_latex(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = 
         ax.autoscale(enable=True, axis='x', tight=True)
 
     axs_pee[0].set_title('EE Position')
-    axs_pee[2].set_xlabel('t (s)')
+    axs_pee[2].set_xlabel('t [s]')
     # axs_dq[2].legend(bbox_to_anchor=(0.0, 1.3), loc='upper left', ncol=3, handlelength=0.8, handletextpad=0.35,
     #                 columnspacing=1.0)
     lines.append(constraintline)

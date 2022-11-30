@@ -4,9 +4,9 @@ from evaluator import Evaluator
 
 if __name__ == "__main__":
     PLOT_TRAINING = True
-    RUN_EVALUATOR = True
-    PERFORM_RUNS = True
-    PLOT_LATEX = False
+    RUN_EVALUATOR = False
+    PERFORM_RUNS = False
+    PLOT_LATEX = True
     RENDER = True
     SHOW_PLOTS = False
 
