@@ -4,7 +4,7 @@ from scipy.integrate import solve_ivp
 from dataclasses import dataclass
 from numpy.random import multivariate_normal
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from integrator import RK4
 
 # Measurement noise covairance parameters

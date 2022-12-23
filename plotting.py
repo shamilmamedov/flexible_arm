@@ -1,3 +1,4 @@
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -46,13 +47,13 @@ def plot_controls(t: np.ndarray, u: np.ndarray, u_ref: np.ndarray = None):
     :parameter u: [n x 3] vector of control inputs
     :parameter u_ref: [3] or [3 x 1] vector of reference input
     """
-    u_lbls = [fr'$\tau_{k}$ [Nm]' for k in range(1,4)]
-    fig, axs = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    u_lbls = [fr'$\tau_{k}$ [Nm]' for k in range(1, 4)]
+    fig, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
 
     for k, ax in enumerate(axs.reshape(-1)):
-        ax.plot(t, u[:,k])
+        ax.plot(t, u[:, k])
         if u_ref is not None:
-            ax.axhline(u_ref[k], ls='--', color='red')
+            ax.axhline(u_ref[k], ls='--', color='black')
         ax.set_ylabel(u_lbls[k])
         ax.grid(alpha=0.5)
     axs[2].set_xlabel('t [s]')
@@ -60,37 +61,38 @@ def plot_controls(t: np.ndarray, u: np.ndarray, u_ref: np.ndarray = None):
     plt.show()
 
 
-def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, 
-                      dqa_max: np.ndarray = None):
+def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, axs=None):
     # Parse measurements
-    qa = y[:,:3]
-    dqa = y[:,3:6]
-    pee = y[:,6:9]
+    qa = y[:, :3]
+    dqa = y[:, 3:6]
+    pee = y[:, 6:9]
 
-    qa_lbls = [fr'$qa_{k}$ [rad]' for k in range(1,4)]
-    _, axs_q = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    qa_lbls = [fr'$qa_{k}$ [rad]' for k in range(1, 4)]
+    do_plot = True
+    if axs is None:
+        _, axs_q = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    else:
+        axs_q = axs
+        do_plot = False
     for k, ax in enumerate(axs_q.reshape(-1)):
-        ax.plot(t, qa[:,k])
+        ax.plot(t, qa[:, k])
         ax.set_ylabel(qa_lbls[k])
         ax.grid(alpha=0.5)
     axs_q[2].set_xlabel('t [s]')
     plt.tight_layout()
 
-    dqa_lbls = [fr'$\dot qa_{k}$ [rad/s]' for k in range(1,4)]
-    _, axs_dq = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    dqa_lbls = [fr'$\dot qa_{k}$ [rad/s]' for k in range(1, 4)]
+    _, axs_dq = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     for k, ax in enumerate(axs_dq.reshape(-1)):
-        ax.plot(t, dqa[:,k])
-        if dqa_max is not None:
-            ax.axhline(dqa_max[k], ls='--', color='red')
-            ax.axhline(-dqa_max[k], ls='--', color='red')
+        ax.plot(t, dqa[:, k])
         ax.set_ylabel(dqa_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()
 
     pee_lbls = [r'$p_{ee,x}$ [m]', r'$p_{ee,y}$ [m]', r'$p_{ee,z}$ [m]']
-    _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    _, axs_pee = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     for k, ax in enumerate(axs_pee.reshape(-1)):
-        ax.plot(t, pee[:,k])
+        ax.plot(t, pee[:, k])
         if pee_ref is not None:
             if pee_ref.size == 3:
                 ax.axhline(pee_ref[k], ls='--', color='red')
@@ -99,25 +101,102 @@ def plot_measurements(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None,
         ax.set_ylabel(pee_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()
+    if do_plot:
+        plt.show()
 
-    plt.show()
+
+def plot_measurements_latex(t: np.ndarray, y: np.ndarray, pee_ref: np.ndarray = None, axs_q=None, axs_dq=None,
+                            axs_pee=None, label: str = None, b_dq=None, delta_dq=None, b_zy=None, delta_zy=None,
+                            color=None, linewidth=1):
+    # Parse measurements
+    qa = y[:, :3]
+    dqa = y[:, 3:6]
+    pee = y[:, 6:9]
+
+    qa_lbls = ['$q_{\mathrm{a},k}$ [rad]' for k in range(1, 4)]
+    do_plot = True
+    if axs_q is None:
+        _, axs_q = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    else:
+        do_plot = False
+    for k, ax in enumerate(axs_q.reshape(-1)):
+        ax.plot(t, qa[:, k], label=label, color=color, linewidth=linewidth)
+        ax.set_ylabel(qa_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.autoscale(enable=True, axis='x', tight=True)
+    axs_q[0].set_title('Joint Angles')
+    axs_q[2].set_xlabel('t [s]')
+    plt.tight_layout()
+
+    dqa_lbls = ['$\dot{q}_{\mathrm{a},k}$ [rad/s]' for k in range(1, 4)]
+    if axs_dq is None:
+        _, axs_dq = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    for k, ax in enumerate(axs_dq.reshape(-1)):
+        ax.plot(t, dqa[:, k], label=label, color=color, linewidth=linewidth)
+
+        ax.axhline(b_dq[k] + delta_dq, ls='-', color='black', linewidth=linewidth, zorder=-10)
+        constraintfill = ax.fill_between(t, np.ones_like(dqa[:, k]) * (b_dq[k] + delta_dq),
+                                         np.ones_like(dqa[:, k]) * b_dq[k],
+                                         alpha=0.05,
+                                         color='black', zorder=-10)
+        # ax.axhline(b_dq[k], ls='--', color='black', alpha = 0.4)
+        constraintline = ax.axhline(-b_dq[k] - delta_dq, ls='-', color='black', linewidth=linewidth, zorder=-10)
+        ax.fill_between(t, np.ones_like(dqa[:, k]) * (-b_dq[k] - delta_dq), -np.ones_like(dqa[:, k]) * b_dq[k],
+                        alpha=0.05,
+                        color='black', zorder=-10)
+        # ax.axhline(-b_dq[k], ls='--', color='black', alpha=0.1)
+        ax.set_ylabel(dqa_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.autoscale(enable=True, axis='x', tight=True)
+    axs_dq[0].set_title('Joint Velocities')
+    axs_dq[2].set_xlabel('t [s]')
+    plt.tight_layout()
+
+    pee_lbls = [r'$p_{\mathrm{ee},x}$ [m]', r'$p_{\mathrm{ee},y}$ [m]', r'$p_{\mathrm{ee},z}$ [m]']
+    if axs_pee is None:
+        _, axs_pee = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    lines = []
+    for k, ax in enumerate(axs_pee.reshape(-1)):
+        line, = ax.plot(t, pee[:, k], label=label, color=color, linewidth=linewidth)
+        lines.append(line)
+        if pee_ref is not None:
+            refline1 = ax.axhline(pee_ref[k], ls='--', color='black', label="reference", linewidth=linewidth, zorder=10)
+            lines.append(refline1)
+        if k == 1:
+            refline2 = ax.axhline(b_zy + delta_zy, ls='-', color='black', label="constraint", zorder=-10, linewidth=linewidth)
+            # ax.axhline(b_zy, ls='--', color='black', alpha=0.4)
+            ax.fill_between(t, np.ones_like(b_zy) * (b_zy + delta_zy),
+                            np.ones_like(b_zy) * b_zy,
+                            alpha=0.05,
+                            color='black')
+        ax.set_ylabel(pee_lbls[k])
+        ax.grid(alpha=0.5)
+        ax.autoscale(enable=True, axis='x', tight=True)
+
+    axs_pee[0].set_title('EE Position')
+    axs_pee[2].set_xlabel('t [s]')
+    # axs_dq[2].legend(bbox_to_anchor=(0.0, 1.3), loc='upper left', ncol=3, handlelength=0.8, handletextpad=0.35,
+    #                 columnspacing=1.0)
+    lines.append(constraintline)
+    lines.append(constraintfill)
+    plt.tight_layout()
+    return lines
 
 
 def plot_ee_positions(t: np.ndarray, pee: np.ndarray, pee_ref: np.ndarray = None):
     pee_lbls = [r'$p_{ee,x}$ [m]', r'$p_{ee,y}$ [m]', r'$p_{ee,z}$ [m]']
-    _, axs_pee = plt.subplots(3,1, sharex=True, figsize=(6,8))
+    _, axs_pee = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
     for k, ax in enumerate(axs_pee.reshape(-1)):
-        ax.plot(t, pee[:,k])
+        ax.plot(t, pee[:, k])
         if pee_ref is not None:
-            ax.plot(t, pee_ref[:, k], ls='--', color='red')
+            ax.plot(t, pee_ref[:, k], ls='--', color='black')
         ax.set_ylabel(pee_lbls[k])
         ax.grid(alpha=0.5)
     plt.tight_layout()
-
     plt.show()
 
 
-def plot_joint_positions(t: np.ndarray, q: np.ndarray, 
+def plot_joint_positions(t: np.ndarray, q: np.ndarray,
                          n_seg: int, q_ref: np.ndarray = None):
     """ Plots positions of the active joints
     """
@@ -135,7 +214,7 @@ def plot_joint_positions(t: np.ndarray, q: np.ndarray,
     plt.show()
 
 
-def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray, 
+def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
                                  x_hat: np.ndarray, n_seg_sim: int,
                                  n_seg_est: int):
     """
@@ -150,8 +229,8 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
     assert n_seg_sim >= n_seg_est
 
     # Parse states into active and passive
-    nq_est = 3 + 2*n_seg_est
-    nq_sim = 3 + 2*n_seg_sim
+    nq_est = 3 + 2 * n_seg_est
+    nq_sim = 3 + 2 * n_seg_sim
     idxs_est = set(np.arange(0, nq_est))
     idxs_sim = set(np.arange(0, nq_sim))
     qa_idxs_est = [0, 1, 2 + n_seg_est]
@@ -166,9 +245,9 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
 
     # Plot active joint positions
     qa_lbls = [r"$q_{a 1}$", r"$q_{a 2}$", r"$q_{a 3}$"]
-    fig_qa, axs_qa = plt.subplots(3, 1, sharex=True, figsize=(6,8))
-    for k, (ax, qk, qk_hat) in enumerate(zip(axs_qa.T, 
-                        x[:, [qa_idxs_sim]].T, x_hat[:, [qa_idxs_est]].T)):
+    fig_qa, axs_qa = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    for k, (ax, qk, qk_hat) in enumerate(zip(axs_qa.T,
+                                             x[:, [qa_idxs_sim]].T, x_hat[:, [qa_idxs_est]].T)):
         ax.plot(t, qk.flatten())
         ax.plot(t, qk_hat.flatten(), ls='--')
         ax.set_ylabel(qa_lbls[k])
@@ -177,23 +256,23 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
     fig_qa.tight_layout()
 
     # # Plot passive joint positions
-    qp1_idxs_est = qp_idxs_est[:len(qp_idxs_est)//2]
-    qp2_idxs_est = qp_idxs_est[len(qp_idxs_est)//2:]
-    fig_qp, axs_qp = plt.subplots(2,1, sharex=True, figsize=(6,8))
+    qp1_idxs_est = qp_idxs_est[:len(qp_idxs_est) // 2]
+    qp2_idxs_est = qp_idxs_est[len(qp_idxs_est) // 2:]
+    fig_qp, axs_qp = plt.subplots(2, 1, sharex=True, figsize=(6, 8))
     for k, (ax, idxs) in enumerate(zip(axs_qp.T, [qp1_idxs_est, qp2_idxs_est])):
         for (qk, qk_hat) in zip(x[:, [idxs]].T, x_hat[:, [idxs]].T):
             ax.plot(t, qk_hat.flatten(), ls='--')
             if n_seg_est == n_seg_sim:
-                ax.plot(t, qk.flatten())    
+                ax.plot(t, qk.flatten())
             ax.grid(alpha=0.5)
     fig_qp.suptitle('passive joint positions')
     fig_qp.tight_layout()
 
     # Plot active joint velocities
     dqa_lbls = [r"$\dot q_{a 1}$", r"$\dot q_{a 2}$", r"$\dot q_{a 3}$"]
-    fig_dqa, axs_dqa = plt.subplots(3, 1,  sharex=True, figsize=(6,8))
-    for k, (ax, dqk, dqk_hat) in enumerate(zip(axs_dqa.T, 
-                        x[:, [dqa_idxs_sim]].T, x_hat[:, [dqa_idxs_est]].T)):
+    fig_dqa, axs_dqa = plt.subplots(3, 1, sharex=True, figsize=(6, 8))
+    for k, (ax, dqk, dqk_hat) in enumerate(zip(axs_dqa.T,
+                                               x[:, [dqa_idxs_sim]].T, x_hat[:, [dqa_idxs_est]].T)):
         ax.plot(t, dqk.flatten())
         ax.plot(t, dqk_hat.flatten(), ls='--')
         ax.set_ylabel(dqa_lbls[k])
@@ -202,11 +281,11 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
     fig_dqa.tight_layout()
 
     # Passive joint velocities
-    dqp1_idxs_est = dqp_idxs_est[:len(dqp_idxs_est)//2]
-    dqp2_idxs_est = dqp_idxs_est[len(dqp_idxs_est)//2:]
-    fig_dqp, axs_dqp = plt.subplots(2,1, sharex=True, figsize=(6,8))
-    for k, (ax, idxs) in enumerate(zip(axs_dqp.T, 
-                            [dqp1_idxs_est, dqp2_idxs_est])):
+    dqp1_idxs_est = dqp_idxs_est[:len(dqp_idxs_est) // 2]
+    dqp2_idxs_est = dqp_idxs_est[len(dqp_idxs_est) // 2:]
+    fig_dqp, axs_dqp = plt.subplots(2, 1, sharex=True, figsize=(6, 8))
+    for k, (ax, idxs) in enumerate(zip(axs_dqp.T,
+                                       [dqp1_idxs_est, dqp2_idxs_est])):
         for (dqk, dqk_hat) in zip(x[:, [idxs]].T, x_hat[:, [idxs]].T):
             if n_seg_est == n_seg_sim:
                 ax.plot(t, dqk.flatten())
@@ -218,8 +297,8 @@ def plot_real_states_vs_estimate(t: np.ndarray, x: np.ndarray,
     plt.show()
 
 
-def plot_joint_velocities(t: np.ndarray, dq: np.ndarray, 
-                         n_seg: int, dq_ref: np.ndarray = None):
+def plot_joint_velocities(t: np.ndarray, dq: np.ndarray,
+                          n_seg: int, dq_ref: np.ndarray = None):
     """ Plots positions of the active joints
     """
     dqa_idx = [0, 1, 1 + (n_seg + 1)]

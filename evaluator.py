@@ -1,6 +1,10 @@
 import pickle
+from copy import copy
 from dataclasses import dataclass, field
 from typing import List, Tuple
+import seaborn as sns
+import matplotlib
+from matplotlib import pyplot as plt
 
 import plotting
 from animation import Panda3dAnimator
@@ -44,6 +48,22 @@ class Kpi:
     speed_violation: List = field(default_factory=lambda: [])
 
 
+def latexify():
+    params = {
+        "backend": "ps",
+        "text.latex.preamble": r"\usepackage{gensymb} \usepackage{amsmath}",
+        "axes.labelsize": 10,
+        "axes.titlesize": 10,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "text.usetex": True,
+        "font.family": "serif",
+    }
+
+    matplotlib.rcParams.update(params)
+
+
 class Evaluator:
     def __init__(self, builder: ImitationBuilder, n_episodes: int = 10, policy_dir: str = None,
                  render: bool = False, show_plots: bool = False, n_mpc: List[int] = None):
@@ -68,12 +88,12 @@ class Evaluator:
             n_mpc = []
         self.n_mpc = n_mpc
 
-    def evaluate_all(self, policy_dir, save_file_name: str = 'expert_eval.txt'):
-        self.evaluate_expert()
-        self.evaluate_nn(policy_dir=policy_dir)
-        self.evaluate_nn_safe(policy_dir=policy_dir)
+    def evaluate_all(self, policy_dir, save_file_name: str = 'expert_eval.txt', seed: int = 1):
+        self.evaluate_expert(seed=seed)
+        self.evaluate_nn(policy_dir=policy_dir, seed=seed)
+        self.evaluate_nn_safe(policy_dir=policy_dir, seed=seed)
         for n in self.n_mpc:
-            self.evaluate_n_mpc(n=n)
+            self.evaluate_n_mpc(n=n, seed=seed)
 
         data = [self.expert_kpis, self.expert_timings,
                 self.nn_kpis, self.nn_timings,
@@ -111,18 +131,20 @@ class Evaluator:
         header = flatten(header)
         n_col = header.__len__()
         n_row = 3 + self.n_mpc.__len__()
+        acc_str = "{:3.2f}"
+        percentage_str = "{:3.0f}"
 
         data = []
-        approach_names = ["MPC", "NN", "SNN"] + ["MPC_n" + str(mpc_len) for mpc_len in self.n_mpc]
+        approach_names = ["expert MPC", "NN", "NN + SF"] + ["MPC, ($N=" + str(mpc_len) + "$)" for mpc_len in self.n_mpc]
         for i, name in zip(range(n_row), approach_names):
             data.append([name] + ["empty"] * (n_col - 1))
 
         timings = [self.expert_timings, self.nn_timings, self.nn_safety_timings, *self.mpc_n_timings]
         for i, timings in zip(range(n_row), timings):
-            data[i][3] = "{:3.3f}".format(np.mean(np.array([timing.min for timing in timings])) * 1e3)
-            data[i][4] = "{:3.3f}".format(np.mean(np.array([timing.max for timing in timings])) * 1e3)
-            data[i][1] = "{:3.3f}".format(np.mean(np.array([timing.mean for timing in timings])) * 1e3)
-            data[i][2] = "{:3.3f}".format(np.mean(np.array([timing.std for timing in timings])) * 1e3)
+            data[i][3] = "& {:3.3f}".format(np.mean(np.array([timing.min for timing in timings])) * 1e3)
+            data[i][4] = "& {:3.3f}".format(np.mean(np.array([timing.max for timing in timings])) * 1e3)
+            data[i][1] = "& {:3.3f}".format(np.mean(np.array([timing.mean for timing in timings])) * 1e3)
+            data[i][2] = "& {:3.3f}".format(np.mean(np.array([timing.std for timing in timings])) * 1e3)
 
         for cnt_eps, epsilon in enumerate(self.expert_kpis[0].epsilon):
             nn_path_lens = [kpi.path_len[cnt_eps] for kpi in self.nn_kpis]
@@ -176,31 +198,32 @@ class Evaluator:
                             self.mpc_n_kpis[cnt_nmpc][i].t_epsilon[cnt_eps] / self.expert_kpis[i].t_epsilon[cnt_eps])
                 nmpc_t_eps_normalized.append(nmpc_t_eps)
 
-            acc_str = "{:4.4f}"
-            data[0][5 + 3 * cnt_eps] = 0.
-            data[0][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(expert_paths)),
-                                                                         np.std(np.array(expert_paths)))
-            data[0][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(expert_times)),
-                                                                         np.std(np.array(expert_times)))
+            data[0][5 + 3 * cnt_eps] = "& " + percentage_str.format(0)
+            data[0][7 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(np.mean(np.array(expert_paths)),
+                                                                                 np.std(np.array(expert_paths)))
+            data[0][6 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(np.mean(np.array(expert_times)),
+                                                                                 np.std(np.array(expert_times)))
 
-            data[1][5 + 3 * cnt_eps] = fail_count_nn / total_count * 100
-            data[1][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_paths_normalized)),
-                                                                         np.std(np.array(nn_paths_normalized)))
-            data[1][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_t_eps_normalized)),
-                                                                         np.std(np.array(nn_t_eps_normalized)))
+            data[1][5 + 3 * cnt_eps] = "& " + percentage_str.format(fail_count_nn / total_count * 100)
+            data[1][7 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(np.mean(np.array(nn_paths_normalized)),
+                                                                                 np.std(np.array(nn_paths_normalized)))
+            data[1][6 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(np.mean(np.array(nn_t_eps_normalized)),
+                                                                                 np.std(np.array(nn_t_eps_normalized)))
             # print("Path Times NN: {} +- {}m".format(np.mean(np.array(nn_t_eps_normalized)),
             #                                        np.std(np.array(nn_t_eps_normalized))))
-            data[2][5 + 3 * cnt_eps] = fail_count_nn_safe / total_count * 100
-            data[2][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_paths_normalized)),
-                                                                         np.std(np.array(nn_safe_paths_normalized)))
-            data[2][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(np.mean(np.array(nn_safe_t_eps_normalized)),
-                                                                         np.std(np.array(nn_safe_t_eps_normalized)))
+            data[2][5 + 3 * cnt_eps] = "& " + percentage_str.format(fail_count_nn_safe / total_count * 100)
+            data[2][7 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(
+                np.mean(np.array(nn_safe_paths_normalized)),
+                np.std(np.array(nn_safe_paths_normalized)))
+            data[2][6 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(
+                np.mean(np.array(nn_safe_t_eps_normalized)),
+                np.std(np.array(nn_safe_t_eps_normalized)))
             for i in range(len(self.n_mpc)):
-                data[3 + i][5 + 3 * cnt_eps] = fail_counts_nmpc[i] / total_count * 100
-                data[3 + i][7 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                data[3 + i][5 + 3 * cnt_eps] = "& " + percentage_str.format(fail_counts_nmpc[i] / total_count * 100)
+                data[3 + i][7 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(
                     np.mean(np.array(nmpc_paths_normalized[i])),
                     np.std(np.array(nmpc_paths_normalized[i])))
-                data[3 + i][6 + 3 * cnt_eps] = (acc_str + "+-" + acc_str).format(
+                data[3 + i][6 + 3 * cnt_eps] = ("& " + acc_str + "\pm" + acc_str).format(
                     np.mean(np.array(nmpc_t_eps_normalized[i])),
                     np.std(np.array(nmpc_t_eps_normalized[i])))
 
@@ -209,17 +232,17 @@ class Evaluator:
             wall_max = []
             for iteration_kpi in kpi:
                 if len(iteration_kpi.wall_penetrations) > 0:
-                    wall_max.append(np.mean(np.array(iteration_kpi.wall_penetrations)))
+                    wall_max.append(np.max(np.array(iteration_kpi.wall_penetrations)))
                 else:
                     wall_max.append(0)
-            data[i][-1] = np.mean(np.array(wall_max))
+            data[i][-1] = "& " + acc_str.format(1000 * np.mean(np.array(wall_max)))
             speed_max = []
             for iteration_kpi in kpi:
                 if len(iteration_kpi.speed_violation) > 0:
-                    speed_max.append(np.mean(np.array(iteration_kpi.speed_violation)))
+                    speed_max.append(np.max(np.array(iteration_kpi.speed_violation)))
                 else:
                     speed_max.append(0)
-            data[i][-2] = np.mean(np.array(speed_max))
+            data[i][-2] = "& " + acc_str.format(np.max(np.array(speed_max)))
 
         print(tabulate(data, headers=header))
 
@@ -229,15 +252,14 @@ class Evaluator:
         t = np.arange(0, self.env.simulator.opts.n_iter + 1) * self.env.dt
 
         n_iter, _ = y.shape
-        skip_steps = 10
         wall_penetrations = []
-        for i in range(skip_steps, n_iter):
+        for i in range(0, n_iter):
             if y[i, 1 + 6] > 0:
                 wall_penetrations.append(y[i, 1 + 6])
         speed_violation = []
         nq = self.env.simulator.robot.nq
         qa_idx = self.env.simulator.robot.qa_idx
-        for i in range(skip_steps, n_iter):
+        for i in range(0, n_iter):
             pos_volation = np.min(self.env.simulator.robot.dqa_max - x[i, nq + np.array(qa_idx)])
             if pos_volation < 0:
                 speed_violation.append(-pos_volation)
@@ -272,6 +294,7 @@ class Evaluator:
 
         if self.render:
             animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt, q).play(1)
+        return x, u, y, xhat, t
 
     def evaluate_expert(self, seed: int = 1, show_plots: bool = False):
         # simulate
@@ -282,9 +305,9 @@ class Evaluator:
                 np.random.seed(seed + simulation_count)
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
+            qa = qk[[0, 1, 1 + (qk.__len__() - 1) // 2]]
             self.expert_controller.reset()
-            
-            q_mpc = get_rest_configuration(self.env.xee_final[:, 0], self.expert_controller.options.n_seg)
+            q_mpc = get_rest_configuration(qa, self.expert_controller.options.n_seg)
             dq_mpc = np.zeros_like(q_mpc)
             x_mpc = np.vstack((q_mpc, dq_mpc))
             self.expert_controller.set_reference_point(x_ref=x_mpc,
@@ -297,8 +320,9 @@ class Evaluator:
                 if done:
                     break
 
-            self.post_evaluation(controller=self.expert_controller, timing_container=self.expert_timings,
-                                 kpi_container=self.expert_kpis)
+            ret_vals = self.post_evaluation(controller=self.expert_controller, timing_container=self.expert_timings,
+                                            kpi_container=self.expert_kpis)
+        return ret_vals
 
     def evaluate_n_mpc(self, n: int, seed: int = 1):
         # simulate
@@ -317,7 +341,8 @@ class Evaluator:
             state = self.env.reset()
             qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
             controller.reset()
-            q_mpc = get_rest_configuration(self.env.xee_final[:, 0], controller.options.n_seg)
+            qa = qk[[0, 1, 1 + (qk.__len__() - 1) // 2]]
+            q_mpc = get_rest_configuration(qa, controller.options.n_seg)
             dq_mpc = np.zeros_like(q_mpc)
             x_mpc = np.vstack((q_mpc, dq_mpc))
             controller.set_reference_point(x_ref=x_mpc,
@@ -330,8 +355,9 @@ class Evaluator:
                 if done:
                     break
 
-            self.post_evaluation(controller=controller, timing_container=self.mpc_n_timings[-1],
-                                 kpi_container=self.mpc_n_kpis[-1])
+            ret_vals = self.post_evaluation(controller=controller, timing_container=self.mpc_n_timings[-1],
+                                            kpi_container=self.mpc_n_kpis[-1])
+        return ret_vals
 
     def evaluate_nn(self, seed: int = 1, show_plots: bool = False,
                     policy_dir: str = None, filename: str = "trained_policy"):
@@ -355,8 +381,9 @@ class Evaluator:
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            self.post_evaluation(controller=controller, timing_container=self.nn_timings,
-                                 kpi_container=self.nn_kpis)
+            ret_vals = self.post_evaluation(controller=controller, timing_container=self.nn_timings,
+                                            kpi_container=self.nn_kpis)
+        return ret_vals
 
     def evaluate_nn_safe(self, seed: int = 1, show_plots: bool = False,
                          policy_dir: str = None, filename: str = "trained_policy"):
@@ -383,5 +410,65 @@ class Evaluator:
                 qk, dqk = np.expand_dims(state[0:nq], 1), np.expand_dims(state[nq:], 1)
                 if done:
                     break
-            self.post_evaluation(controller=controller, timing_container=self.nn_safety_timings,
-                                 kpi_container=self.nn_safety_kpi)
+            ret_vals = self.post_evaluation(controller=controller, timing_container=self.nn_safety_timings,
+                                            kpi_container=self.nn_safety_kpi)
+        return ret_vals
+
+    def plot_eval_run(self, policy_dir: str = None, seed: int = 3, load_last_run: bool = False):
+        latexify()
+        linewidth=1
+        if not load_last_run:
+            x_exp, u_exp, y_exp, xhat_exp, t_exp = self.evaluate_expert(seed=seed)
+            x_nn, u_nn, y_nn, xhat_nn, t_nn = self.evaluate_nn(policy_dir=policy_dir, seed=seed)
+            x_snn, u_snn, y_snn, xhat_snn, t_snn = self.evaluate_nn_safe(policy_dir=policy_dir, seed=seed)
+
+            all_data = [x_exp, u_exp, y_exp, xhat_exp, t_exp, x_nn, u_nn, y_nn, xhat_nn, t_nn, x_snn, u_snn, y_snn,
+                        xhat_snn, t_snn]
+            with open('evaluation_time_data.txt', 'wb') as f:
+                pickle.dump(all_data, f)
+        else:
+            with open('evaluation_time_data.txt', 'rb') as f:
+                all_data = pickle.load(f)
+        [x_exp, u_exp, y_exp, xhat_exp, t_exp, x_nn, u_nn, y_nn, xhat_nn, t_nn, x_snn, u_snn, y_snn, xhat_snn,
+         t_snn] = copy(all_data)
+        N = 150
+        x_exp, u_exp, y_exp, xhat_exp, t_exp = x_exp[:N, ], u_exp[:N, :], y_exp[:N, :], xhat_exp[:N, :], t_exp[:N]
+        x_nn, u_nn, y_nn, xhat_nn, t_nn = x_nn[:N, :], u_nn[:N, :], y_nn[:N, :], xhat_nn[:N, :], t_nn[:N]
+        x_snn, u_snn, y_snn, xhat_snn, t_snn = x_snn[:N, :], u_snn[:N, :], y_snn[:N, :], xhat_snn[:N, :], t_snn[:N]
+
+        fig1, axs = plt.subplots(3, 3, sharex=True, figsize=(6, 3))
+        axs_q = axs[:, 0]
+        axs_dq = axs[:, 1]
+        axs_pee = axs[:, 2]
+        # fig2, axs_dq = plt.subplots(3, 1, sharex=True, figsize=(4, 6))
+        # fig3, axs_pee = plt.subplots(3, 1, sharex=True, figsize=(4, 6))
+        labels = ["MPC expert", "NN", "NN+SF"]
+        colors = sns.color_palette("hls", 3)
+        lines1 = plotting.plot_measurements_latex(t_exp, y_exp, self.env.xee_final, axs_q=axs_q, axs_dq=axs_dq, axs_pee=axs_pee,
+                                         label=labels[0], b_dq=[2.5, 3.5, 3.5], delta_dq=0.5, b_zy=0, delta_zy=0.03,
+                                         color=colors[0])
+        lines2 = plotting.plot_measurements_latex(t_nn, y_nn, self.env.xee_final, axs_q=axs_q, axs_dq=axs_dq, axs_pee=axs_pee,
+                                         label=labels[1], b_dq=[2.5, 3.5, 3.5], delta_dq=0.5, b_zy=0, delta_zy=0.03,
+                                         color=colors[1])
+        lines3 = plotting.plot_measurements_latex(t_snn, y_snn, self.env.xee_final, axs_q=axs_q, axs_dq=axs_dq, axs_pee=axs_pee,
+                                         label=labels[2], b_dq=[2.5, 3.5, 3.5], delta_dq=0.5, b_zy=0, delta_zy=0.03,
+                                         color=colors[2])
+        lines = [lines1[0], lines2[0], lines3[0], lines1[1], lines1[-2], lines1[-1]]
+        fig1.legend(lines, labels+["reference", "constraint", r'robust $\delta_{\{\dot{q},z}\}$'], ncol=3, loc='lower center', bbox_to_anchor=(0.5, -0.15))
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        #plt.show()
+        fig4, axs_u = plt.subplots(3, 1, sharex=True, figsize=(4, 6))
+        for i in range(3):
+            axs_u[i].plot(t_exp, u_exp[:, i], label=labels[0])
+            axs_u[i].plot(t_exp, u_nn[:, i], label=labels[1])
+            axs_u[i].plot(t_exp, u_snn[:, i], label=labels[2])
+            axs_u[i].grid(alpha=0.5)
+            axs_u[i].set_ylabel(r"$\tau_{" + str(i) + r"}$")
+        fig1.tight_layout()
+        fig1.savefig("fig1" + ".pdf", dpi=300, bbox_inches='tight')
+        # fig2.tight_layout()
+        # fig2.savefig("fig2" + ".pdf", dpi=300)
+        # fig3.tight_layout()
+        # fig3.savefig("fig3" + ".pdf", dpi=300)
+        fig4.tight_layout()
+        # fig4.savefig("fig4" + ".pdf", dpi=300)

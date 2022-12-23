@@ -285,7 +285,7 @@ class ImitationBuilder_Wall3(ImitationBuilder):
         self.imitator_options.rollout_round_min_timesteps = 5000  # option for dagger algorithm.
 
         self.mpc_options.n = 50  # number of discretization points
-        self.mpc_options.nlp_iter = 50  # number of iterations of the nonlinear solver
+        self.mpc_options.nlp_iter = 5  # number of iterations of the nonlinear solver
         self.mpc_options.condensing_relative = 1  # relative factor of condensing [0-1]
         self.mpc_options.w2_slack_speed = 1e6
         self.mpc_options.wall_constraint_on = True  # choose whether we activate the wall constraint
@@ -320,7 +320,7 @@ class ImitationBuilder_Wall3(ImitationBuilder):
         Q = np.diag([*q_q, *q_dq])
         # measurement noise covaiance
         r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
-        R = 10 * np.diag([*r_q, *r_dq, *r_pee])
+        R = 100 * np.diag([*r_q, *r_dq, *r_pee])
 
-        self.imitator_options.environment_options.sim_noise_R = R/20
+        self.imitator_options.environment_options.sim_noise_R = R/600
         self.estimator = ExtendedKalmanFilter(est_model, None, P0, Q, R)

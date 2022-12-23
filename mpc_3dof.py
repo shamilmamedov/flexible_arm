@@ -59,8 +59,8 @@ class Mpc3dofOptions:
                                              [Q_DQP] * (self.n_seg))  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
-        self.r_diag: np.ndarray = np.array([10e0, 10e0, 10e0]) * 1e-1
-        self.w2_slack_speed: float = 1e4
+        self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
+        self.w2_slack_speed: float = 1e6
         self.w2_slack_wall: float = 1e5
 
     def get_sampling_time(self) -> float:
@@ -184,7 +184,7 @@ class Mpc3Dof(BaseController):
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.zl = np.array([10**3] * 3 + [10] * n_wall_constraints)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
