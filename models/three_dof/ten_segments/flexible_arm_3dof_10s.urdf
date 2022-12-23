@@ -2,7 +2,8 @@
 <robot name="flexible_arm">
     <!-- Some parameters -->
     <material name="grey">
-        <color rgba="0.5 0.5 0.5 0.5"/>
+        <color rgba="0.5 0.5 0.5 1.0"/>
+        <!-- <color rgba="0.82 0.1 0.0 1.0"/> -->
     </material>
 
     <!-- world -->
