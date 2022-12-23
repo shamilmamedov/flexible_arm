@@ -4,7 +4,7 @@ from scipy.integrate import solve_ivp
 from dataclasses import dataclass
 from numpy.random import multivariate_normal
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from integrator import RK4
 
 # Measurement noise covairance parameters
@@ -18,10 +18,10 @@ class SimulatorOptions:
     """
     NOTE R is the covariance of the measurements error
     """
-    rtol: float = 1e-8 # 1e-6, 1e-8
-    atol: float = 1e-10 # 1e-8, 1e-10
-    # R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
-    R: np.ndarray = np.zeros((9,9))
+    rtol: float = 1e-8  # 1e-6, 1e-8
+    atol: float = 1e-10  # 1e-8, 1e-10
+    R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
+    # R: np.ndarray = np.zeros((9, 9))
     contr_input_states: str = 'real'
     dt: float = 0.01
     n_iter: float = 100
@@ -68,33 +68,38 @@ class Simulator:
         self.x_hat = None
         self.k = 0
 
-    def reset(self, x0, n_iter: int = None):
+    def reset(self, x0, n_iter: int = None) -> np.ndarray:
         self.k = 0
         if n_iter is not None:
             self.opts.n_iter = n_iter
 
+        # Reset the estimator
         if self.estimator is not None:
+            qa_0 = x0[self.robot.qa_idx]
             self.nx_est = self.estimator.model.nx
-            self.estimator.reset()
+            self.estimator.reset(qa_0)
 
             # initialize datastructure
             self.x_hat = np.zeros((self.opts.n_iter + 1, self.nx_est))
         else:
             self.x_hat = None
 
+        # Create arrays for states, controls and outputs
         self.x = np.zeros((self.opts.n_iter + 1, self.robot.nx))
         self.u = np.zeros((self.opts.n_iter, self.robot.nu))
         self.y = np.zeros((self.opts.n_iter + 1, self.robot.ny))
 
+        # Initialize states and outputs
         self.x[0, :] = x0
         self.y[0, :] = (self.robot.output(self.x[[0], :].T).flatten() +
                         multivariate_normal(np.zeros(self.robot.ny), self.opts.R))
 
+        # Estimate the first satate
         if self.estimator is not None:
             self.x_hat[0, :] = self.estimator.estimate(
                                self.y[[0], :].T).flatten()
 
-        # Compute control action
+        # Return initial state for controller
         if self.opts.contr_input_states == 'real':
             qk = self.x[[self.k], :self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq:].T
@@ -170,7 +175,8 @@ class Simulator:
         qk, dqk = state[0:nq, :], state[nq:, :]
 
         for k in range(self.opts.n_iter):
-            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k)
+            tau = self.controller.compute_torques(qk, dqk, t=self.opts.dt * k,
+                                                  y=self.y[k, :].T)
             state = self.step(input_tau=tau)
             qk, dqk = state[0:nq, :], state[nq:, :]
 

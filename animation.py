@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 import pinocchio as pin
-from pinocchio.visualize import Panda3dVisualizer
+from pinocchio.visualize import Panda3dVisualizer, RVizVisualizer
 import time
 
 
@@ -63,6 +63,7 @@ class Panda3dAnimator:
 
         # Instantiate panda3visualizer
         self.viz = Panda3dVisualizer(m, cm, vm)
+        # self.viz = RVizVisualizer(m, cm, vm)
 
     def play(self, k: int = 5):
         """
@@ -78,3 +79,5 @@ class Panda3dAnimator:
                 self.viz.display(qk)
                 time.sleep(self.ts)
             time.sleep(1)
+
+

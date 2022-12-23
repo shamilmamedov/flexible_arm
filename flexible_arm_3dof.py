@@ -499,10 +499,19 @@ if __name__ == "__main__":
     urdf_path = os.path.join(model_folder, 
                 'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
 
-    # qa = np.random.randn(3)
+    # P2P 1
     # qa = np.array([np.pi/2, np.pi/10, -np.pi/8])
-    qa = np.array([0., 2*np.pi/5, -np.pi/3])
-    # qa = np.zeros(3)
+    # qa = np.array([0., 2*np.pi/5, -np.pi/3])
+
+    # P2P 2
+    # qa = np.array([0., np.pi/20, -np.pi/20])
+    # qa = np.array([0., np.pi/3, -np.pi/20])
+
+
+    # P2P 3
+    # qa = np.array([0., np.pi/30, -np.pi/30])
+    qa = np.array([0., np.pi/4, -np.pi/4])
+
     q = get_rest_configuration(qa, n_seg)
 
     fkp = cs.Function.load(model_folder + 'fkp.casadi')
@@ -511,6 +520,5 @@ if __name__ == "__main__":
 
     q = np.repeat(q.reshape(1,-1), 50, axis=0)
     
-
     animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
 

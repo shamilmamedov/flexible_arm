@@ -19,11 +19,11 @@ def path_length(q: np.ndarray, model: SymbolicFlexibleArm3DOF) -> float:
     ns = q.shape[0]
     pee = np.zeros((ns, 3))
     for k, qk in enumerate(q):
-        pee[k,:] = np.array(model.p_ee(qk)).flatten()
+        pee[k, :] = np.array(model.p_ee(qk)).flatten()
 
     out = 0.
-    for k in range(ns-1):
-        out += np.linalg.norm(pee[k+1,:] - pee[k,:])
+    for k in range(ns - 1):
+        out += np.linalg.norm(pee[k + 1, :] - pee[k, :])
 
     return out
 
@@ -46,7 +46,7 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
     # a boolean vector indicating if the ee is inside
     # the ball of radius r
     inside = np.full((ns,), False)
-    
+
     n_first_entry = None
     for k, qk in enumerate(q):
         pee_k = np.array(model.p_ee(qk))
@@ -64,17 +64,38 @@ def execution_time(q: np.ndarray, model: SymbolicFlexibleArm3DOF,
 
 
 def constraint_violation(q: np.ndarray, dq: np.ndarray, u: np.ndarray,
-                         model: SymbolicFlexibleArm3DOF):
+                         model: SymbolicFlexibleArm3DOF, 
+                         wall_params: dict = None):
     ns_q = q.shape[0]
     u_constr_violated = np.full_like(u, False)
     dqa_constr_violated = np.full((ns_q, 3), False)
 
+    # Input constraint violation 
     for k, uk in enumerate(u):
         u_constr_violated[k,:] = np.logical_or(uk > model.tau_max, 
                                                uk < -model.tau_max) 
 
+    # Joint velocity constraint violation
     for k, dqak in enumerate(dq[:,model.qa_idx]) :
         dqa_constr_violated[k,:] = np.logical_or(dqak > model.dqa_max,
                                                  dqak < -model.dqa_max)
 
-    return np.sum(u_constr_violated, axis=0), np.sum(dqa_constr_violated, axis=0)
+    # Wall constraint violation
+    if wall_params is not None:
+        try:
+            wa_ = wall_params['wall_axis']
+            wv_ = wall_params['wall_value']
+            wall_constr_violated = np.full((ns_q,), False)
+            for k, qk in enumerate(q):
+                pee_k = np.array(model.p_ee(qk))
+                if wall_params['wall_pos_side']:
+                    wall_constr_violated[k] = pee_k[wa_] > wv_
+                else:
+                    wall_constr_violated[k] = pee_k[wa_] < wv_
+        except KeyError:
+            print("Some of the wall parameters are missing!")
+    else:
+        wall_constr_violated = None
+
+    return (np.sum(u_constr_violated, axis=0), np.sum(dqa_constr_violated, axis=0),
+            np.sum(wall_constr_violated))

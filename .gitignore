@@ -4,6 +4,12 @@
 # C++ build folder
 cpp/build/
 
+# Catkin workspace files
+flexible_arm_ws/build/
+flexible_arm_ws/devel/
+flexible_arm_ws/logs/
+flexible_arm_ws/.catkin_tools/
+
 # Cache
 __pycache__/
 

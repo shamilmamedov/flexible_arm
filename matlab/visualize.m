@@ -33,5 +33,5 @@ g = gravityTorque(robot, q);
 % q = [q(1); q_eq];
 
 getTransform(robot, q,'load')
-show(robot, q)
+show(robot, q, 'Frames', 'off')
 

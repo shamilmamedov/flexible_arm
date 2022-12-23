@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name = "model"/>
+    <arg name = "use_gui" default="false" />
+    
+    <param name = "robot_description" command = "$(find xacro)/xacro '$(find fa_setup)/urdf/fa_setup_descr.xacro'"/>
+    <!-- <param name = "robot_description" command="cat '$(find fa_setup)/urdf/flexible_arm_3dof_0s.urdf'" /> -->
+    
+    <!-- Depending on use_gui parameter start gui or trajectory visualization -->
+    <group if="$(arg use_gui)">
+        <param name = "use_gui" value="true" />
+        <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    </group>
+
+    <group unless="$(arg use_gui)">
+        <node name="my_node" pkg="fa_setup" type="state_pub.py" />
+    </group>
+    
+
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find fa_setup)/rviz/fa_rviz_config.rviz"/>
+    <!-- <node name="rviz" pkg="rviz" type="rviz"/> -->
+</launch>

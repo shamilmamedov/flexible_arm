@@ -1,30 +1,29 @@
-import numpy as np
-from estimator import ExtendedKalmanFilter
-from flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from gym_env import FlexibleArmEnv
-from imitator import ImitatorOptions, Imitator, plot_training
-from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from imitation_builder import ImitationBuilder_Stabilization, ImitationBuilder_Wall
+from imitator import plot_training, plot4paper
+from imitation_builder import ImitationBuilder_Wall, ImitationBuilder_Wall2, ImitationBuilder_Wall3
 from evaluator import Evaluator
 
 if __name__ == "__main__":
-    RUN_EXPERIMENT = False
-    PLOT_TRAINING = False
+    PLOT_TRAINING = True
+    RUN_EVALUATOR = False
+    PERFORM_RUNS = False
+    PLOT_LATEX = True
+    RENDER = True
+    SHOW_PLOTS = False
 
-    experiment_dir = "data/imitation/wall/version1"
+    experiment_dir = "data/imitation/wall3/version1"
+    experiment_dir2 = "data/imitation/wall2/version2"
 
     # plot training
     if PLOT_TRAINING:
-        plot_training(log_dir=experiment_dir)
+        plot4paper(log_dir=experiment_dir2, n_smooth=5, n_max=140)
+        plot_training(log_dir=experiment_dir2, n_smooth=5)
 
-    imitation_builder_wall = ImitationBuilder_Wall()
-    evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=2, policy_dir=experiment_dir)
-    evaluator.evaluate_nn(policy_dir=experiment_dir)
-    evaluator.evaluate_expert()
-    evaluator.print_result()
-
-    # run simulation
-    if RUN_EXPERIMENT:
-        imitator, env, controller = ImitationBuilder_Wall().build()
-        imitator.render_expert(n_episodes=3, n_replay=1, show_plot=False, seed=1)
-        imitator.render_student(n_episodes=10, n_replay=1, show_plot=False, seed=1, policy_dir=experiment_dir)
+    if RUN_EVALUATOR:
+        imitation_builder_wall = ImitationBuilder_Wall3()
+        evaluator = Evaluator(builder=imitation_builder_wall, n_episodes=1, policy_dir=experiment_dir,
+                              render=RENDER, show_plots=SHOW_PLOTS, n_mpc=[10, 20, 40, 80])
+        if PLOT_LATEX:
+            evaluator.plot_eval_run(policy_dir=experiment_dir, seed=9, load_last_run=True)
+        if PERFORM_RUNS:
+            evaluator.evaluate_all(policy_dir=experiment_dir, save_file_name='expert_eval_tmp.txt', seed=5)
+        evaluator.print_all()

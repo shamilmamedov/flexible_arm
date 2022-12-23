@@ -1,5 +1,7 @@
+from copy import copy
 from dataclasses import dataclass
 import time
+from tempfile import mkdtemp
 
 import numpy as np
 import scipy
@@ -7,12 +9,15 @@ from scipy.interpolate import interp1d
 from controller import BaseController, OfflineController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+
+from estimator import ExtendedKalmanFilter
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from simulation import Simulator
+from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+    from flexible_arm_3dof import FlexibleArm3DOF
 
 
 @dataclass
@@ -29,10 +34,12 @@ class SafetyFilter3dofOptions:
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
         self.r_diag: np.ndarray = np.array([1., 1., 1.]) * 1e1
+        self.r_diag_rollout: np.ndarray = np.array([1., 1., 1.]) * 1e-4
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
-        self.u_max = np.array([20, 10, 10])  # [Nm]
-        self.dq_active_max = np.array([2.5, 2.5, 2.5])  # [rad/s]
+        self.w1_slack_wall: float = 1
+        self.w_reg_dq: float = 0.1
+        self.w_reg_dq_terminal: float = 1e2
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
         self.wall_axis: int = 0  # Wall axis: 0,1,2 -> x,y,z
         self.wall_value: float = 0.  # wall height value on axis
@@ -50,12 +57,17 @@ class SafetyFilter3Dof:
     def __init__(self,
                  model: "SymbolicFlexibleArm3DOF",
                  model_nonsymbolic,
-                 x0: np.ndarray,
-                 x0_ee: np.ndarray,
-                 options: SafetyFilter3dofOptions):
+                 x0: np.ndarray = None,
+                 x0_ee: np.ndarray = None,
+                 options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(n_seg=1)):
 
-        self.u_max = options.u_max
-        self.dq_active_max = options.dq_active_max
+        if x0 is None:
+            x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
+        if x0_ee is None:
+            x0_ee = np.zeros((3, 1))
+
+        self.u_max = model.tau_max  # [Nm]
+        self.dq_active_max = model.dqa_max
         self.model_ns = model_nonsymbolic
         self.fa_model = model
         model, constraint_expr = model.get_acados_model_safety()
@@ -89,7 +101,7 @@ class SafetyFilter3Dof:
         self.nz = nz
 
         # define constraints
-        ocp.model.con_h_expr = constraint_expr
+        # ocp.model.con_h_expr = constraint_expr
 
         # some checks
         assert (nu == options.r_diag.shape[0])
@@ -103,20 +115,20 @@ class SafetyFilter3Dof:
         ocp.cost.cost_type_e = 'LINEAR_LS'
 
         # setting state weights
-        q_diag = np.zeros((2+4*(options.n_seg+1),))
+        q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_diag[0:int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2):] = 1
+        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
         q_e_diag[0:int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2):] = 1e5
+        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
         R = np.diagflat(options.r_diag)
+        R_rollout = np.diagflat(options.r_diag_rollout)
         Z = np.diagflat(options.z_diag)
         Z_e = np.diagflat(options.z_e_diag)
 
-        # state constraints
         # state constraints
         ocp.constraints.lbx = -self.dq_active_max
         ocp.constraints.ubx = self.dq_active_max
@@ -135,7 +147,7 @@ class SafetyFilter3Dof:
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.zl = np.array([0] * 3 + [options.w1_slack_wall] * n_wall_constraints)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
@@ -172,6 +184,9 @@ class SafetyFilter3Dof:
         # Vz_e = np.zeros((ny_e, nz))
         # Vz_e[nx:, :] = np.eye(nz)
         # ocp.cost.Vz_e = Vz_e
+
+        ocp.model.name = "safety_" + str(options.n) + "_" + str(options.n_seg)
+        ocp.code_export_directory = mkdtemp()
 
         x_goal = x0
         x_goal_cartesian = x0_ee  # np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
@@ -214,38 +229,82 @@ class SafetyFilter3Dof:
                                                                                     np.zeros_like(Z)))
             else:
                 self.acados_ocp_solver.cost_set(stage, "W", scipy.linalg.block_diag(Q,
-                                                                                    R * 1e-1,
+                                                                                    R_rollout,
                                                                                     np.zeros_like(Z)))
         self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
+
+        # Create model instances
+        est_model = SymbolicFlexibleArm3DOF(options.n_seg, dt=self.options.tf / options.n, integrator='collocation')
+
+        # Design estimator
+        # initial covariance matrix
+        p0_q = [0.05] * est_model.nq  # 0.05, 0.1
+        p0_dq = [1e-3] * est_model.nq
+        P0 = np.diag([*p0_q, *p0_dq])
+        # process noise covariance
+        q_q = [1e-4, *[1e-3] * (est_model.nq - 1)]
+        q_dq = [1e-1, *[5e-1] * (est_model.nq - 1)]  # 5e-1, 10e-1
+        Q = np.diag([*q_q, *q_dq])
+        # measurement noise covaiance
+        r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
+        R = 100 * np.diag([*r_q, *r_dq, *r_pee])
+
+        # initial state for the estimator
+        qa0_est = np.array([0, 0, 0])
+        q0_est = get_rest_configuration(qa0_est, options.n_seg)
+        dq0_est = np.zeros_like(q0_est)
+        x0_est = np.vstack((q0_est, dq0_est))
+
+        self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
+
+    def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
+        """
+        Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
+
+        @param x_ref: States q and dq of the reference position
+        @param p_ee_ref: Endefector reference position
+        @param u_ref: Torques at endeffector position. Can be set to zero.
+        """
+        if len(p_ee_ref.shape) < 2:
+            p_ee_ref = np.expand_dims(p_ee_ref, 1)
+        if len(x_ref.shape) < 2:
+            x_ref = np.expand_dims(x_ref, 1)
+        if len(u_ref.shape) < 2:
+            u_ref = np.expand_dims(u_ref, 1)
+
+        yref = np.vstack((x_ref, u_ref, p_ee_ref)).flatten()
+        yref_e = np.vstack((x_ref, p_ee_ref)).flatten()
+
+        for stage in range(self.options.n):
+            self.acados_ocp_solver.cost_set(stage, "yref", yref)
+        self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
     def reset(self):
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def filter(self, q: np.ndarray, dq: np.ndarray, u0: np.ndarray):
+    def filter(self, u0: np.ndarray, y: np.ndarray, u_pre_safe: np.ndarray):
+        # first estimate state
+        y = np.expand_dims(y, 1)
+        if u_pre_safe is None:
+            self.x_hat = self.E.estimate(y).flatten()
+        else:
+            self.x_hat = self.E.estimate(y, u_pre_safe).flatten()
+
         # set initial state
         start_time = time.time()
-        xcurrent = np.vstack((q, dq))
+        xcurrent = self.x_hat  # np.vstack((q, dq))
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
         # simulate states
-        self.sim.controller.set_u(u0)
-        # Todo: This initialisation takes forever. Try without.
-        """
-        x_sim, u_sim, x_hat_ = self.sim.simulate(xcurrent.flatten(), self.options.get_sampling_time(), self.options.n)
-        #t = np.arange(0, n_iter + 1) * ts
-
-        for i in range(self.options.n + 1):
-            self.acados_ocp_solver.set(i, "x", x_sim[i,:])
-        for i in range(self.options.n):
-            self.acados_ocp_solver.set(i, "u", u_sim[i, :])
-        # for i in range(self.options.n):
-        #    self.acados_ocp_solver.set(0, "z", self.x0_ee)
-        """
         # set u0 reference
         stage = 0
-        yref = np.vstack((np.zeros((self.nx, 1)), u0.transpose(), np.zeros((self.nz, 1)))).flatten()
+        if u0.shape.__len__() <= 1:
+            u0 = np.expand_dims(u0.transpose(), 1)
+        else:
+            u0 = u0.transpose()
+        yref = np.vstack((np.zeros((self.nx, 1)), u0, np.zeros((self.nz, 1)))).flatten()
         self.acados_ocp_solver.cost_set(stage, "yref", yref)
 
         # acados solve NLP
@@ -262,7 +321,6 @@ class SafetyFilter3Dof:
 
         # Retrieve control u
         u_output = self.acados_ocp_solver.get(0, "u")
-        # print("delta u: {}".format(u0 - u_output))
 
         self.debug_total_timings.append(time.time() - start_time)
         return u_output
@@ -290,10 +348,20 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
     class ControllerSafetyWrapper(base_controller_class):
         def __init__(self, *args, **kwargs):
             super(ControllerSafetyWrapper, self).__init__(*args, **kwargs)
+            self.u_pre_safe = None
 
-        def compute_torques(self, q, dq, t=None):
+        def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
+            safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
+
+        def compute_torques(self, q, dq, t=None, y=None):
+            assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
-            u_safe = safety_filter.filter(u0=u, q=q, dq=dq)
+            u_safe = safety_filter.filter(u0=u, y=y, u_pre_safe=self.u_pre_safe)
+            # print(u - u_safe)
+            self.u_pre_safe = u_safe
             return u_safe
+
+        def get_timing_statistics(self):
+            return safety_filter.get_timing_statistics()
 
     return ControllerSafetyWrapper

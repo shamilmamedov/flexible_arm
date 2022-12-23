@@ -1,5 +1,11 @@
 <?xml version="1.0"?>
 <robot name="flexible_arm">
+    <!-- Some parameters -->
+    <material name="grey">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+        <!-- <color rgba="0.82 0.1 0.0 1.0"/> -->
+    </material>
+
     <!-- world -->
     <link name="world"/>
 
@@ -9,6 +15,7 @@
             <geometry>
                 <cylinder radius="0.025" length="0.15"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0 0 0.075"/>
         </visual>
         <inertial>
@@ -33,6 +40,7 @@
             <geometry>
                 <box size="0.025 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -55,6 +63,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -77,6 +86,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -99,6 +109,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -121,6 +132,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -143,6 +155,7 @@
         <geometry>
             <box size="0.05 0.002 0.05"/>
         </geometry>
+        <material name="grey"/>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
@@ -165,6 +178,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -187,6 +201,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -209,6 +224,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -231,6 +247,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -253,6 +270,7 @@
             <geometry>
                 <box size="0.025 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -278,6 +296,7 @@
             <geometry>
                 <box size="0.025 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -300,6 +319,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -322,6 +342,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -344,6 +365,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -366,6 +388,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -388,6 +411,7 @@
         <geometry>
             <box size="0.05 0.002 0.05"/>
         </geometry>
+        <material name="grey"/>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
@@ -410,6 +434,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -432,6 +457,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -454,6 +480,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -476,6 +503,7 @@
             <geometry>
                 <box size="0.05 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -498,6 +526,7 @@
             <geometry>
                 <box size="0.025 0.002 0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -520,6 +549,7 @@
             <geometry>
                 <sphere radius="0.05"/>
             </geometry>
+            <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.05 0 0"/>
         </visual>
         <inertial>

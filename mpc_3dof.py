@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+from tempfile import mkdtemp
+
 import numpy as np
 import scipy
-from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt 
+from scipy.interpolate import interp1d, CubicSpline
 from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
@@ -13,7 +16,7 @@ if TYPE_CHECKING:
     from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
-Q_QP = 0.001  # penalty on passive joints positions # 0.1
+Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001
 Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,  
 Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
 Q_DQA_E = 1.  # penalty on terminal active joints velocities
@@ -26,9 +29,9 @@ class Mpc3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_seg: int, tf: float = 2):
+    def __init__(self, n_seg: int, tf: float = 2, n: int = 30):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
-        self.n: int = 30  # number of discretization points
+        self.n: int = n  # number of discretization points
         self.tf: float = tf  # time horizon
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
@@ -57,7 +60,7 @@ class Mpc3dofOptions:
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
-        self.w2_slack_speed: float = 1e3
+        self.w2_slack_speed: float = 1e6
         self.w2_slack_wall: float = 1e5
 
     def get_sampling_time(self) -> float:
@@ -111,6 +114,9 @@ class Mpc3Dof(BaseController):
         assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
         assert (nu == options.r_diag.shape[0])
         assert (nz == options.z_diag.shape[0] == options.z_e_diag.shape[0])
+
+        ocp.model.name = "mpc_" + str(options.n) + "_" + str(options.n_seg)
+        ocp.code_export_directory = mkdtemp()
 
         # set dimensions
         ocp.dims.N = options.n
@@ -178,7 +184,7 @@ class Mpc3Dof(BaseController):
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [1] * n_wall_constraints)
+            ocp.cost.zl = np.array([10**3] * 3 + [10] * n_wall_constraints)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
@@ -200,7 +206,7 @@ class Mpc3Dof(BaseController):
         ocp.solver_options.qp_solver_cond_N = int(options.n * options.condensing_relative)
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.solver_options.integrator_type = 'IRK'
-        ocp.solver_options.nlp_solver_type = 'SQP_RTI'  # SQP_RTI, SQP
+        ocp.solver_options.nlp_solver_type = 'SQP'  # SQP_RTI, SQP
         ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
         ocp.solver_options.sim_method_num_stages = 2
@@ -238,41 +244,18 @@ class Mpc3Dof(BaseController):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
-    # def set_reference_trajectory(self, q_t0, pee_tf, tf, fun_forward_pee):
-    #     """
-    #     Sets a reference point which will be transformed into a guiding trajectory and can be used alternatively to
-    #     set_reference_point() method.
-    #     The function precomputes a spline for joint positions with quintic polynoms.
-
-    #     @param q_t0: Position states at time 0
-    #     @param pee_tf: Endeffector reference state at final time tf
-    #     @param tf: Final time tf
-    #     @param fun_forward_pee: Function, that computes q->p_ee
-    #     """
-    #     n_eval = 100
-    #     t_eval = np.linspace(0, tf, 100)
-    #     n_seg = int((self.nx - 2) / (2 * 2) - 1)
-    #     t, q, dq = get_reference_for_all_joints(q_t0, pee_tf, tf, ts=self.options.tf / n_eval, n_seg=n_seg)
-    #     self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
-    #     self.inter_t2dq = interp1d(t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :])
-    #     p_eval = np.zeros((t_eval.__len__(), 3))
-    #     for i in range(t_eval.__len__()):
-    #         _, pee = fun_forward_pee(self.inter_t2q(t_eval[i]))
-    #         p_eval[i, :] = pee[:, 0]
-    #     self.inter_pee = interp1d(t_eval, p_eval, axis=0, bounds_error=False, fill_value=p_eval[-1, :])
-
-    def set_reference_trajectory(self, q_t0, tf: float = 0.75, r: float = 0.2):
-        qa_t0 = (q_t0.flatten())[self.fa_model.qa_idx]
+    def set_reference_trajectory(self, qa_t0, tf: float = 0.75, r: float = 0.2):
         t, q, dq, u, pee = design_optimal_circular_trajectory(
-            self.fa_model.n_seg, qa_t0, r=0.2, tf=tf, visualize=False
+            self.fa_model.n_seg, qa_t0, r=r, tf=tf, visualize=False
         )
         self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
         self.inter_t2dq = interp1d(t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :])
         self.inter_t2u = interp1d(t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :])
         self.inter_pee = interp1d(t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :])
 
-
-    def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None):
+        return self.inter_pee
+                
+    def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
         Main control loop function that computes the torques at a specific time. The time is only required if a
         reference trajectory is used.
