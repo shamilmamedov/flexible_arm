@@ -13,7 +13,7 @@ from optimal_planner import design_optimal_circular_trajectory
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+    from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
 Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001

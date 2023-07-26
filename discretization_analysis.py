@@ -6,7 +6,7 @@ from scipy.signal import unit_impulse
 from simulation import Simulator, SimulatorOptions
 from controller import (PDController3Dof, FeedforwardController,
                         DummyController)
-from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
+from envs.flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from animation import Panda3dAnimator
 import plotting

@@ -5,13 +5,13 @@ is used for behavioral cloning
 from copy import copy
 from dataclasses import dataclass
 
-import gym
+import gymnasium as gym
 import numpy as np
 from typing import Tuple
-from gym import spaces
+from gymnasium import spaces
 
 from estimator import ExtendedKalmanFilter
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF, get_rest_configuration
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF, get_rest_configuration
 from simulation import Simulator, SimulatorOptions
 
 

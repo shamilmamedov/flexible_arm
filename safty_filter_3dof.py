@@ -13,11 +13,11 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from estimator import ExtendedKalmanFilter
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from simulation import Simulator
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF
+    from envs.flexible_arm_3dof import FlexibleArm3DOF
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import numpy as np
 
 from utils import print_timings
-from flexible_arm_3dof import (SymbolicFlexibleArm3DOF, inverse_kinematics_rb,
+from envs.flexible_arm_3dof import (SymbolicFlexibleArm3DOF, inverse_kinematics_rb,
                                get_rest_configuration)
 from estimator import ExtendedKalmanFilter
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof

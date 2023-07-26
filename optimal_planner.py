@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration)
+from envs.flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration)
 from ocp import OCPOptions, OptimalControlProblem
 from animation import Panda3dAnimator
 import plotting

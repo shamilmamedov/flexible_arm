@@ -1,8 +1,8 @@
 from copy import deepcopy
 import numpy as np
 from estimator import ExtendedKalmanFilter
-from utils import plot_result, print_timings, ControlMode
-from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
+from utils.utils import plot_result, print_timings, ControlMode
+from envs.flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from animation import Panda3dAnimator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof

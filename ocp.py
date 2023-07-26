@@ -2,7 +2,7 @@ import numpy as np
 import casadi as cs
 from dataclasses import dataclass
 
-from  flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration, 
+from  envs.flexible_arm_3dof import (SymbolicFlexibleArm3DOF, get_rest_configuration, 
                                 inverse_kinematics_rb)
 from animation import Panda3dAnimator
 from poly5_planner import Poly5Trajectory

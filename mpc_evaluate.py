@@ -1,7 +1,7 @@
 import numpy as np
 
-from gym_env import FlexibleArmEnvOptions, FlexibleArmEnv
-from flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
+from envs.gym_env import FlexibleArmEnvOptions, FlexibleArmEnv
+from envs.flexible_arm_3dof import (SymbolicFlexibleArm3DOF,
                                 get_rest_configuration,
                                 inverse_kinematics_rb)
 from estimator import ExtendedKalmanFilter

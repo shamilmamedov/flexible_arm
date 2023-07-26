@@ -1,11 +1,11 @@
 from copy import deepcopy
 import numpy as np
 from stable_baselines3.ppo import MlpPolicy
-from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from gym_env import FlexibleArmEnv
-from gym_utils import CallableExpert
+from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from envs.gym_env import FlexibleArmEnv
+from utils.gym_utils import CallableExpert
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils import ControlMode
+from utils.utils import ControlMode
 
 control_mode = ControlMode.SET_POINT
 n_seg = 3

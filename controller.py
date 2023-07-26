@@ -4,7 +4,7 @@ from stable_baselines3.ppo import MlpPolicy
 import numpy as np
 from abc import ABC, abstractmethod
 
-from gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
+from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 
 class BaseController(ABC):

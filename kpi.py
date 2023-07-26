@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 
 
 def path_length(q: np.ndarray, model: SymbolicFlexibleArm3DOF) -> float:
