@@ -28,15 +28,6 @@ q_ref[0] += np.pi / 2
 q_ref[1] += 0
 q_ref[1 + n_seg + 1] += -np.pi / 20
 
-# NOTE: what are the ones below? should they be used in the env?
-dq0 = np.zeros_like(q0)
-x0 = np.vstack((q0, dq0))
-
-dq_ref = np.zeros_like(q_ref)
-x_ref = np.vstack((q_ref, dq_ref))
-_, x_ee_ref = fa_ld.fk_ee(q_ref)
-_, xee0 = fa_ld.fk_ee(q0)
-
 # create environment
 # Measurement noise covairance parameters
 R_Q = [3e-6] * 3
@@ -57,6 +48,7 @@ for i in range(n_eps):
         action = env.action_space.sample()
         print("Random Action: {}".format(action))
         (obs, reward, done, info) = env.step(action)
+        env.render()
         sum_reward += reward
         if done:
             print("N steps: {}".format(env.no_intg_steps))

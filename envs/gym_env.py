@@ -11,8 +11,9 @@ from typing import Tuple
 from gymnasium import spaces
 
 from estimator import ExtendedKalmanFilter
-from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, FlexibleArm3DOF, get_rest_configuration
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from simulation import Simulator, SimulatorOptions
+from animation import Panda3dRenderer
 
 
 @dataclass
@@ -33,7 +34,6 @@ class FlexibleArmEnvOptions:
     goal_min_time: float = 1
     sim_noise_R: np.ndarray = None
     contr_input_states: str = 'estimated'
-
 
 class FlexibleArmEnv(gym.Env):
     """ Creates gym environment for flexible robot arm
@@ -173,3 +173,9 @@ class FlexibleArmEnv(gym.Env):
         if self.no_intg_steps >= self.max_intg_steps:
             done = True
         return bool(done)
+    
+    def render(self):
+        if not hasattr(self, "renderer"):
+            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+        frame = self.renderer.render(q=self._state[:int(self.model_sym.nq)])
+        return frame

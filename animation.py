@@ -81,3 +81,22 @@ class Panda3dAnimator:
             time.sleep(1)
 
 
+class Panda3dRenderer:
+    def __init__(self, urdf_path: str) -> None:
+        # Let pinocchio to build model, collision and visual models from URDF
+        m, cm, vm = pin.buildModelsFromUrdf(urdf_path)
+
+        # Instantiate panda3visualizer
+        self.viz = Panda3dVisualizer(m, cm, vm)
+        self.viz.initViewer()
+        self.viz.loadViewerModel(group_name='flexible_arm')
+
+    def render(self, q: np.ndarray) -> np.ndarray:
+        """
+        :parameter q: [nj,] joint states, nj is number of joints
+        """
+        self.viz.display(q)
+        img = self.viz.viewer.get_screenshot()
+        return img
+
+
