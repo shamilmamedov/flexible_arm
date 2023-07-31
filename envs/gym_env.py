@@ -86,7 +86,6 @@ class FlexibleArmEnv(gym.Env):
             estimator=estimator,
             opts=sim_opts,
         )
-
         # Define observation space
         if estimator is None:
             nx_ = self.model_sym.nx
@@ -171,7 +170,8 @@ class FlexibleArmEnv(gym.Env):
         reward = -dist * self.options.dt
 
         # Check if the state is terminal
-        terminated = bool(self._terminal(dist))
+        terminated = self._terminal(dist)
+        truncated = self._truncated()
 
         # Other outputs
         info = {}
@@ -181,8 +181,6 @@ class FlexibleArmEnv(gym.Env):
             observation = self._state[:, 0]
         else:
             observation = self.simulator.x_hat[self.no_intg_steps, :]
-
-        truncated = self.no_intg_steps >= self.max_intg_steps
 
         return observation, reward, terminated, truncated, info
 
@@ -197,9 +195,10 @@ class FlexibleArmEnv(gym.Env):
             self.goal_dist_counter >= self.options.goal_min_time / self.options.dt
         ) and self.stop_if_goal_condition:
             done = True
-        if self.no_intg_steps >= self.max_intg_steps:
-            done = True
         return bool(done)
+
+    def _truncated(self):
+        return bool(self.no_intg_steps >= self.max_intg_steps)
 
     def render(self):
         if not self.render_mode in ["human", "rgb_array"]:

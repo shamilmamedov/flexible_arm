@@ -1,7 +1,6 @@
-"""This is a simple example demonstrating how to clone the behavior of an expert.
-
-Refer to the jupyter notebooks for more detailed examples of how to use the algorithms.
-
+"""
+This is a simple example demonstrating how to clone the behavior of an expert.
+This demo trains a PPO agent as the expert and uses BC for imitation learning.
 RUN COMMAND: python -m tests.test_imitationlib
 """
 from copy import deepcopy
