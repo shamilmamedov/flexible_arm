@@ -1,29 +1,20 @@
 """
-This demo uses MPC as the expert and uses BC for imitation learning.
+This demo loads MPC rollouts as the expert and uses BC for imitation learning.
 RUN COMMAND: python -m tests.test_mpc_bc
 """
-from copy import deepcopy
 
-import gymnasium as gym
 import numpy as np
-from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.ppo import MlpPolicy
 
 from imitation.algorithms import bc
 from imitation.data import rollout
-from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
 
 from envs.flexible_arm_3dof import FlexibleArm3DOF, get_rest_configuration
-from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions, SymbolicFlexibleArm3DOF
-from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableExpert
+from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 
 rng = np.random.default_rng(0)
-COLLECT_EXPERT_DATA = True
 
 # --- Create FlexibleArm environment ---
 n_seg = 3
@@ -60,44 +51,7 @@ env_options = FlexibleArmEnvOptions(
 env = FlexibleArmEnv(env_options)
 # --------------------------------------
 
-if COLLECT_EXPERT_DATA:
-    # --- Create MPC controller ---
-    fa_sym_ld = SymbolicFlexibleArm3DOF(n_seg)
-
-    # create expert MPC
-    mpc_options = Mpc3dofOptions(n_seg=n_seg)
-    mpc_options.n = 130
-    mpc_options.tf = 1.3
-    mpc_options.r_diag *= 10
-    controller = Mpc3Dof(model=fa_sym_ld, x0=x0, pee_0=xee0, options=mpc_options)
-    u_ref = np.zeros(
-        (fa_sym_ld.nu, 1)
-    )  # u_ref could be changed to some known value along the trajectory
-
-    # Choose one out of two control modes. Reference tracking uses a spline planner.
-    controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
-
-    # create MPC expert
-    expert = CallableExpert(
-        controller,
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-    )
-    # -----------------------------
-
-    # --- Collect expert trajectories ---
-    print("Sampling expert transitions.")
-    rollouts = rollout.rollout(
-        expert,
-        DummyVecEnv([lambda: RolloutInfoWrapper(env)]),
-        rollout.make_sample_until(min_timesteps=None, min_episodes=10),
-        rng=rng,
-        verbose=True,
-    )
-    serialize.save("expert_rollouts.pkl", rollouts)
-    # -----------------------------------
-else:
-    rollouts = serialize.load("expert_rollouts.pkl")
+rollouts = serialize.load("mpc_expert_rollouts.pkl")
 
 transitions = rollout.flatten_trajectories(rollouts)
 
