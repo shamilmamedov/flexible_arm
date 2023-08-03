@@ -53,10 +53,11 @@ for i in range(n_eps):
     obs = env.reset()
     while not terminated:
         action = env.action_space.sample()
-        print("Random Action: {}".format(action))
+        # print("Random Action: {}".format(action))
         (obs, reward, terminated, truncated, info) = env.step(action)
         env.render()
         sum_reward += reward
-        if terminated:
+        if terminated or truncated:
             print("N steps: {}".format(env.no_intg_steps))
+            break
     print("Sum of rewards: {}".format(sum_reward))
