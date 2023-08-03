@@ -50,7 +50,7 @@ class FlexibleArmEnv(gym.Env):
         #    assert estimator.x_hat is not None, "Estimator needs to be initialized"
 
         self.options = options
-        self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
+        self.model = SymbolicFlexibleArm3DOF(options.n_seg)
         self.dt = options.dt
 
         # initial position
@@ -72,12 +72,12 @@ class FlexibleArmEnv(gym.Env):
             R = self.options.sim_noise_R,
             contr_input_states = self.options.contr_input_states
         )
-        self.simulator = Simulator(self.model_sym, controller=None, integrator='cvodes',
+        self.simulator = Simulator(self.model, controller=None, integrator='cvodes',
                                    estimator=estimator, opts=sim_opts)
 
         # Define observation space
         if estimator is None:
-            nx_ = self.model_sym.nx
+            nx_ = self.model.nx
             self.observation_space = spaces.Box(np.array([-np.pi * 200] * nx_),
                                                 np.array([np.pi * 200] * nx_), 
                                                 dtype=np.float64)
@@ -104,7 +104,7 @@ class FlexibleArmEnv(gym.Env):
         q = get_rest_configuration(qa, self.options.n_seg)
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
-        xee = np.array(self.model_sym.p_ee(q))
+        xee = np.array(self.model.p_ee(q))
         return x[:, 0], xee
 
     def reset(self):
@@ -143,7 +143,7 @@ class FlexibleArmEnv(gym.Env):
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
-        x_ee = np.array(self.model_sym.p_ee(self._state[:int(self.model_sym.nq)]))
+        x_ee = np.array(self.model.p_ee(self._state[:int(self.model.nq)]))
         dist = np.linalg.norm(x_ee - self.xee_final, 2)
         reward = - dist * self.options.dt
 

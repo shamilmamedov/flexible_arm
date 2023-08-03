@@ -13,10 +13,13 @@ FILE_PATH = 'flexible_arm_ws/src/fa_setup/js_traj.csv'
 # Data taken from imitation builder
 delta_wall_angle = np.pi/40
 ## qa = np.array([-np.pi/2 - delta_wall_angle, np.pi/7, -np.pi/5])
-qa = np.array([-np.pi/2 - delta_wall_angle, np.pi / 10, np.pi / 8])
+# qa = np.array([-np.pi/2 - delta_wall_angle, np.pi / 10, np.pi / 8])
 ## qa = np.array([-np.pi/4 - delta_wall_angle, np.pi/20, np.pi/4])
 # qa = np.array([-delta_wall_angle, np.pi / 7, -np.pi / 5])
 
+# qa = np.array([0., np.pi/30, -np.pi/30])
+# qa = np.array([0., -7.33e-2, 9.38e-1])
+qa = np.array([-0.1, 0.45, -0.2])
 
 # Get rest configuration
 q = get_rest_configuration(qa, N_SEG).T

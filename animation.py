@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-from re import M
+from panda3d_viewer import Viewer, ViewerConfig
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
@@ -9,7 +8,14 @@ from pinocchio.visualize import Panda3dVisualizer, RVizVisualizer
 import time
 
 
-# from sklearn.semi_supervised import SelfTrainingClassifier
+PANDA3D_CONFIG = ViewerConfig()
+PANDA3D_CONFIG.enable_antialiasing(True, multisamples=4)
+PANDA3D_CONFIG.enable_shadow(False)
+PANDA3D_CONFIG.show_axes(True)
+PANDA3D_CONFIG.show_grid(False)
+PANDA3D_CONFIG.show_floor(False)
+PANDA3D_CONFIG.enable_spotlight(False)
+PANDA3D_CONFIG.enable_hdr(False)
 
 
 class Animator:
@@ -63,13 +69,16 @@ class Panda3dAnimator:
 
         # Instantiate panda3visualizer
         self.viz = Panda3dVisualizer(m, cm, vm)
+        self.viewer = Viewer(config=PANDA3D_CONFIG)
+        self.viewer.set_background_color((255,255,255))
+        # self.viewer.reset_camera()
         # self.viz = RVizVisualizer(m, cm, vm)
 
     def play(self, k: int = 5):
         """
         :parameter k: number of times to play the trajectory
         """
-        self.viz.initViewer()
+        self.viz.initViewer(viewer=self.viewer)
         self.viz.loadViewerModel(group_name='flexible_arm')
 
         for _ in range(k):

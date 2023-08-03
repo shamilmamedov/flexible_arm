@@ -3,15 +3,15 @@ from imitation_builder import ImitationBuilder_Wall, ImitationBuilder_Wall2, Imi
 from evaluator import Evaluator
 
 if __name__ == "__main__":
-    PLOT_TRAINING = True
-    RUN_EVALUATOR = False
-    PERFORM_RUNS = False
-    PLOT_LATEX = True
+    PLOT_TRAINING = False
+    RUN_EVALUATOR = True
+    PERFORM_RUNS = True
+    PLOT_LATEX = False
     RENDER = True
-    SHOW_PLOTS = False
+    SHOW_PLOTS = True
 
-    experiment_dir = "data/imitation/wall3/version1"
-    experiment_dir2 = "data/imitation/wall2/version2"
+    experiment_dir = "data/imitation/wall3/version1/"
+    experiment_dir2 = "data/imitation/wall2/version2/"
 
     # plot training
     if PLOT_TRAINING:

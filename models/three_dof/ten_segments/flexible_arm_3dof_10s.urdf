@@ -6,6 +6,10 @@
         <!-- <color rgba="0.82 0.1 0.0 1.0"/> -->
     </material>
 
+    <!-- <material name = "light_grey">
+        <color rgba = "0.88 0.88 0.88 1"/>
+    </material> -->
+
     <!-- world -->
     <link name="world"/>
 
@@ -547,7 +551,7 @@
     <link name="load">
         <visual>
             <geometry>
-                <sphere radius="0.05"/>
+                <sphere radius="0.0005"/>
             </geometry>
             <material name="grey"/>
             <origin rpy="0 0 0" xyz ="0.05 0 0"/>
@@ -557,7 +561,7 @@
             <mass value="0" />
             <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
         </inertial>
-  </link>
+    </link>
 
     <joint name="last_link_to_load" type="fixed">
         <parent link="virtual_link3_11"/>
@@ -565,4 +569,31 @@
         <axis xyz="0 0 1"/>
         <origin xyz="0.025 0 0" rpy="0 0 0"/>
     </joint>
+
+    <!-- Wall -->
+    <!-- <link name = "wall_link">
+        <visual>
+            <origin xyz="0.04 0.00375 0.5" rpy="0 0 0" />
+            <geometry>
+                <box size="2 0.075 1"/>
+            </geometry>
+            <material name = "light_grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.075 2 1"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="15" />
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </link>
+
+    <joint name = "world_to_wall" type = "fixed">
+        <parent link = "world" />
+        <child link = "wall_link" />
+        <origin xyz = "0 0.08 0" />
+    </joint> -->
+
 </robot>

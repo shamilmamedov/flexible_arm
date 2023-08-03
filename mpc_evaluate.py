@@ -13,8 +13,8 @@ import kpi
 
 
 # Simulation and controller parameters
-N_SEG_sim = 2
-N_SEG_cntr = 2
+N_SEG_sim = 10
+N_SEG_cntr = 3
 
 DT = 0.01 # sampling time for contr and simulator
 N_ITER = 100 # number of simulation iterations
@@ -35,7 +35,7 @@ R_PEE_est = [1e-2] * 3
 
 # Controller parameters
 N_mpc = 30
-CNTR_INPUT_STATES = 'real'
+CNTR_INPUT_STATES = 'estimated'
 
 # P2P task 1
 # QA_t0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     t_mean, t_std, t_min, t_max = C.get_timing_statistics()
     print_timings(t_mean, t_std, t_min, t_max)
 
-    q = x[:, :env.model_sym.nq]
+    q = x[:, :env.model.nq]
     t_epsilons = []
     pls = []
     for epsilon in EPSILONS:
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
 
     # Visualization
-    plotting.plot_real_states_vs_estimate(t, x, xhat, N_SEG_sim, N_SEG_cntr)
-    plotting.plot_measurements(t, y, pee_ref)
+    # plotting.plot_real_states_vs_estimate(t, x, xhat, N_SEG_sim, N_SEG_cntr)
+    # plotting.plot_measurements(t, y, pee_ref)
 
-    Panda3dAnimator(env.model_sym.urdf_path, env.dt, q).play(2)
+    Panda3dAnimator(env.model.urdf_path, env.dt, q).play(2)
