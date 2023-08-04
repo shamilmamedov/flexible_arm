@@ -10,6 +10,14 @@
         <color rgba = "0.88 0.88 0.88 1"/>
     </material> -->
 
+    <material name="link_material">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+    </material>
+
+    <material name="goal_material">
+        <color rgba="0.87 0.275 0.09 1.0"/>
+    </material>
+
     <!-- world -->
     <link name="world"/>
 
@@ -19,7 +27,7 @@
             <geometry>
                 <cylinder radius="0.025" length="0.15"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0 0 0.075"/>
         </visual>
         <inertial>
@@ -42,9 +50,9 @@
     <link name="virtual_link2_1">
         <visual>
             <geometry>
-                <box size="0.025 0.002 0.05"/>
+                <box size="0.025 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -65,9 +73,9 @@
     <link name="virtual_link2_2">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -88,9 +96,9 @@
     <link name="virtual_link2_3">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -111,9 +119,9 @@
     <link name="virtual_link2_4">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -134,9 +142,9 @@
     <link name="virtual_link2_5">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -157,9 +165,9 @@
     <link name="virtual_link2_6">
     <visual>
         <geometry>
-            <box size="0.05 0.002 0.05"/>
+            <box size="0.05 0.0075 0.05"/>
         </geometry>
-        <material name="grey"/>
+        <material name="link_material"/>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
@@ -180,9 +188,9 @@
     <link name="virtual_link2_7">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -203,9 +211,9 @@
     <link name="virtual_link2_8">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -226,9 +234,9 @@
     <link name="virtual_link2_9">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -249,9 +257,9 @@
     <link name="virtual_link2_10">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -272,9 +280,9 @@
     <link name="virtual_link2_11">
         <visual>
             <geometry>
-                <box size="0.025 0.002 0.05"/>
+                <box size="0.025 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -298,9 +306,9 @@
     <link name="virtual_link3_1">
         <visual>
             <geometry>
-                <box size="0.025 0.002 0.05"/>
+                <box size="0.025 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -321,9 +329,9 @@
     <link name="virtual_link3_2">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -344,9 +352,9 @@
     <link name="virtual_link3_3">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -367,9 +375,9 @@
     <link name="virtual_link3_4">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -390,9 +398,9 @@
     <link name="virtual_link3_5">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -413,9 +421,9 @@
     <link name="virtual_link3_6">
     <visual>
         <geometry>
-            <box size="0.05 0.002 0.05"/>
+            <box size="0.05 0.0075 0.05"/>
         </geometry>
-        <material name="grey"/>
+        <material name="link_material"/>
         <origin rpy="0 0 0" xyz ="0.025 0 0"/>
     </visual>
     <inertial>
@@ -436,9 +444,9 @@
     <link name="virtual_link3_7">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -459,9 +467,9 @@
     <link name="virtual_link3_8">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -482,9 +490,9 @@
     <link name="virtual_link3_9">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -505,9 +513,9 @@
     <link name="virtual_link3_10">
         <visual>
             <geometry>
-                <box size="0.05 0.002 0.05"/>
+                <box size="0.05 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.025 0 0"/>
         </visual>
         <inertial>
@@ -528,9 +536,9 @@
     <link name="virtual_link3_11">
         <visual>
             <geometry>
-                <box size="0.025 0.002 0.05"/>
+                <box size="0.025 0.0075 0.05"/>
             </geometry>
-            <material name="grey"/>
+            <material name="link_material"/>
             <origin rpy="0 0 0" xyz ="0.0125 0 0"/>
         </visual>
         <inertial>
@@ -551,13 +559,13 @@
     <link name="load">
         <visual>
             <geometry>
-                <sphere radius="0.0005"/>
+                <sphere radius="0.025"/>
             </geometry>
-            <material name="grey"/>
-            <origin rpy="0 0 0" xyz ="0.05 0 0"/>
+            <material name="link_material"/>
+            <origin rpy="0 0 0" xyz ="0 0 0"/>
         </visual>
         <inertial>
-            <origin xyz="0.025 0 0" rpy="0 0 0"/>
+            <origin xyz="0.0125 0 0" rpy="0 0 0"/>
             <mass value="0" />
             <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
         </inertial>
@@ -568,6 +576,29 @@
         <child link="load"/>
         <axis xyz="0 0 1"/>
         <origin xyz="0.025 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Goal/Target position -->
+    <link name="goal">
+        <visual>
+            <geometry>
+                <sphere radius="0.025"/>
+            </geometry>
+            <material name="goal_material"/>
+            <origin rpy="0 0 0" xyz ="0 0 0"/>
+        </visual>
+        <inertial>
+            <origin xyz="0.0125 0 0" rpy="0 0 0"/>
+            <mass value="0" />
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+        </inertial>
+    </link>
+    
+    <joint name="goal_link_to_world" type="floating">
+        <parent link="world"/>
+        <child link="goal"/>
+        <!-- <axis xyz="0 0 1"/> -->
+        <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 
     <!-- Wall -->

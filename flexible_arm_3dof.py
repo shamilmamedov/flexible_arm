@@ -8,7 +8,7 @@ from scipy.linalg import block_diag
 from acados_template import AcadosModel
 
 from integrator import symbolic_RK4
-from animation import Panda3dAnimator
+from animation import Panda3dAnimator, FlexibleArmVisualizer
 from copy import deepcopy
 
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
@@ -472,7 +472,7 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
     # Create a root finder
     F = cs.rootfinder('F', 'newton', f)
 
-    # Solve IK problem
+    # Solve IK problemFalse
     if q_guess is None:
         q_guess = np.array([0, 0.1, -0.1])
         
@@ -480,45 +480,64 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
     return (np.array(q_num) + np.pi) % (2 * np.pi) - np.pi
 
 
-if __name__ == "__main__":
-    n_seg = 3
-    # arm = FlexibleArm(n_seg)
-    # q = np.zeros((arm.nq, 1))
-    # R, p = arm.fk_ee(q)
-    # print(R, p)
+def main(n_seg: int = 3):
+    robot = SymbolicFlexibleArm3DOF(n_seg)
 
-    # # arm.visualize(q)
-
-    sarm = SymbolicFlexibleArm3DOF(n_seg)
-    # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
-    # print(sarm)
-
-    n_seg = 0
-    model_folder = 'models/three_dof/' + \
-                       n_seg_int2str[n_seg] + '_segments/'
-    urdf_path = os.path.join(model_folder, 
-                'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
-
-    # P2P 1
-    # qa = np.array([np.pi/2, np.pi/10, -np.pi/8])
-    # qa = np.array([0., 2*np.pi/5, -np.pi/3])
-
-    # P2P 2
-    # qa = np.array([0., np.pi/20, -np.pi/20])
-    # qa = np.array([0., np.pi/3, -np.pi/20])
-
-
-    # P2P 3
-    # qa = np.array([0., np.pi/30, -np.pi/30])
     qa = np.array([0., np.pi/4, -np.pi/4])
-
     q = get_rest_configuration(qa, n_seg)
-
-    fkp = cs.Function.load(model_folder + 'fkp.casadi')
-    pee = np.array(fkp(q))
-    q_ik = inverse_kinematics_rb(pee)
-
-    q = np.repeat(q.reshape(1,-1), 50, axis=0)
+    p_ee = np.array(robot.p_ee(q)) 
+    p_goal = p_ee + np.random.uniform(-0.1, 0.1, size=(3,1))
     
-    animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
+    viz = FlexibleArmVisualizer(robot.urdf_path, dt=0.01)
+    viz.visualize_configuration(q, p_goal)
+    viz.visualize_configuration(q)
+
+    q = q.repeat(100, axis=1).T
+    viz.visualize_trajectory(q, p_goal)
+    viz.visualize_trajectory(q)
+
+
+if __name__ == "__main__":
+    main(n_seg=2)
+
+    # n_seg = 3
+    # # arm = FlexibleArm(n_seg)
+    # # q = np.zeros((arm.nq, 1))
+    # # R, p = arm.fk_ee(q)
+    # # print(R, p)
+
+    # # # arm.visualize(q)
+
+    # sarm = SymbolicFlexibleArm3DOF(n_seg)
+    # # sarm = SymbolicFlexibleArm3DOF(n_seg=3, integrator='collocation')
+    # # print(sarm)
+
+    # n_seg = 0
+    # model_folder = 'models/three_dof/' + \
+    #                    n_seg_int2str[n_seg] + '_segments/'_play
+    # urdf_path = os.path.join(model_folder, 
+    #             'flexible_arm_3dof_' + str(n_seg) + 's.urdf')
+
+    # # P2P 1
+    # # qa = np.array([np.pi/2, np.pi/10, -np.pi/8])
+    # # qa = np.array([0., 2*np.pi/5, -np.pi/3])
+
+    # # P2P 2
+    # # qa = np.array([0., np.pi/20, -np.pi/20])
+    # # qa = np.array([0., np.pi/3, -np.pi/20])
+
+
+    # # P2P 3
+    # # qa = np.array([0., np.pi/30, -np.pi/30])
+    # qa = np.array([0., np.pi/4, -np.pi/4])
+
+    # q = get_rest_configuration(qa, n_seg)
+
+    # fkp = cs.Function.load(model_folder + 'fkp.casadi')
+    # pee = np.array(fkp(q))
+    # q_ik = inverse_kinematics_rb(pee)
+
+    # q = np.repeat(q.reshape(1,-1), 50, axis=0)
+    
+    # animator = Panda3dAnimator(urdf_path, 0.01, q).play(3)
 
