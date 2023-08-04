@@ -6,6 +6,7 @@ from numpy.random import multivariate_normal
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from integrator import RK4
+from utils.utils import StateType
 
 # Measurement noise covairance parameters
 R_Q = [3e-6] * 3
@@ -23,7 +24,7 @@ class SimulatorOptions:
     atol: float = 1e-10  # 1e-8, 1e-10
     R: np.ndarray = np.diag([*R_Q, *R_DQ, *R_PEE])
     # R: np.ndarray = np.zeros((9, 9))
-    contr_input_states: str = "real"
+    contr_input_states: StateType = StateType.REAL
     dt: float = 0.01
     n_iter: float = 100
 
@@ -113,16 +114,16 @@ class Simulator:
             self.x[[0], :].T
         ).flatten() + multivariate_normal(np.zeros(self.robot.ny), self.opts.R)
 
-        # Estimate the first satate
+        # Estimate the first satate (Warmup)
         if self.estimator is not None:
-            for _ in range(10):
+            for _ in range(50):
                 self.x_hat[0, :] = self.estimator.estimate(self.y[[0], :].T).flatten()
 
         # Return initial state for controller
-        if self.opts.contr_input_states == "real":
+        if self.opts.contr_input_states == StateType.REAL:
             qk = self.x[[self.k], : self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq :].T
-        elif self.opts.contr_input_states == "estimated":
+        elif self.opts.contr_input_states == StateType.ESTIMATED:
             qk = self.x_hat[[self.k], : int(self.nx_est / 2)].T
             dqk = self.x_hat[[self.k], int(self.nx_est / 2) :].T
         else:
@@ -186,10 +187,10 @@ class Simulator:
         self.k += 1
 
         # Compute control action
-        if self.opts.contr_input_states == "real":
+        if self.opts.contr_input_states == StateType.REAL:
             qk = self.x[[self.k], : self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq :].T
-        elif self.opts.contr_input_states == "estimated":
+        elif self.opts.contr_input_states == StateType.ESTIMATED:
             qk = self.x_hat[[self.k], : int(self.nx_est / 2)].T
             dqk = self.x_hat[[self.k], int(self.nx_est / 2) :].T
         else:

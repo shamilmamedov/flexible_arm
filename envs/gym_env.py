@@ -13,6 +13,7 @@ from estimator import ExtendedKalmanFilter
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from simulation import Simulator, SimulatorOptions
 from animation import Panda3dRenderer
+from utils.utils import StateType
 
 
 @dataclass
@@ -23,6 +24,7 @@ class FlexibleArmEnvOptions:
 
     dt: float = 0.01
     n_seg: int = 3
+    n_seg_estimator: int = 3
     sim_time: float = 3
     qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
     qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
@@ -33,7 +35,7 @@ class FlexibleArmEnvOptions:
     goal_dist_euclid: float = 0.01
     goal_min_time: float = 1
     sim_noise_R: np.ndarray = None
-    contr_input_states: str = "estimated"
+    contr_input_states: StateType = StateType.REAL
     render_mode: Optional[str] = None
 
 
@@ -43,7 +45,6 @@ class FlexibleArmEnv(gym.Env):
     def __init__(
         self,
         options: FlexibleArmEnvOptions,
-        estimator: ExtendedKalmanFilter = None,
     ) -> None:
         """
         :parameter n_seg: number of segments per link
@@ -51,8 +52,19 @@ class FlexibleArmEnv(gym.Env):
         :parameter q0: initial rest configuration of the robot
         """
         self.render_mode = options.render_mode
-        if estimator is not None:
-            assert estimator.x_hat is not None, "Estimator needs to be initialized"
+        if options.contr_input_states is StateType.ESTIMATED:
+            estimator_model = SymbolicFlexibleArm3DOF(options.n_seg_estimator)
+            p0_q, p0_dq = [0.05] * estimator_model.nq, [1e-3] * estimator_model.nq
+            P0 = np.diag([*p0_q, *p0_dq])
+            q_q = [1e-4, *[1e-3] * (estimator_model.nq - 1)]
+            q_dq = [1e-1, *[5e-1] * (estimator_model.nq - 1)]
+            Q = np.diag([*q_q, *q_dq])
+            r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
+            R = 10 * np.diag([*r_q, *r_dq, *r_pee])
+            zero_x0 = np.zeros(((3 + 2 * options.n_seg_estimator) * 2, 1))
+            estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
+        else:
+            estimator = None
 
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -146,7 +158,7 @@ class FlexibleArmEnv(gym.Env):
         self.goal_dist_counter = 0
 
         # Get observations and info
-        if self.options.contr_input_states == "real":
+        if self.options.contr_input_states == StateType.REAL:
             observation = self._state
         else:
             observation = self.simulator.estimator.x_hat[:, 0]
