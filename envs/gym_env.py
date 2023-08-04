@@ -51,8 +51,8 @@ class FlexibleArmEnv(gym.Env):
         :parameter q0: initial rest configuration of the robot
         """
         self.render_mode = options.render_mode
-        # if estimator is not None:
-        #    assert estimator.x_hat is not None, "Estimator needs to be initialized"
+        if estimator is not None:
+            assert estimator.x_hat is not None, "Estimator needs to be initialized"
 
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -110,6 +110,9 @@ class FlexibleArmEnv(gym.Env):
         self.stop_if_goal_condition = True
 
         self._state = None
+
+    def _estimator_warmup(self):
+        pass
 
     def sample_rand_config(self, qa_mean: np.ndarray, qa_range: np.ndarray):
         """Samples a random joint configuration from a given range using
