@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 from estimator import ExtendedKalmanFilter
-from utils.utils import plot_result, print_timings, ControlMode
+from utils.utils import plot_result, print_timings, ControlMode, StateType
 from envs.flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF,
                                get_rest_configuration)
 from animation import Panda3dAnimator
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
     # simulate
     n_iter = 100
-    sim_opts = SimulatorOptions(contr_input_states='estimated', dt=dt)
+    sim_opts = SimulatorOptions( dt=dt, contr_input_states =StateType.ESTIMATED)
     sim = Simulator(fa_sym_hd, controller, 'cvodes', E, opts=sim_opts)
     x, u, y, xhat = sim.simulate(x0.flatten(), n_iter)
     t = np.arange(0, n_iter + 1) * dt

@@ -120,10 +120,10 @@ class Simulator:
                 self.x_hat[0, :] = self.estimator.estimate(self.y[[0], :].T).flatten()
 
         # Return initial state for controller
-        if self.opts.contr_input_states == StateType.REAL:
+        if self.opts.contr_input_states is StateType.REAL:
             qk = self.x[[self.k], : self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq :].T
-        elif self.opts.contr_input_states == StateType.ESTIMATED:
+        elif self.opts.contr_input_states is StateType.ESTIMATED:
             qk = self.x_hat[[self.k], : int(self.nx_est / 2)].T
             dqk = self.x_hat[[self.k], int(self.nx_est / 2) :].T
         else:
