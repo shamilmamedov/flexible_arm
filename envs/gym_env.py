@@ -53,7 +53,9 @@ class FlexibleArmEnv(gym.Env):
         """
         self.render_mode = options.render_mode
         if options.contr_input_states is StateType.ESTIMATED:
-            estimator_model = SymbolicFlexibleArm3DOF(options.n_seg_estimator)
+            estimator_model = SymbolicFlexibleArm3DOF(
+                options.n_seg_estimator, dt=options.dt, integrator="cvodes"
+            )
             p0_q, p0_dq = [0.05] * estimator_model.nq, [1e-3] * estimator_model.nq
             P0 = np.diag([*p0_q, *p0_dq])
             q_q = [1e-4, *[1e-3] * (estimator_model.nq - 1)]

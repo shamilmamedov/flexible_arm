@@ -29,7 +29,7 @@ rng = np.random.default_rng(0)
 # symbolic model (think of it as the computational graph)
 # normal model (think of it as the actual simulation model)
 # --- data env ---
-n_seg_data = 3
+n_seg_data = 5
 
 # --- control env ---
 n_seg_control = 3
@@ -45,14 +45,13 @@ q0 = get_rest_configuration(qa0, n_seg_data)
 
 
 # create initial state control env
-qa0_control = np.array(
-    [np.pi / 2, np.pi / 10, -np.pi / 8]
-)  # base-rotation, base-bend, elbow-bend
+qa0_control = qa0.copy()
 q0_control = get_rest_configuration(qa0_control, n_seg_control)
 dq0_control = np.zeros_like(q0_control)
 x0_control = np.vstack(
     (q0_control, dq0_control)
 )  # state: active and passive joint angles and velocities
+
 _, xee0_control = fa_control.fk_ee(
     q0_control
 )  # end-effector position in cartesian space (ignore the first output for now)
@@ -74,6 +73,7 @@ R_PEE = [1e-4] * 3
 env_options = FlexibleArmEnvOptions(
     n_seg=n_seg_data,
     n_seg_estimator=n_seg_control,
+    sim_time=1.0,
     dt=0.01,
     qa_start=qa0,
     qa_end=qa_ref_control,
@@ -87,9 +87,8 @@ env = FlexibleArmEnv(env_options)
 # --- Create MPC controller ---
 
 # create expert MPC
-mpc_options = Mpc3dofOptions(n_seg=n_seg_control)
+mpc_options = Mpc3dofOptions(n_seg=n_seg_control, tf=1.3)
 mpc_options.n = 130
-mpc_options.tf = 1.3
 controller = Mpc3Dof(
     model=fa_sym_control, x0=x0_control, pee_0=xee0_control, options=mpc_options
 )
