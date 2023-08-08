@@ -114,7 +114,7 @@ class Simulator:
             self.x[[0], :].T
         ).flatten() + multivariate_normal(np.zeros(self.robot.ny), self.opts.R)
 
-        # Estimate the first satate (Warmup)
+        # Estimate the first state (Warmup)
         if self.estimator is not None:
             for _ in range(50):
                 self.x_hat[0, :] = self.estimator.estimate(self.y[[0], :].T).flatten()
