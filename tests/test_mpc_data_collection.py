@@ -10,7 +10,6 @@ from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
 
-from estimator import ExtendedKalmanFilter
 from envs.flexible_arm_3dof import FlexibleArm3DOF, get_rest_configuration
 from envs.gym_env import (
     FlexibleArmEnv,
@@ -29,7 +28,7 @@ rng = np.random.default_rng(0)
 # symbolic model (think of it as the computational graph)
 # normal model (think of it as the actual simulation model)
 # --- data env ---
-n_seg_data = 5
+n_seg_data = 3
 
 # --- control env ---
 n_seg_control = 3
@@ -73,7 +72,7 @@ R_PEE = [1e-4] * 3
 env_options = FlexibleArmEnvOptions(
     n_seg=n_seg_data,
     n_seg_estimator=n_seg_control,
-    sim_time=1.0,
+    sim_time=1.3,
     dt=0.01,
     qa_start=qa0,
     qa_end=qa_ref_control,
@@ -100,6 +99,10 @@ u_ref = np.zeros(
 controller.set_reference_point(
     p_ee_ref=x_ee_ref_control, x_ref=x_ref_control, u_ref=u_ref
 )
+
+print(f"MPC controller goal:{x_ee_ref_control}")
+env.reset()
+print(f"env_goal:{env.xee_final}")
 
 # create MPC expert
 expert = CallableExpert(

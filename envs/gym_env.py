@@ -51,40 +51,22 @@ class FlexibleArmEnv(gym.Env):
         :parameter dt: stepsize of the integrator
         :parameter q0: initial rest configuration of the robot
         """
-        self.render_mode = options.render_mode
-        if options.contr_input_states is StateType.ESTIMATED:
-            estimator_model = SymbolicFlexibleArm3DOF(
-                options.n_seg_estimator, dt=options.dt, integrator="cvodes"
-            )
-            p0_q, p0_dq = [0.05] * estimator_model.nq, [1e-3] * estimator_model.nq
-            P0 = np.diag([*p0_q, *p0_dq])
-            q_q = [1e-4, *[1e-3] * (estimator_model.nq - 1)]
-            q_dq = [1e-1, *[5e-1] * (estimator_model.nq - 1)]
-            Q = np.diag([*q_q, *q_dq])
-            r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
-            R = 10 * np.diag([*r_q, *r_dq, *r_pee])
-            zero_x0 = np.zeros(((3 + 2 * options.n_seg_estimator) * 2, 1))
-            estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
-        else:
-            estimator = None
 
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
         self.dt = options.dt
 
-        # initial position
-        self._state, _ = self.sample_rand_config(
-            qa_mean=options.qa_start, qa_range=options.qa_range_start
-        )
-
-        # end position
-        self.x_final, self.xee_final = self.sample_rand_config(
-            qa_mean=options.qa_end, qa_range=options.qa_range_end
-        )
-
         # counter for integfration steps and max integration steps
         self.no_intg_steps = 0
         self.max_intg_steps = int(options.sim_time / options.dt)
+
+        # Create an estimator if needed
+        if options.contr_input_states is StateType.ESTIMATED:
+            estimator = self._create_estimator(
+                n_seg_estimator=options.n_seg_estimator, dt=options.dt
+            )
+        else:
+            estimator = None
 
         # Simulator of the model
         sim_opts = SimulatorOptions(
@@ -122,11 +104,31 @@ class FlexibleArmEnv(gym.Env):
 
         self.goal_dist_counter = 0
         self.stop_if_goal_condition = True
-
         self._state = None
 
-    def _estimator_warmup(self):
-        pass
+        # self.render_mode needs to exist because of gymnasium
+        self.render_mode = options.render_mode
+        if self.render_mode in ["human", "rgb_array"]:
+            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+        else:
+            self.renderer = None
+
+    def _create_estimator(
+        self, n_seg_estimator: int, dt: float
+    ) -> ExtendedKalmanFilter:
+        estimator_model = SymbolicFlexibleArm3DOF(
+            n_seg_estimator, dt=dt, integrator="cvodes"
+        )
+        p0_q, p0_dq = [0.05] * estimator_model.nq, [1e-3] * estimator_model.nq
+        P0 = np.diag([*p0_q, *p0_dq])
+        q_q = [1e-4, *[1e-3] * (estimator_model.nq - 1)]
+        q_dq = [1e-1, *[5e-1] * (estimator_model.nq - 1)]
+        Q = np.diag([*q_q, *q_dq])
+        r_q, r_dq, r_pee = [3e-5] * 3, [5e-2] * 3, [1e-3] * 3
+        R = 10 * np.diag([*r_q, *r_dq, *r_pee])
+        zero_x0 = np.zeros(((3 + 2 * n_seg_estimator) * 2, 1))
+        estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
+        return estimator
 
     def sample_rand_config(self, qa_mean: np.ndarray, qa_range: np.ndarray):
         """Samples a random joint configuration from a given range using
@@ -154,6 +156,8 @@ class FlexibleArmEnv(gym.Env):
         )
 
         self.simulator.reset(x0=self._state)
+        if self.renderer:
+            self.renderer.draw_sphere(pos=self.xee_final)
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -218,12 +222,10 @@ class FlexibleArmEnv(gym.Env):
         return bool(self.no_intg_steps >= self.max_intg_steps)
 
     def render(self):
-        if not self.render_mode in ["human", "rgb_array"]:
+        if self.renderer:
+            frame = self.renderer.render(q=self._state[: int(self.model_sym.nq)])
+        else:
             raise ValueError(
-                f"Invalid render_mode: {self.render_mode}. Must be one of ['human', 'rgb_array']"
+                "No renderer defined. Render mode can be one of ['human', 'rgb_array']"
             )
-
-        if not hasattr(self, "renderer"):
-            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
-        frame = self.renderer.render(q=self._state[: int(self.model_sym.nq)])
         return frame
