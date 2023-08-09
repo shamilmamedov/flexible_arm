@@ -25,45 +25,15 @@ rng = np.random.default_rng(0)
 
 
 # --- Create FlexibleArm environment ---
-# symbolic model (think of it as the computational graph)
-# normal model (think of it as the actual simulation model)
 # --- data env ---
-n_seg_data = 3
-
+n_seg_data = 5
 # --- control env ---
 n_seg_control = 3
-fa_control = FlexibleArm3DOF(n_seg_control)
-fa_sym_control = SymbolicFlexibleArm3DOF(n_seg_control)
-
 
 # Create initial state data env
-qa0 = np.array(
-    [np.pi / 2, np.pi / 10, -np.pi / 8]
-)  # base-rotation, base-bend, elbow-bend
-q0 = get_rest_configuration(qa0, n_seg_data)
-
-
-# create initial state control env
-qa0_control = qa0.copy()
-q0_control = get_rest_configuration(qa0_control, n_seg_control)
-dq0_control = np.zeros_like(q0_control)
-x0_control = np.vstack(
-    (q0_control, dq0_control)
-)  # state: active and passive joint angles and velocities
-
-_, xee0_control = fa_control.fk_ee(
-    q0_control
-)  # end-effector position in cartesian space (ignore the first output for now)
-
-# Compute reference control env (Workflow should be: EE -> JOINT STATES but we do it the other way around for convinience)
-qa_ref_control = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
-q_ref_control = get_rest_configuration(qa_ref_control, n_seg_control)
-dq_ref_control = np.zeros_like(q_ref_control)
-x_ref_control = np.vstack((q_ref_control, dq_ref_control))
-_, x_ee_ref_control = fa_control.fk_ee(
-    q_ref_control
-)  # GOAL SPECIFICATION IN CARTESIAN SPACE
-
+# base-rotation, base-bend, elbow-bend
+qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
 
 # create data environment
 R_Q = [3e-6] * 3
@@ -74,8 +44,9 @@ env_options = FlexibleArmEnvOptions(
     n_seg_estimator=n_seg_control,
     sim_time=1.3,
     dt=0.01,
-    qa_start=qa0,
-    qa_end=qa_ref_control,
+    qa_start=qa_initial,
+    qa_end=qa_final,
+    qa_range_end=np.array([1.0, 1.0, 1.0]),
     contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
     sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
     render_mode="human",
@@ -84,31 +55,17 @@ env = FlexibleArmEnv(env_options)
 # --------------------------------------
 
 # --- Create MPC controller ---
+fa_sym_control = SymbolicFlexibleArm3DOF(n_seg_control)
+mpc_options = Mpc3dofOptions(n_seg=n_seg_control, tf=1.3, n=130)
+controller = Mpc3Dof(model=fa_sym_control, x0=None, pee_0=None, options=mpc_options)
 
-# create expert MPC
-mpc_options = Mpc3dofOptions(n_seg=n_seg_control, tf=1.3)
-mpc_options.n = 130
-controller = Mpc3Dof(
-    model=fa_sym_control, x0=x0_control, pee_0=xee0_control, options=mpc_options
-)
-u_ref = np.zeros(
-    (fa_sym_control.nu, 1)
-)  # u_ref could be changed to some known value along the trajectory
-
-# Choose one out of two control modes. Reference tracking uses a spline planner.
-controller.set_reference_point(
-    p_ee_ref=x_ee_ref_control, x_ref=x_ref_control, u_ref=u_ref
-)
-
-print(f"MPC controller goal:{x_ee_ref_control}")
-env.reset()
-print(f"env_goal:{env.xee_final}")
 
 # create MPC expert
 expert = CallableExpert(
     controller,
     observation_space=env.observation_space,
     action_space=env.action_space,
+    observation_includes_goal=True,
 )
 # -----------------------------
 
