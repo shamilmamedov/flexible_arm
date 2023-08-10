@@ -17,7 +17,7 @@ from envs.gym_env import (
     SymbolicFlexibleArm3DOF,
 )
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableExpert
+from utils.gym_utils import CallableMPCExpert
 from utils.utils import StateType
 
 
@@ -61,7 +61,7 @@ controller = Mpc3Dof(model=fa_sym_control, x0=None, pee_0=None, options=mpc_opti
 
 
 # create MPC expert
-expert = CallableExpert(
+expert = CallableMPCExpert(
     controller,
     observation_space=env.observation_space,
     action_space=env.action_space,

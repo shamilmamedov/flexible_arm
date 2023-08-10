@@ -3,7 +3,7 @@ import torch
 from stable_baselines3.common import policies
 
 
-class CallableExpert(policies.BasePolicy):
+class CallableMPCExpert(policies.BasePolicy):
     """a callable expert is needed for sb3 which involves the mpc controler"""
 
     def __init__(

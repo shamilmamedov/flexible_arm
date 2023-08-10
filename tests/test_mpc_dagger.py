@@ -15,7 +15,7 @@ from imitation.algorithms.dagger import SimpleDAggerTrainer
 from envs.flexible_arm_3dof import FlexibleArm3DOF, get_rest_configuration
 from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions, SymbolicFlexibleArm3DOF
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableExpert
+from utils.gym_utils import CallableMPCExpert
 
 
 rng = np.random.default_rng(0)
@@ -71,7 +71,7 @@ u_ref = np.zeros(
 controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
 
 # create MPC expert
-expert = CallableExpert(
+expert = CallableMPCExpert(
     controller,
     observation_space=env.observation_space,
     action_space=env.action_space,
