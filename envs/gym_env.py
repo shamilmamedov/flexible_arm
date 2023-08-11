@@ -185,7 +185,8 @@ class FlexibleArmEnv(gym.Env):
 
         # Reset renderer
         if self.render_mode in ["human", "rgb_array"]:
-            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+            if not hasattr(self, "renderer"):
+                self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
             self.renderer.draw_sphere(pos=self.xee_final)
         else:
             self.renderer = None
