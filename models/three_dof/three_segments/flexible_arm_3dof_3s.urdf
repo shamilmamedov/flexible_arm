@@ -268,7 +268,6 @@
     <joint name="goal_link_to_world" type="floating">
         <parent link="world"/>
         <child link="goal"/>
-        <!-- <axis xyz="0 0 1"/> -->
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint> -->
 
