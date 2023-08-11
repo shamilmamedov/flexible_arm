@@ -114,10 +114,10 @@ class FlexibleArmEnv(gym.Env):
 
         # self.render_mode needs to exist because of gymnasium
         self.render_mode = options.render_mode
-        if self.render_mode in ["human", "rgb_array"]:
-            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
-        else:
-            self.renderer = None
+        # if self.render_mode in ["human", "rgb_array"]:
+        #     self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+        # else:
+        #     self.renderer = None
 
     def _create_estimator(
         self, n_seg_estimator: int, dt: float
@@ -183,8 +183,12 @@ class FlexibleArmEnv(gym.Env):
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
 
-        if self.renderer:
+        # Reset renderer
+        if self.render_mode in ["human", "rgb_array"]:
+            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
             self.renderer.draw_sphere(pos=self.xee_final)
+        else:
+            self.renderer = None
 
         # Reset integrations step counter
         self.no_intg_steps = 0
@@ -207,12 +211,9 @@ class FlexibleArmEnv(gym.Env):
         TODO: Make sure actions are in the action space;
               Clip actions if necessary
         """
-        # TODO ask Rudi why? They should return the same things
-        if self.options.contr_input_states is StateType.ESTIMATED:
-            self.simulator.step(action)
-            self._state = self.simulator.x[self.simulator.k, :]
-        else:
-            self._state = self.simulator.step(action)
+        self.simulator.step(action)
+        # Real state (not estimated)
+        self._state = self.simulator.x[self.simulator.k, :]
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal

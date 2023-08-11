@@ -71,7 +71,7 @@ print("Sampling expert transitions.")
 rollouts = rollout.rollout(
     expert,
     DummyVecEnv([lambda: RolloutInfoWrapper(env)]),
-    rollout.make_sample_until(min_timesteps=None, min_episodes=10),
+    rollout.make_sample_until(min_timesteps=None, min_episodes=100),
     rng=rng,
     verbose=True,
 )
