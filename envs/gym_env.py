@@ -150,11 +150,18 @@ class FlexibleArmEnv(gym.Env):
         """
         n_seg = self.options.n_seg_estimator if use_estimator else self.options.n_seg
         model = self.simulator.estimator.model if use_estimator else self.model_sym
-        qa = np.random.uniform(-qa_range / 2, qa_range / 2) + qa_mean
-        q = get_rest_configuration(qa, n_seg)
+        while True:
+            qa = np.random.uniform(
+                self.options.qa_range_start, 
+                self.options.qa_range_end
+            )
+            q = get_rest_configuration(qa, n_seg)
+            xee = np.array(model.p_ee(q))
+            if xee[2] > 0 and abs(xee[1]) > 0.05:
+                break    
+
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
-        xee = np.array(model.p_ee(q))
         return x[:, 0], xee
 
     def reset(

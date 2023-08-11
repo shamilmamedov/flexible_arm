@@ -10,11 +10,11 @@ from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
 
-from envs.flexible_arm_3dof import FlexibleArm3DOF, get_rest_configuration
+
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from envs.gym_env import (
     FlexibleArmEnv,
     FlexibleArmEnvOptions,
-    SymbolicFlexibleArm3DOF,
 )
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.gym_utils import CallableMPCExpert
@@ -49,6 +49,10 @@ env_options = FlexibleArmEnvOptions(
     render_mode="human",
 )
 env = FlexibleArmEnv(env_options)
+# env.reset()
+# for _ in range(500):
+#     env.render()
+# env.renderer.viz.viewer.stop()
 # --------------------------------------
 
 # --- Create MPC controller ---

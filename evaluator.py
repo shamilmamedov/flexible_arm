@@ -293,7 +293,7 @@ class Evaluator:
                                  wall_penetrations=wall_penetrations))
 
         if self.render:
-            animator = Panda3dAnimator(self.env.model_sym.urdf_path, self.env.dt, q).play(1)
+            animator = Panda3dAnimator(self.env.model.urdf_path, self.env.dt, q).play(1)
         return x, u, y, xhat, t
 
     def evaluate_expert(self, seed: int = 1, show_plots: bool = False):
