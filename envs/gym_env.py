@@ -183,14 +183,6 @@ class FlexibleArmEnv(gym.Env):
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
 
-        # Reset renderer
-        if self.render_mode in ["human", "rgb_array"]:
-            if not hasattr(self, "renderer"):
-                self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
-            self.renderer.draw_sphere(pos=self.xee_final)
-        else:
-            self.renderer = None
-
         # Reset integrations step counter
         self.no_intg_steps = 0
         self.goal_dist_counter = 0
@@ -257,7 +249,10 @@ class FlexibleArmEnv(gym.Env):
         return bool(self.no_intg_steps >= self.max_intg_steps)
 
     def render(self):
-        if self.renderer:
+        if self.render_mode in ["human", "rgb_array"]:
+            if not hasattr(self, "renderer"):
+                self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+                self.renderer.draw_sphere(pos=self.xee_final)
             frame = self.renderer.render(q=self._state[: int(self.model_sym.nq)])
         else:
             raise ValueError(
