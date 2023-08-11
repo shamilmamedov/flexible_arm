@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 
 class BaseEstimator(ABC):
     """ Abstract base class for estimators.

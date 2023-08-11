@@ -579,7 +579,7 @@
     </joint>
 
     <!-- Goal/Target position -->
-    <link name="goal">
+    <!-- <link name="goal">
         <visual>
             <geometry>
                 <sphere radius="0.025"/>
@@ -599,7 +599,7 @@
         <child link="goal"/>
         <!-- <axis xyz="0 0 1"/> -->
         <origin xyz="0 0 0" rpy="0 0 0"/>
-    </joint>
+    </joint> -->
 
     <!-- Wall -->
     <!-- <link name = "wall_link">

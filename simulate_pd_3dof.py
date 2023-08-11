@@ -3,7 +3,7 @@ import numpy as np
 import pinocchio as pin
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
+from envs.flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
                                 get_rest_configuration)
 from animation import Animator, Panda3dAnimator
 from controller import DummyController, PDController3Dof

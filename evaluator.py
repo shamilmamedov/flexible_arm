@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import plotting
 from animation import Panda3dAnimator
 from controller import NNController
-from flexible_arm_3dof import get_rest_configuration, SymbolicFlexibleArm3DOF
+from envs.flexible_arm_3dof import get_rest_configuration, SymbolicFlexibleArm3DOF
 from imitation_builder import ImitationBuilder
 import numpy as np
 

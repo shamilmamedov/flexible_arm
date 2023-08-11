@@ -3,7 +3,7 @@ from tempfile import mkdtemp
 
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d, CubicSpline
 from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
@@ -13,13 +13,13 @@ from optimal_planner import design_optimal_circular_trajectory
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+    from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
 Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001
-Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,  
+Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,
 Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
-Q_DQA_E = 1.  # penalty on terminal active joints velocities
+Q_DQA_E = 1.0  # penalty on terminal active joints velocities
 Q_QA_E = 0.1  # penalty on terminal active joints velocities
 
 
@@ -35,28 +35,34 @@ class Mpc3dofOptions:
         self.tf: float = tf  # time horizon
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
-        self.wall_constraint_on: bool = False  # choose whether we activate the wall constraint
+        self.wall_constraint_on: bool = (
+            False  # choose whether we activate the wall constraint
+        )
         self.wall_axis: int = 2  # Wall axis: 0,1,2 -> x,y,z
         self.wall_value: float = 0.5  # wall height value on axis
         self.wall_pos_side: bool = True  # defines the allowed side of the wall
 
         # States are ordered for each link
-        self.q_diag: np.ndarray = np.array([Q_QA] * (2) +  # qa1 and qa2
-                                           [Q_QP] * (self.n_seg) +  # qp 1st link
-                                           [Q_QA] * (1) +  # qa3
-                                           [Q_QP] * (self.n_seg) +  # qp 2nd link
-                                           [Q_DQA] * (2) +  # dqa1 and dqa2
-                                           [Q_DQP] * (self.n_seg) +  # dqp 1st link
-                                           [Q_DQA] * (1) +  # dqa3
-                                           [Q_DQP] * (self.n_seg))  # dqp 2nd link
-        self.q_e_diag: np.ndarray = np.array([Q_QA_E] * (2) +  # qa1 and qa2
-                                             [Q_QP] * (self.n_seg) +  # qp 1st link
-                                             [Q_QA_E] * (1) +  # qa3
-                                             [Q_QP] * (self.n_seg) +  # qp 2nd link
-                                             [Q_DQA_E] * (2) +  # dqa1 and dqa2
-                                             [Q_DQP] * (self.n_seg) +  # dqp 1st link
-                                             [Q_DQA_E] * (1) +  # dqa3
-                                             [Q_DQP] * (self.n_seg))  # dqp 2nd link
+        self.q_diag: np.ndarray = np.array(
+            [Q_QA] * (2)
+            + [Q_QP] * (self.n_seg)  # qa1 and qa2
+            + [Q_QA] * (1)  # qp 1st link
+            + [Q_QP] * (self.n_seg)  # qa3
+            + [Q_DQA] * (2)  # qp 2nd link
+            + [Q_DQP] * (self.n_seg)  # dqa1 and dqa2
+            + [Q_DQA] * (1)  # dqp 1st link
+            + [Q_DQP] * (self.n_seg)  # dqa3
+        )  # dqp 2nd link
+        self.q_e_diag: np.ndarray = np.array(
+            [Q_QA_E] * (2)
+            + [Q_QP] * (self.n_seg)  # qa1 and qa2
+            + [Q_QA_E] * (1)  # qp 1st link
+            + [Q_QP] * (self.n_seg)  # qa3
+            + [Q_DQA_E] * (2)  # qp 2nd link
+            + [Q_DQP] * (self.n_seg)  # dqa1 and dqa2
+            + [Q_DQA_E] * (1)  # dqp 1st link
+            + [Q_DQP] * (self.n_seg)  # dqa3
+        )  # dqp 2nd link
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
@@ -72,10 +78,13 @@ class Mpc3Dof(BaseController):
     Controller class for 3 dof flexible link model based on acados
     """
 
-    def __init__(self, model: "SymbolicFlexibleArm3DOF",
-                 x0: np.ndarray = None,
-                 pee_0: np.ndarray = None,
-                 options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1)):
+    def __init__(
+        self,
+        model: "SymbolicFlexibleArm3DOF",
+        x0: np.ndarray = None,
+        pee_0: np.ndarray = None,
+        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+    ):
         """
         :parameter x0: initial state vector
         :parameter pee_0: initial end-effector position
@@ -111,9 +120,9 @@ class Mpc3Dof(BaseController):
         self.nx = nx
 
         # some checks
-        assert (nx == options.q_diag.shape[0] == options.q_e_diag.shape[0])
-        assert (nu == options.r_diag.shape[0])
-        assert (nz == options.z_diag.shape[0] == options.z_e_diag.shape[0])
+        assert nx == options.q_diag.shape[0] == options.q_e_diag.shape[0]
+        assert nu == options.r_diag.shape[0]
+        assert nz == options.z_diag.shape[0] == options.z_e_diag.shape[0]
 
         ocp.model.name = "mpc_" + str(options.n) + "_" + str(options.n_seg)
         ocp.code_export_directory = mkdtemp()
@@ -122,8 +131,8 @@ class Mpc3Dof(BaseController):
         ocp.dims.N = options.n
 
         # set cost module
-        ocp.cost.cost_type = 'LINEAR_LS'
-        ocp.cost.cost_type_e = 'LINEAR_LS'
+        ocp.cost.cost_type = "LINEAR_LS"
+        ocp.cost.cost_type_e = "LINEAR_LS"
 
         Q = np.diagflat(options.q_diag)
         Q_e = np.diagflat(options.q_e_diag)
@@ -138,11 +147,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx:nx + nu, :] = np.eye(nu)
+        Vu[nx : nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu:, :] = np.eye(nz)
+        Vz[nx + nu :, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -154,11 +163,13 @@ class Mpc3Dof(BaseController):
 
         x_goal = x0
         x_goal_cartesian = pee_0  # np.expand_dims(np.array([x_cartesian, y_cartesian, z_cartesian]), 1)
-        ocp.cost.yref = np.vstack((x_goal, np.zeros((nu, 1)), x_goal_cartesian)).flatten()
+        ocp.cost.yref = np.vstack(
+            (x_goal, np.zeros((nu, 1)), x_goal_cartesian)
+        ).flatten()
         ocp.cost.yref_e = np.vstack((x_goal, x_goal_cartesian)).flatten()
 
         # general constraints
-        ocp.constraints.constr_type = 'BGH'
+        ocp.constraints.constr_type = "BGH"
         ocp.constraints.x0 = x0.reshape((nx,))
 
         # control constraints
@@ -169,11 +180,15 @@ class Mpc3Dof(BaseController):
         # state constraints
         ocp.constraints.lbx = -self.dq_active_max
         ocp.constraints.ubx = self.dq_active_max
-        ocp.constraints.idxbx = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+        ocp.constraints.idxbx = int(self.nx / 2) + np.array(
+            [0, 1, 2 + options.n_seg], dtype="int"
+        )
 
         ocp.constraints.lbx_e = -self.dq_active_max
         ocp.constraints.ubx_e = self.dq_active_max
-        ocp.constraints.idxbx_e = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype='int')
+        ocp.constraints.idxbx_e = int(self.nx / 2) + np.array(
+            [0, 1, 2 + options.n_seg], dtype="int"
+        )
         ocp.constraints.idxsbx = np.array([0, 1, 2])
 
         # safety constraints
@@ -185,13 +200,18 @@ class Mpc3Dof(BaseController):
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array([10**3] * 3 + [10] * n_wall_constraints)
-            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
+            ocp.cost.Zl = np.array(
+                [options.w2_slack_speed] * 3
+                + [options.w2_slack_wall] * n_wall_constraints
+            )
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
             ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if options.wall_pos_side else -1e3)
+                options.wall_value if options.wall_pos_side else -1e3
+            )
             ocp.constraints.uh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if not options.wall_pos_side else 1e3)
+                options.wall_value if not options.wall_pos_side else 1e3
+            )
             ocp.constraints.lsh = np.zeros(nsh)
             ocp.constraints.ush = np.zeros(nsh)
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
@@ -202,11 +222,15 @@ class Mpc3Dof(BaseController):
             ocp.cost.Zu = ocp.cost.Zl
 
         # solver options
-        ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # FULL_CONDENSING_QPOASES
-        ocp.solver_options.qp_solver_cond_N = int(options.n * options.condensing_relative)
-        ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
-        ocp.solver_options.integrator_type = 'IRK'
-        ocp.solver_options.nlp_solver_type = 'SQP'  # SQP_RTI, SQP
+        ocp.solver_options.qp_solver = (
+            "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
+        )
+        ocp.solver_options.qp_solver_cond_N = int(
+            options.n * options.condensing_relative
+        )
+        ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
+        ocp.solver_options.integrator_type = "IRK"
+        ocp.solver_options.nlp_solver_type = "SQP_RTI"  # SQP_RTI, SQP
         ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
         ocp.solver_options.sim_method_num_stages = 2
@@ -216,13 +240,17 @@ class Mpc3Dof(BaseController):
         # set prediction horizon
         ocp.solver_options.tf = options.tf
 
-        self.acados_ocp_solver = AcadosOcpSolver(ocp, json_file='acados_ocp_' + model.name + '.json')
+        self.acados_ocp_solver = AcadosOcpSolver(
+            ocp, json_file="acados_ocp_" + model.name + ".json"
+        )
 
     def reset(self):
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
+    def set_reference_point(
+        self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
+    ):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
@@ -249,12 +277,18 @@ class Mpc3Dof(BaseController):
             self.fa_model.n_seg, qa_t0, r=r, tf=tf, visualize=False
         )
         self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
-        self.inter_t2dq = interp1d(t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :])
-        self.inter_t2u = interp1d(t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :])
-        self.inter_pee = interp1d(t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :])
+        self.inter_t2dq = interp1d(
+            t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :]
+        )
+        self.inter_t2u = interp1d(
+            t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :]
+        )
+        self.inter_pee = interp1d(
+            t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :]
+        )
 
         return self.inter_pee
-                
+
     def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
         Main control loop function that computes the torques at a specific time. The time is only required if a
@@ -280,12 +314,21 @@ class Mpc3Dof(BaseController):
             u_ref = self.inter_t2u(t_vec)
 
             for stage in range(self.options.n):
-                yref = np.vstack((np.expand_dims(x_vec[stage, :], 1),
-                                  np.expand_dims(u_ref[stage, :], 1),
-                                  np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
+                yref = np.vstack(
+                    (
+                        np.expand_dims(x_vec[stage, :], 1),
+                        np.expand_dims(u_ref[stage, :], 1),
+                        np.expand_dims(pee_ref_vec[stage, :], 1),
+                    )
+                ).flatten()
                 self.acados_ocp_solver.cost_set(stage, "yref", yref)
             stage = self.options.n
-            yref_e = np.vstack((np.expand_dims(x_vec[stage, :], 1), np.expand_dims(pee_ref_vec[stage, :], 1))).flatten()
+            yref_e = np.vstack(
+                (
+                    np.expand_dims(x_vec[stage, :], 1),
+                    np.expand_dims(pee_ref_vec[stage, :], 1),
+                )
+            ).flatten()
             self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
 
         # acados solve NLP
@@ -296,8 +339,11 @@ class Mpc3Dof(BaseController):
 
         # Check for errors in acados
         if status != 0 and status != 2:
-            raise Exception('acados returned status {} in time step {}. Exiting.'.format(status,
-                                                                                         self.iteration_counter))
+            raise Exception(
+                "acados returned status {} in time step {}. Exiting.".format(
+                    status, self.iteration_counter
+                )
+            )
         self.iteration_counter += 1
 
         # Retrieve control u

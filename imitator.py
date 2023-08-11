@@ -16,16 +16,16 @@ from stable_baselines3.common.env_checker import check_env
 import plotting
 from animation import Panda3dAnimator
 from controller import NNController
-from gym_env import FlexibleArmEnvOptions, FlexibleArmEnv
-from gym_utils import CallableExpert
+from envs.gym_env import FlexibleArmEnvOptions, FlexibleArmEnv
+from gymnasium_utils import CallableExpert
 from mpc_3dof import Mpc3Dof
-from flexible_arm_3dof import get_rest_configuration
+from envs.flexible_arm_3dof import get_rest_configuration
 from simulation import SimulatorOptions, Simulator
 from utils import print_timings
 
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
-    from flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+    from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 
 
 @dataclass

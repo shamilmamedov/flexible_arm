@@ -202,7 +202,7 @@
     </joint>
 
     <!-- Goal/Target position -->
-    <link name="goal">
+    <!-- <link name="goal">
         <visual>
             <geometry>
                 <sphere radius="0.025"/>
@@ -221,6 +221,6 @@
         <parent link="world"/>
         <child link="goal"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-    </joint>
+    </joint> -->
 
 </robot>

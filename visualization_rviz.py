@@ -1,5 +1,5 @@
 import numpy as np
-from flexible_arm_3dof import get_rest_configuration
+from envs.flexible_arm_3dof import get_rest_configuration
 
 N_SEG = 10
 FILE_PATH = 'flexible_arm_ws/src/fa_setup/js_traj.csv'

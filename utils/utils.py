@@ -3,18 +3,23 @@ from enum import Enum, auto
 import matplotlib.pyplot as plt
 import numpy as np
 
-n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 
-                 3: 'three', 5: 'five', 10: 'ten'}
+n_seg_int2str = {0: "zero", 1: "one", 2: "two", 3: "three", 5: "five", 10: "ten"}
+
 
 class ControlMode(Enum):
     SET_POINT = auto()
     REFERENCE_TRACKING = auto()
 
 
+class StateType(Enum):
+    REAL = auto()
+    ESTIMATED = auto()
+
+
 def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):
     (n_steps, n_states) = x.shape
-    x_angles = x[:, :int(n_states / 2)]
-    x_dangles = x[:, int(n_states / 2):]
+    x_angles = x[:, : int(n_states / 2)]
+    x_dangles = x[:, int(n_states / 2) :]
 
     fig, axs = plt.subplots(nrows=3, ncols=1, sharex=True)
     axs[0].plot(t, x_angles)
@@ -30,9 +35,13 @@ def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):
     plt.show()
 
 
-def print_timings(t_mean: float, t_std: float, t_min: float, t_max: float, name="solver"):
-    print(name+" times: ")
-    print("\tmean: \t{:10.4f}s, \n"
-          "\tstd: \t{:10.4f}s, \n"
-          "\tmin: \t{:10.4f}s, \n"
-          "\tmax:\t{:10.4f}s".format(t_mean, t_std, t_min, t_max))
+def print_timings(
+    t_mean: float, t_std: float, t_min: float, t_max: float, name="solver"
+):
+    print(name + " times: ")
+    print(
+        "\tmean: \t{:10.4f}s, \n"
+        "\tstd: \t{:10.4f}s, \n"
+        "\tmin: \t{:10.4f}s, \n"
+        "\tmax:\t{:10.4f}s".format(t_mean, t_std, t_min, t_max)
+    )

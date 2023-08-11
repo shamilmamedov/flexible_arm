@@ -6,7 +6,7 @@ import casadi as cs
 import pinocchio as pin
 import pandas as pd
 
-from flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
+from envs.flexible_arm_3dof import (FlexibleArm3DOF, SymbolicFlexibleArm3DOF, 
                                get_rest_configuration, inverse_kinematics_rb)
 from estimator import ExtendedKalmanFilter
 from simulation import Simulator, SimulatorOptions

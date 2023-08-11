@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 from panda3d_viewer import Viewer, ViewerConfig
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import animation
 import pinocchio as pin
-from pinocchio.visualize import Panda3dVisualizer, RVizVisualizer
+from pinocchio.visualize import Panda3dVisualizer
 import time
 
 
@@ -16,42 +14,6 @@ PANDA3D_CONFIG.show_grid(True)
 PANDA3D_CONFIG.show_floor(True)
 PANDA3D_CONFIG.enable_spotlight(False)
 PANDA3D_CONFIG.enable_hdr(True)
-
-
-class Animator:
-    def __init__(self, robot, q, pos_ref: np.ndarray = None) -> None:
-        self.robot = robot
-        self.q = q
-        self.frames = q.shape[0]
-
-        self.fig = plt.figure(figsize=(5, 4))
-        self.ax = self.fig.add_subplot(autoscale_on=False, xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
-        self.ax.set_aspect('equal')
-
-        if pos_ref is not None:
-            self.ax.plot(pos_ref[0], pos_ref[1], 'o', color="darkred")
-
-        self.line, = self.ax.plot([], [], 'o-', lw=2, color='k')
-
-    def update(self, i):
-        p_joints = self.robot.fk_for_visualization(self.q[i, :])
-        x = p_joints[:, 0]
-        y = p_joints[:, 2]
-        self.line.set_data(x, y)
-        return self.line,
-
-    def play(self):
-        self.anim = animation.FuncAnimation(self.fig, self.update, self.frames,
-                                            interval=100, blit=True)
-        plt.show()
-
-    def animate(self):
-        f = r"animation.mp4"
-        writervideo = animation.FFMpegWriter(fps=20)
-        self.anim = animation.FuncAnimation(self.fig, self.update, self.frames,
-                                            interval=100, blit=True, repeat=True)
-        self.anim.save(f, writer=writervideo)
-        plt.show()
 
 
 class Panda3dAnimator:
@@ -167,7 +129,43 @@ class FlexibleArmVisualizer:
         for _ in range(n_replays):
             viz.display(q[0, :])
             time.sleep(1)
-            viz.play(q[1:, :].T, self.dt)
+            viz.play(q[1:, :], self.dt)
             time.sleep(1)
         viz.viewer.stop()
     
+    
+class Panda3dRenderer:
+    def __init__(self, urdf_path: str) -> None:
+        # Let pinocchio to build model, collision and visual models from URDF
+        m, cm, vm = pin.buildModelsFromUrdf(urdf_path)
+
+        # Instantiate panda3visualizer
+        viewer = Viewer(config=PANDA3D_CONFIG)
+        viewer.set_background_color(((255, 255, 255)))
+        self.viz = Panda3dVisualizer(m, cm, vm)
+        self.viz.initViewer(viewer=viewer)
+        self.viz.loadViewerModel(group_name="flexible_arm")
+
+    def draw_sphere(self, pos: np.ndarray) -> None:
+        """
+        :parameter pos: [3,] position of the sphere
+        """
+        self.viz.viewer.append_group("sphere_group", remove_if_exists=True)
+        self.viz.viewer.append_sphere(
+            root_path="sphere_group", name="sphere", radius=0.05
+        )
+        self.viz.viewer.set_material(
+            root_path="sphere_group", name="sphere", color_rgba=(1, 0, 0, 1.0)
+        )
+        self.viz.viewer.move_nodes(
+            root_path="sphere_group",
+            name_pose_dict={"sphere": (tuple(pos), (1, 0, 0, 0))},
+        )
+
+    def render(self, q: np.ndarray) -> np.ndarray:
+        """
+        :parameter q: [nj,] joint states, nj is number of joints
+        """
+        self.viz.display(q)
+        img = self.viz.viewer.get_screenshot()
+        return img

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from estimator import ExtendedKalmanFilter
-from flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from gym_env import FlexibleArmEnv
+from envs.flexible_arm_3dof import get_rest_configuration, FlexibleArm3DOF, SymbolicFlexibleArm3DOF
+from envs.gym_env import FlexibleArmEnv
 from imitator import ImitatorOptions, Imitator
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
