@@ -152,10 +152,10 @@ class Panda3dRenderer:
         """
         self.viz.viewer.append_group("sphere_group", remove_if_exists=True)
         self.viz.viewer.append_sphere(
-            root_path="sphere_group", name="sphere", radius=0.05
+            root_path="sphere_group", name="sphere", radius=0.025
         )
         self.viz.viewer.set_material(
-            root_path="sphere_group", name="sphere", color_rgba=(1, 0, 0, 1.0)
+            root_path="sphere_group", name="sphere", color_rgba=(0.87, 0.275, 0.09, 1.0)
         )
         self.viz.viewer.move_nodes(
             root_path="sphere_group",

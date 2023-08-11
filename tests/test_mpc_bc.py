@@ -10,41 +10,33 @@ from imitation.algorithms import bc
 from imitation.data import rollout
 from imitation.data import serialize
 
-from envs.flexible_arm_3dof import FlexibleArm3DOF, get_rest_configuration
 from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
+from utils.utils import StateType
 
 
 rng = np.random.default_rng(0)
 
 # --- Create FlexibleArm environment ---
-n_seg = 3
-fa_ld = FlexibleArm3DOF(n_seg)
+n_seg = 5
+n_seg_mpc = 3
 
-# Create initial state simulated system
-qa0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
-q0 = get_rest_configuration(qa0, n_seg)
-dq0 = np.zeros_like(q0)
-x0 = np.vstack((q0, dq0))
-_, xee0 = fa_ld.fk_ee(q0)
+# Create initial/final state: (base-rotation, base-bend, elbow-bend)
+qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
 
-# Compute reference
-qa_ref = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
-q_ref = get_rest_configuration(qa_ref, n_seg)
-dq_ref = np.zeros_like(q_ref)
-x_ref = np.vstack((q_ref, dq_ref))
-_, x_ee_ref = fa_ld.fk_ee(q_ref)
-
-# create environment
-# Measurement noise covairance parameters
+# create data environment
 R_Q = [3e-6] * 3
 R_DQ = [2e-3] * 3
 R_PEE = [1e-4] * 3
 env_options = FlexibleArmEnvOptions(
     n_seg=n_seg,
-    dt=0.05,
-    qa_start=q0[0:3, 0],
-    qa_end=q_ref[0:3, 0],
-    contr_input_states="real",
+    n_seg_estimator=n_seg_mpc,
+    sim_time=1.3,
+    dt=0.01,
+    qa_start=qa_initial,
+    qa_end=qa_final,
+    qa_range_end=np.array([1.0, 1.0, 1.0]),
+    contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
     sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
     render_mode="human",
 )
@@ -66,12 +58,12 @@ reward, _ = evaluate_policy(
     bc_trainer.policy,  # type: ignore[arg-type]
     env,
     n_eval_episodes=3,
-    render=True,
+    render=False,
 )
 print(f"Reward before training: {reward}")
 
 print("Training a policy using Behavior Cloning")
-bc_trainer.train(n_epochs=1)
+bc_trainer.train(n_epochs=10)
 
 reward, _ = evaluate_policy(
     bc_trainer.policy,  # type: ignore[arg-type]

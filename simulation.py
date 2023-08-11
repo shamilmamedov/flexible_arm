@@ -50,7 +50,7 @@ class Simulator:
         self.opts = opts
 
         # Sanity checks
-        if self.opts.contr_input_states == "estimated":
+        if self.opts.contr_input_states is StateType.ESTIMATED:
             assert estimator is not None
 
         # Create an integrator for collocation method
@@ -187,10 +187,10 @@ class Simulator:
         self.k += 1
 
         # Compute control action
-        if self.opts.contr_input_states == StateType.REAL:
+        if self.opts.contr_input_states is StateType.REAL:
             qk = self.x[[self.k], : self.robot.nq].T
             dqk = self.x[[self.k], self.robot.nq :].T
-        elif self.opts.contr_input_states == StateType.ESTIMATED:
+        elif self.opts.contr_input_states is StateType.ESTIMATED:
             qk = self.x_hat[[self.k], : int(self.nx_est / 2)].T
             dqk = self.x_hat[[self.k], int(self.nx_est / 2) :].T
         else:

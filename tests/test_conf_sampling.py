@@ -1,5 +1,5 @@
 import numpy as np
-
+import time
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from animation import Panda3dRenderer
@@ -22,6 +22,9 @@ def _create_env():
     qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
     qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
 
+    qa_range_start = np.array([-2*np.pi, 0., -np.pi+0.05])
+    qa_range_end = np.array([2*np.pi, np.pi, np.pi-0.05])
+
     # create data environment
     R_Q = [3e-6] * 3
     R_DQ = [2e-3] * 3
@@ -33,35 +36,22 @@ def _create_env():
         dt=0.01,
         qa_start=qa_initial,
         qa_end=qa_final,
-        qa_range_end=np.array([1.0, 1.0, 1.0]),
+        qa_range_start=qa_range_start,
+        qa_range_end=qa_range_end,
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
         sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
         render_mode="human",
     )
-    env = FlexibleArmEnv(env_options)
+    return FlexibleArmEnv(env_options)
     
 
-def main(n_seg: int = 3):
-    robot = SymbolicFlexibleArm3DOF(n_seg)
-
-    qa = np.array([0., np.pi/4, -np.pi/4])
-    q = get_rest_configuration(qa, n_seg)
-    p_ee = np.array(robot.p_ee(q)) 
-    p_goal = p_ee + np.random.uniform(-0.1, 0.1, size=(3,1))
-    
-    renderer = Panda3dRenderer(robot.urdf_path)
-    renderer.draw_sphere(np.array([1., 0., 1.]))
-    for _ in range(100):
-        renderer.render(q)
-
-    # viz = FlexibleArmVisualizer(robot.urdf_path, dt=0.01)
-    # viz.visualize_configuration(q, p_goal)
-    # viz.visualize_configuration(q)
-
-    # q = q.repeat(100, axis=1).T
-    # viz.visualize_trajectory(q, p_goal)
-    # viz.visualize_trajectory(q)
+def main():
+    env = _create_env()
+    for _ in range(10):
+        env.reset()
+        env.render()
+        time.sleep(2)
 
 
 if __name__ == '__main__':
-    main(n_seg=5)
+    main()

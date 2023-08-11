@@ -20,6 +20,13 @@ from utils.utils import StateType
 class FlexibleArmEnvOptions:
     """
     Options for imitation learning
+
+    dt: stepsize of the integrator
+    n_seg: number of segments per link
+    n_seg_estimator: number of segments for the estimator model (this should match the MPC model's n_seg)
+
+    NOTE: MultiTask Learning (changing the goal) is possible by setting
+    qa_range_end to values other than 0.
     """
 
     dt: float = 0.01
@@ -40,18 +47,18 @@ class FlexibleArmEnvOptions:
 
 
 class FlexibleArmEnv(gym.Env):
-    """Creates gym environment for flexible robot arm"""
+    """
+    Creates gym environment for flexible robot arm.
+    NOTE:Observation space currently consists of: [current_state, goal_state, goal_position].
+    Including the goal in the observation space, allows for multi-task learning.
+    If multi-task learning is not desired, set qa_range_end to all zeros and only
+    use the (L-3)/2 elements of the observation (L: length of the observation vector)
+    """
 
     def __init__(
         self,
         options: FlexibleArmEnvOptions,
     ) -> None:
-        """
-        :parameter n_seg: number of segments per link
-        :parameter dt: stepsize of the integrator
-        :parameter q0: initial rest configuration of the robot
-        """
-
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
         self.dt = options.dt
@@ -82,6 +89,7 @@ class FlexibleArmEnv(gym.Env):
             estimator=estimator,
             opts=sim_opts,
         )
+
         # Define observation space
         nx_ = (
             estimator.model.nx
@@ -106,10 +114,10 @@ class FlexibleArmEnv(gym.Env):
 
         # self.render_mode needs to exist because of gymnasium
         self.render_mode = options.render_mode
-        if self.render_mode in ["human", "rgb_array"]:
-            self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
-        else:
-            self.renderer = None
+        # if self.render_mode in ["human", "rgb_array"]:
+        #     self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
+        # else:
+        #     self.renderer = None
 
     def _create_estimator(
         self, n_seg_estimator: int, dt: float
@@ -131,22 +139,36 @@ class FlexibleArmEnv(gym.Env):
     def sample_rand_config(
         self, qa_mean: np.ndarray, qa_range: np.ndarray, use_estimator: bool = False
     ):
-        """Samples a random joint configuration from a given range using
+        """
+        Samples a random joint configuration from a given range using
         uniform distrubution
+        :param qa_mean: mean of the uniform distribution
+        :param qa_range: range of the uniform distribution
+        :param use_estimator: if True, the estimator model is used for the number of segments and
+                            the forward kinematics (end effector position)
+        :return: (sampled active & passive joint configs and their derivatives, end effector position)
         """
         n_seg = self.options.n_seg_estimator if use_estimator else self.options.n_seg
         model = self.simulator.estimator.model if use_estimator else self.model_sym
-        qa = np.random.uniform(-qa_range / 2, qa_range / 2) + qa_mean
-        q = get_rest_configuration(qa, n_seg)
+        while True:
+            qa = np.random.uniform(
+                self.options.qa_range_start, 
+                self.options.qa_range_end
+            )
+            q = get_rest_configuration(qa, n_seg)
+            xee = np.array(model.p_ee(q))
+            if xee[2] > 0 and abs(xee[1]) > 0.05:
+                break    
+
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
-        xee = np.array(model.p_ee(q))
         return x[:, 0], xee
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[dict] = None
     ) -> Tuple[np.ndarray, dict]:
         super().reset(seed=seed)
+
         # Reset state of the robot
         # initial position
         self._state, _ = self.sample_rand_config(
@@ -168,18 +190,23 @@ class FlexibleArmEnv(gym.Env):
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
 
-        if self.renderer:
+        # Reset renderer
+        if self.render_mode in ["human", "rgb_array"]:
+            if not hasattr(self, "renderer"):
+                self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
             self.renderer.draw_sphere(pos=self.xee_final)
+        else:
+            self.renderer = None
 
         # Reset integrations step counter
         self.no_intg_steps = 0
         self.goal_dist_counter = 0
 
         # Get observations and info
-        if self.options.contr_input_states is StateType.REAL:
-            observation = self._state
-        else:
+        if self.options.contr_input_states is StateType.ESTIMATED:
             observation = self.simulator.estimator.x_hat[:, 0]
+        else:
+            observation = self._state
 
         # Add goal state and position to observation
         observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))
@@ -192,12 +219,9 @@ class FlexibleArmEnv(gym.Env):
         TODO: Make sure actions are in the action space;
               Clip actions if necessary
         """
-        # TODO ask Rudi why? They should return the same things
-        if self.simulator.estimator is None:
-            self._state = self.simulator.step(action)
-        else:
-            self.simulator.step(action)
-            self._state = self.simulator.x[self.simulator.k, :]
+        self.simulator.step(action)
+        # Real state (not estimated)
+        self._state = self.simulator.x[self.simulator.k, :]
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
@@ -213,10 +237,10 @@ class FlexibleArmEnv(gym.Env):
         info = {}
 
         # Get observations and info
-        if self.simulator.estimator is None:
-            observation = self._state[:, 0]
-        else:
+        if self.options.contr_input_states is StateType.ESTIMATED:
             observation = self.simulator.x_hat[self.no_intg_steps, :]
+        else:
+            observation = self._state[:, 0]
 
         # Add goal state and position to observation
         observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))

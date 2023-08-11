@@ -3,7 +3,7 @@ import numpy as np
 from stable_baselines3.ppo import MlpPolicy
 from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
 from envs.gym_env import FlexibleArmEnv
-from utils.gym_utils import CallableExpert
+from utils.gym_utils import CallableMPCExpert
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.utils import ControlMode
 
@@ -13,7 +13,7 @@ fa_ld = FlexibleArm3DOF(n_seg)
 fa_sym_ld = SymbolicFlexibleArm3DOF(n_seg)
 
 # Create initial state simulated system
-angle0_0 = 0.
+angle0_0 = 0.0
 angle0_1 = 0
 angle0_2 = np.pi / 20
 
@@ -42,7 +42,9 @@ mpc_options.n = 30
 mpc_options.tf = 1
 mpc_options.r_diag *= 10
 controller = Mpc3Dof(model=fa_sym_ld, x0=x0, x0_ee=xee0, options=mpc_options)
-u_ref = np.zeros((fa_sym_ld.nu, 1))  # u_ref could be changed to some known value along the trajectory
+u_ref = np.zeros(
+    (fa_sym_ld.nu, 1)
+)  # u_ref could be changed to some known value along the trajectory
 
 # Choose one out of two control modes. Reference tracking uses a spline planner.
 controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
@@ -50,11 +52,16 @@ controller.set_reference_point(p_ee_ref=x_ee_ref, x_ref=x_ref, u_ref=u_ref)
 env = FlexibleArmEnv(n_seg=n_seg, dt=0.05, q0=q0[:, 0], xee_final=x_ee_ref)
 
 # create MPC expert
-expert = CallableExpert(controller, observation_space=env.observation_space, action_space=env.action_space)
+expert = CallableMPCExpert(
+    controller, observation_space=env.observation_space, action_space=env.action_space
+)
 
 # load trained policy
-learned_policy = MlpPolicy(observation_space=env.observation_space, action_space=env.action_space,
-                           lr_schedule=lambda x: 1)
+learned_policy = MlpPolicy(
+    observation_space=env.observation_space,
+    action_space=env.action_space,
+    lr_schedule=lambda x: 1,
+)
 learned_policy = learned_policy.load("bc_policy_1")
 
 # run tests

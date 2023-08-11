@@ -17,7 +17,7 @@ from envs.gym_env import (
     FlexibleArmEnvOptions,
 )
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableExpert
+from utils.gym_utils import CallableMPCExpert
 from utils.utils import StateType
 
 
@@ -25,13 +25,10 @@ rng = np.random.default_rng(0)
 
 
 # --- Create FlexibleArm environment ---
-# --- data env ---
-n_seg_data = 5
-# --- control env ---
-n_seg_control = 3
+n_seg = 5
+n_seg_mpc = 3
 
-# Create initial state data env
-# base-rotation, base-bend, elbow-bend
+# Create initial/final state: (base-rotation, base-bend, elbow-bend)
 qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
 qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
 
@@ -40,8 +37,8 @@ R_Q = [3e-6] * 3
 R_DQ = [2e-3] * 3
 R_PEE = [1e-4] * 3
 env_options = FlexibleArmEnvOptions(
-    n_seg=n_seg_data,
-    n_seg_estimator=n_seg_control,
+    n_seg=n_seg,
+    n_seg_estimator=n_seg_mpc,
     sim_time=1.3,
     dt=0.01,
     qa_start=qa_initial,
@@ -59,13 +56,13 @@ env = FlexibleArmEnv(env_options)
 # --------------------------------------
 
 # --- Create MPC controller ---
-fa_sym_control = SymbolicFlexibleArm3DOF(n_seg_control)
-mpc_options = Mpc3dofOptions(n_seg=n_seg_control, tf=1.3, n=130)
-controller = Mpc3Dof(model=fa_sym_control, x0=None, pee_0=None, options=mpc_options)
+fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
+mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
+controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
 
 # create MPC expert
-expert = CallableExpert(
+expert = CallableMPCExpert(
     controller,
     observation_space=env.observation_space,
     action_space=env.action_space,
@@ -78,7 +75,7 @@ print("Sampling expert transitions.")
 rollouts = rollout.rollout(
     expert,
     DummyVecEnv([lambda: RolloutInfoWrapper(env)]),
-    rollout.make_sample_until(min_timesteps=None, min_episodes=10),
+    rollout.make_sample_until(min_timesteps=None, min_episodes=100),
     rng=rng,
     verbose=True,
 )
