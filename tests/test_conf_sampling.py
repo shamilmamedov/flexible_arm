@@ -55,5 +55,18 @@ def main():
         time.sleep(2)
 
 
+def collision_with_wall():
+    env = _create_env()
+    env.reset()
+    env._state = np.zeros_like(env._state)
+    env._state[0] = np.pi/2
+    env._state[1] = 0.75*np.pi
+
+    for _ in range(50):
+        env.render()
+        time.sleep(1)
+
+
 if __name__ == '__main__':
-    main()
+    # main()
+    collision_with_wall()
