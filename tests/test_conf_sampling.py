@@ -13,7 +13,7 @@ from utils.utils import StateType
 def _create_env():
     # --- Create FlexibleArm environment ---
     # --- data env ---
-    n_seg_data = 5
+    n_seg_data = 10
     # --- control env ---
     n_seg_control = 3
 
@@ -22,8 +22,8 @@ def _create_env():
     qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
     qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
 
-    qa_range_start = np.array([-2*np.pi, 0., -np.pi+0.05])
-    qa_range_end = np.array([2*np.pi, np.pi, np.pi-0.05])
+    qa_range_start = np.array([-np.pi/2, 0., -np.pi+0.05])
+    qa_range_end = np.array([3*np.pi/2, np.pi, np.pi-0.05])
 
     # create data environment
     R_Q = [3e-6] * 3
@@ -47,7 +47,9 @@ def _create_env():
 
 def main():
     env = _create_env()
-    for _ in range(10):
+    # env.reset()
+    # env._state = np.zeros_like(env._state)
+    for _ in range(50):
         env.reset()
         env.render()
         time.sleep(2)

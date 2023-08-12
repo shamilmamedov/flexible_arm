@@ -148,6 +148,7 @@ class FlexibleArmEnv(gym.Env):
                             the forward kinematics (end effector position)
         :return: (sampled active & passive joint configs and their derivatives, end effector position)
         """
+        _dinstance_margin = 0.01
         n_seg = self.options.n_seg_estimator if use_estimator else self.options.n_seg
         model = self.simulator.estimator.model if use_estimator else self.model_sym
         while True:
@@ -157,7 +158,7 @@ class FlexibleArmEnv(gym.Env):
             )
             q = get_rest_configuration(qa, n_seg)
             xee = np.array(model.p_ee(q))
-            if xee[2] > 0 and abs(xee[1]) > 0.05:
+            if xee[2] > 0 and xee[1] > -0.15:
                 break    
 
         dq = np.zeros_like(q)
