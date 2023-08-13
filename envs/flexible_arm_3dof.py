@@ -257,6 +257,7 @@ class SymbolicFlexibleArm3DOF:
         # Get function for the forward kinematics and velocities
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
         self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+        self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)

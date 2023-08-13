@@ -2,11 +2,16 @@
 <robot name="flexible_arm">
     <!-- Specify link material -->
     <material name="link_material">
-        <color rgba="0.6 0.6 0.6 1.0"/>
+        <!-- <color rgba="0.6 0.6 0.6 1.0"/> -->
+        <color rgba="0.059 0.059 0.055 0.851"/>
     </material>
 
     <material name="goal_material">
         <color rgba="0.87 0.275 0.09 1.0"/>
+    </material>
+
+    <material name="wall_material">
+        <color rgba="0.6 0.16 0.11 1.0"/>
     </material>
 
     <!-- world -->
@@ -362,5 +367,35 @@
         <child link="goal"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint> -->
+
+    <!-- Wall -->
+    <!-- distance from origin to wall = -0.1 -->
+    <!-- wall width = 2 -->
+    <!-- wall height = 1 -->
+    <!-- wall thickness = 0.075 -->
+    <link name = "wall_link">
+        <visual>
+            <origin xyz="0 -0.0375 0.5" rpy="0 0 0" />
+            <geometry>
+                <box size="2 0.075 1"/>
+            </geometry>
+            <material name = "wall_material"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.075 2 1"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="15" />
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </link>
+
+    <joint name = "world_to_wall" type = "fixed">
+        <parent link = "world" />
+        <child link = "wall_link" />
+        <origin xyz = "0 -0.15 0" />
+    </joint>
 
 </robot>

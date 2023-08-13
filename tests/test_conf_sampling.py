@@ -47,8 +47,6 @@ def _create_env():
 
 def main():
     env = _create_env()
-    # env.reset()
-    # env._state = np.zeros_like(env._state)
     for _ in range(50):
         env.reset()
         env.render()
@@ -61,6 +59,9 @@ def collision_with_wall():
     env._state = np.zeros_like(env._state)
     env._state[0] = np.pi/2
     env._state[1] = 0.75*np.pi
+    env._state[11] = -0.75*np.pi
+    q = np.split(env._state, 2)[0]
+    print(env.model_sym.p_elbow(q))
 
     for _ in range(50):
         env.render()
@@ -68,5 +69,5 @@ def collision_with_wall():
 
 
 if __name__ == '__main__':
-    # main()
-    collision_with_wall()
+    main()
+    # collision_with_wall()

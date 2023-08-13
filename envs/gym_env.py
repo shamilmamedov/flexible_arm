@@ -157,13 +157,16 @@ class FlexibleArmEnv(gym.Env):
                 self.options.qa_range_end
             )
             q = get_rest_configuration(qa, n_seg)
-            xee = np.array(model.p_ee(q))
-            if xee[2] > 0 and xee[1] > -0.15:
+            p_ee = np.array(model.p_ee(q))
+            p_elbow = np.array(model.p_elbow(q))
+
+            wall_pos = -0.15 + _dinstance_margin
+            if p_ee[2] > 0 and p_ee[1] > wall_pos and p_elbow[1] > wall_pos:
                 break    
 
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
-        return x[:, 0], xee
+        return x[:, 0], p_ee
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[dict] = None
