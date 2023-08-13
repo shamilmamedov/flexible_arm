@@ -142,6 +142,7 @@ class Panda3dRenderer:
         # Instantiate panda3visualizer
         viewer = Viewer(config=PANDA3D_CONFIG)
         viewer.set_background_color(((255, 255, 255)))
+        viewer.reset_camera((4., 1.5, 1.5), look_at=(0.,0.,0))
         self.viz = Panda3dVisualizer(m, cm, vm)
         self.viz.initViewer(viewer=viewer)
         self.viz.loadViewerModel(group_name="flexible_arm")
