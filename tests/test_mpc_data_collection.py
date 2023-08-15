@@ -20,8 +20,8 @@ from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.gym_utils import CallableMPCExpert
 from utils.utils import StateType
 
-
-rng = np.random.default_rng(0)
+SEED = 0
+rng = np.random.default_rng(SEED)
 
 
 # --- Create FlexibleArm environment ---

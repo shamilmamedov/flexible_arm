@@ -13,8 +13,8 @@ from imitation.data import serialize
 from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
 from utils.utils import StateType
 
-
-rng = np.random.default_rng(0)
+SEED = 0
+rng = np.random.default_rng(SEED)
 
 # --- Create FlexibleArm environment ---
 n_seg = 5
@@ -49,6 +49,7 @@ bc_trainer = bc.BC(
     rng=rng,
 )
 
+env.reset(seed=SEED)
 reward, _ = evaluate_policy(
     bc_trainer.policy,  # type: ignore[arg-type]
     env,
@@ -60,6 +61,7 @@ print(f"Reward before training: {reward}")
 print("Training a policy using Behavior Cloning")
 bc_trainer.train(n_epochs=10)
 
+env.reset(seed=SEED)
 reward, _ = evaluate_policy(
     bc_trainer.policy,  # type: ignore[arg-type]
     env,

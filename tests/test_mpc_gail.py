@@ -1,15 +1,19 @@
 """
-This demo loads MPC rollouts as the expert and uses DAGGER for imitation learning.
-RUN COMMAND: python -m tests.test_mpc_dagger
+This demo loads MPC rollouts as the expert and uses GAIL for imitation learning.
+RUN COMMAND: python -m tests.test_mpc_gail
 """
 import tempfile
 import numpy as np
 
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3 import PPO
+from stable_baselines3.ppo import MlpPolicy
 
-from imitation.algorithms import bc
+from imitation.algorithms.adversarial.gail import GAIL
+from imitation.rewards.reward_nets import BasicShapedRewardNet
 from imitation.algorithms.dagger import SimpleDAggerTrainer
+from imitation.util.networks import RunningNorm
 from imitation.data import serialize
 
 from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions, SymbolicFlexibleArm3DOF
@@ -24,11 +28,10 @@ rng = np.random.default_rng(SEED)
 # --- Create FlexibleArm environment ---
 n_seg = 5
 n_seg_mpc = 3
-
-# create data environment
 R_Q = [3e-6] * 3
 R_DQ = [2e-3] * 3
 R_PEE = [1e-4] * 3
+
 env_options = FlexibleArmEnvOptions(
     n_seg=n_seg,
     n_seg_estimator=n_seg_mpc,
@@ -49,7 +52,6 @@ fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
 mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
 controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
-# create MPC expert
 expert = CallableMPCExpert(
     controller,
     observation_space=env.observation_space,
@@ -58,42 +60,58 @@ expert = CallableMPCExpert(
 )
 # -----------------------------
 
-bc_trainer = bc.BC(
+# --- load expert rollouts ---
+rollouts = serialize.load("mpc_expert_rollouts.pkl")
+# ----------------------------
+
+learner = PPO(
+    env=env,
+    policy=MlpPolicy,
+    batch_size=64,
+    ent_coef=0.0,
+    learning_rate=0.00001,
+    n_epochs=1,
+    seed=SEED,
+)
+reward_net = BasicShapedRewardNet(
     observation_space=env.observation_space,
     action_space=env.action_space,
-    rng=rng,
+    normalize_input_layer=RunningNorm,
+)
+gail_trainer = GAIL(
+    demonstrations=rollouts,
+    demo_batch_size=1024,
+    gen_replay_buffer_capacity=2048,
+    n_disc_updates_per_round=4,
+    venv=venv,
+    gen_algo=learner,
+    reward_net=reward_net,
 )
 
-rollouts = serialize.load("mpc_expert_rollouts.pkl")
 
-with tempfile.TemporaryDirectory(prefix="dagger_trained_") as tmpdir:
-    print(tmpdir)
-    dagger_trainer = SimpleDAggerTrainer(
-        venv=venv,
-        scratch_dir=tmpdir,
-        expert_policy=expert,
-        bc_trainer=bc_trainer,
-        rng=rng,
-        expert_trajs=rollouts,
-    )
+# evaluate the learner before training
+env.reset(seed=SEED)
+learner_rewards_before_training, _ = evaluate_policy(
+    model=learner,
+    env=env,
+    n_eval_episodes=3,
+    return_episode_rewards=True,
+    render=False,
+)
+print("mean reward before training:", np.mean(learner_rewards_before_training))
 
-    env.reset(seed=SEED)
-    reward, _ = evaluate_policy(
-        dagger_trainer.policy,  # type: ignore[arg-type]
-        env,
-        n_eval_episodes=3,
-        render=False,
-    )
-    print(f"Reward before training: {reward}")
 
-    print("Training a policy using Dagger")
-    dagger_trainer.train(1000)
+# train the learner and evaluate again
+gail_trainer.train(20000)
 
-    env.reset(seed=SEED)
-    reward, _ = evaluate_policy(
-        dagger_trainer.policy,  # type: ignore[arg-type]
-        env,
-        n_eval_episodes=3,
-        render=True,
-    )
-    print(f"Reward after training: {reward}")
+# evaluate the learner after training
+env.reset(seed=SEED)
+learner_rewards_after_training, _ = evaluate_policy(
+    model=learner,
+    env=env,
+    n_eval_episodes=3,
+    return_episode_rewards=True,
+    render=True,
+)
+
+print("mean reward after training:", np.mean(learner_rewards_after_training))
