@@ -33,8 +33,6 @@ class FlexibleArmEnvOptions:
     n_seg: int = 3
     n_seg_estimator: int = 3
     sim_time: float = 3
-    qa_start: np.ndarray = np.array([1.5, 0.0, 1.5])
-    qa_end: np.ndarray = np.array([1.5, 0.0, 1.5])
     qa_range_start: np.ndarray = np.array([np.pi, np.pi, np.pi])
     qa_range_end: np.ndarray = np.array([0.0, 0.0, 0.0])
     render_mode = None
@@ -136,14 +134,10 @@ class FlexibleArmEnv(gym.Env):
         estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
         return estimator
 
-    def sample_rand_config(
-        self, qa_mean: np.ndarray, qa_range: np.ndarray, use_estimator: bool = False
-    ):
+    def sample_rand_config(self, use_estimator: bool = False):
         """
         Samples a random joint configuration from a given range using
         uniform distrubution
-        :param qa_mean: mean of the uniform distribution
-        :param qa_range: range of the uniform distribution
         :param use_estimator: if True, the estimator model is used for the number of segments and
                             the forward kinematics (end effector position)
         :return: (sampled active & passive joint configs and their derivatives, end effector position)
@@ -153,8 +147,7 @@ class FlexibleArmEnv(gym.Env):
         model = self.simulator.estimator.model if use_estimator else self.model_sym
         while True:
             qa = np.random.uniform(
-                self.options.qa_range_start, 
-                self.options.qa_range_end
+                self.options.qa_range_start, self.options.qa_range_end
             )
             q = get_rest_configuration(qa, n_seg)
             p_ee = np.array(model.p_ee(q))
@@ -162,7 +155,7 @@ class FlexibleArmEnv(gym.Env):
 
             wall_pos = -0.15 + _dinstance_margin
             if p_ee[2] > 0 and p_ee[1] > wall_pos and p_elbow[1] > wall_pos:
-                break    
+                break
 
         dq = np.zeros_like(q)
         x = np.vstack((q, dq))
@@ -176,8 +169,6 @@ class FlexibleArmEnv(gym.Env):
         # Reset state of the robot
         # initial position
         self._state, _ = self.sample_rand_config(
-            qa_mean=self.options.qa_start,
-            qa_range=self.options.qa_range_start,
             use_estimator=False,
         )
 
@@ -187,12 +178,14 @@ class FlexibleArmEnv(gym.Env):
         # Estimating the goal seems unecessary since we are the ones deciding where to go.
         use_estimator = self.options.contr_input_states is StateType.ESTIMATED
         self.x_final, self.xee_final = self.sample_rand_config(
-            qa_mean=self.options.qa_end,
-            qa_range=self.options.qa_range_end,
             use_estimator=use_estimator,
         )
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
+
+        # Draw the goal position if the gui is available
+        if hasattr(self, "renderer"):
+            self.renderer.draw_sphere(pos=self.xee_final)
 
         # Reset integrations step counter
         self.no_intg_steps = 0
