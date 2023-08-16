@@ -2,8 +2,11 @@
 This demo loads MPC rollouts as the expert and uses GAIL for imitation learning.
 RUN COMMAND: python -m tests.test_mpc_gail
 """
-import tempfile
+import logging
+import os
+
 import numpy as np
+import torch
 
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -12,17 +15,19 @@ from stable_baselines3.ppo import MlpPolicy
 
 from imitation.algorithms.adversarial.gail import GAIL
 from imitation.rewards.reward_nets import BasicShapedRewardNet
-from imitation.algorithms.dagger import SimpleDAggerTrainer
 from imitation.util.networks import RunningNorm
 from imitation.data import serialize
 
 from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions, SymbolicFlexibleArm3DOF
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.gym_utils import CallableMPCExpert
-from utils.utils import StateType
+from utils.utils import StateType, seed_everything
 
+logging.basicConfig(level=logging.INFO)
+TRAIN_MODEL = False
 SEED = 0
 rng = np.random.default_rng(SEED)
+seed_everything(SEED)
 
 
 # --- Create FlexibleArm environment ---
@@ -46,63 +51,67 @@ env_options = FlexibleArmEnvOptions(
 env = FlexibleArmEnv(env_options)
 venv = DummyVecEnv([lambda: env])
 # --------------------------------------
+if TRAIN_MODEL:
+    # --- Create MPC controller ---
+    fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
+    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
+    controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
-# --- Create MPC controller ---
-fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
-mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
-controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
+    expert = CallableMPCExpert(
+        controller,
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        observation_includes_goal=True,
+    )
+    # -----------------------------
 
-expert = CallableMPCExpert(
-    controller,
-    observation_space=env.observation_space,
-    action_space=env.action_space,
-    observation_includes_goal=True,
-)
-# -----------------------------
+    # --- load expert rollouts ---
+    rollouts = serialize.load("mpc_expert_rollouts.pkl")
+    # ----------------------------
 
-# --- load expert rollouts ---
-rollouts = serialize.load("mpc_expert_rollouts.pkl")
-# ----------------------------
+    learner = PPO(
+        env=env,
+        policy=MlpPolicy,
+        batch_size=64,
+        ent_coef=0.0,
+        learning_rate=0.0001,
+        n_epochs=1,
+        seed=SEED,
+    )
+    reward_net = BasicShapedRewardNet(
+        observation_space=env.observation_space,
+        action_space=env.action_space,
+        normalize_input_layer=RunningNorm,
+    )
+    gail_trainer = GAIL(
+        demonstrations=rollouts,
+        demo_batch_size=1024,
+        gen_replay_buffer_capacity=2048,
+        n_disc_updates_per_round=4,
+        venv=venv,
+        gen_algo=learner,
+        reward_net=reward_net,
+    )
 
-learner = PPO(
-    env=env,
-    policy=MlpPolicy,
-    batch_size=64,
-    ent_coef=0.0,
-    learning_rate=0.00001,
-    n_epochs=1,
-    seed=SEED,
-)
-reward_net = BasicShapedRewardNet(
-    observation_space=env.observation_space,
-    action_space=env.action_space,
-    normalize_input_layer=RunningNorm,
-)
-gail_trainer = GAIL(
-    demonstrations=rollouts,
-    demo_batch_size=1024,
-    gen_replay_buffer_capacity=2048,
-    n_disc_updates_per_round=4,
-    venv=venv,
-    gen_algo=learner,
-    reward_net=reward_net,
-)
+    # evaluate the learner before training
+    env.reset(seed=SEED)
+    learner_rewards_before_training, _ = evaluate_policy(
+        model=learner,
+        env=env,
+        n_eval_episodes=3,
+        return_episode_rewards=True,
+        render=False,
+    )
+    print("mean reward before training:", np.mean(learner_rewards_before_training))
 
+    # train the learner and evaluate again
+    gail_trainer.train(20000)
 
-# evaluate the learner before training
-env.reset(seed=SEED)
-learner_rewards_before_training, _ = evaluate_policy(
-    model=learner,
-    env=env,
-    n_eval_episodes=3,
-    return_episode_rewards=True,
-    render=False,
-)
-print("mean reward before training:", np.mean(learner_rewards_before_training))
-
-
-# train the learner and evaluate again
-gail_trainer.train(20000)
+    # save the trained model (create directory if needed)
+    os.makedirs("trained_models", exist_ok=True)
+    learner.save("trained_models/policy_mpc_gail.zip")
+else:
+    learner = PPO.load("trained_models/policy_mpc_gail.zip")
 
 # evaluate the learner after training
 env.reset(seed=SEED)

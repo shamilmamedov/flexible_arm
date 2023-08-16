@@ -1,7 +1,9 @@
 from enum import Enum, auto
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 n_seg_int2str = {0: "zero", 1: "one", 2: "two", 3: "three", 5: "five", 10: "ten"}
 
@@ -45,3 +47,15 @@ def print_timings(
         "\tmin: \t{:10.4f}s, \n"
         "\tmax:\t{:10.4f}s".format(t_mean, t_std, t_min, t_max)
     )
+
+
+def seed_everything(seed: int) -> None:
+    """
+    Taken and modified from Lightning: https://github.com/Lightning-AI/lightning/blob/725159ed604673e847b7821b08dceff80ec9c735/src/lightning/fabric/utilities/seed.py
+    Function that sets seed for pseudo-random number generators in: pytorch, numpy, python.random
+    """
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
