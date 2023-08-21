@@ -4,6 +4,14 @@
 Installation of acados according to the following instructions:
 https://docs.acados.org/python_interface/index.html
 
-## Imitation Library Fork:
-To use the imitation library that is compatible with SB3 and Gymnasium clone and install
-this fork: https://github.com/Erfi/imitation
+## Imitation Library Fork (submodule):
+Current (21 August 2023) version on imitation library does not yet support
+Gymnasium. So we are using our own fork of it with necessary modifications. 
+
+After cloning this repo:
+
+- ```git submodule init```
+- ```git submodule update```
+- ```cd imitation```
+- ```pip install -e .```
+
