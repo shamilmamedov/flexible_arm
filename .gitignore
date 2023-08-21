@@ -35,3 +35,6 @@ __pycache__/
 /c_generated_code/make_sfun_flexible_arm_nq9.m
 /c_generated_code/Makefile
 /c_generated_code/flexible_arm_nq9_model/
+
+# submodules
+/imitation 
