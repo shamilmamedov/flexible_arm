@@ -1,0 +1,3 @@
+[submodule "imitation"]
+	path = imitation
+	url = git@github.com:Erfi/imitation.git
