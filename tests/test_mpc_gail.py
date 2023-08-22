@@ -27,7 +27,7 @@ rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
 if TRAIN_MODEL:
-    env, expert = create_unified_flexiblearmenv_and_controller(return_controller=True)
+    env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
     venv = DummyVecEnv([lambda: env])
 
     # --- load expert rollouts ---
@@ -76,7 +76,7 @@ if TRAIN_MODEL:
     os.makedirs("trained_models", exist_ok=True)
     learner.save("trained_models/policy_mpc_gail.zip")
 else:
-    env, _ = create_unified_flexiblearmenv_and_controller(return_controller=False)
+    env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
     learner = PPO.load("trained_models/policy_mpc_gail.zip")
 
 # evaluate the learner after training

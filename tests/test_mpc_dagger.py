@@ -27,7 +27,7 @@ seed_everything(SEED)
 
 if TRAIN_MODEL:
     logging.info("Training a DAGGER model")
-    env, expert = create_unified_flexiblearmenv_and_controller(return_controller=True)
+    env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
     venv = DummyVecEnv([lambda: env])
 
     bc_trainer = bc.BC(
@@ -59,7 +59,7 @@ if TRAIN_MODEL:
         print(f"Reward before training: {reward}")
 
         print("Training a policy using Dagger")
-        dagger_trainer.train(100)
+        dagger_trainer.train(5000)
 
         policy = dagger_trainer.policy
         os.makedirs("trained_models", exist_ok=True)
