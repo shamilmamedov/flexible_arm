@@ -9,61 +9,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
-
-
-from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
-from envs.gym_env import (
-    FlexibleArmEnv,
-    FlexibleArmEnvOptions,
-)
-from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableMPCExpert
-from utils.utils import StateType
+from utils.gym_utils import create_unified_flexiblearmenv_and_controller
 
 SEED = 0
 rng = np.random.default_rng(SEED)
 
 
-# --- Create FlexibleArm environment ---
-n_seg = 5
-n_seg_mpc = 3
-
-# create data environment
-R_Q = [3e-6] * 3
-R_DQ = [2e-3] * 3
-R_PEE = [1e-4] * 3
-env_options = FlexibleArmEnvOptions(
-    n_seg=n_seg,
-    n_seg_estimator=n_seg_mpc,
-    sim_time=1.3,
-    dt=0.01,
-    qa_range_start=np.array([np.pi // 6, np.pi // 6, np.pi // 6]),
-    qa_range_end=np.array([np.pi // 2, np.pi // 2, np.pi // 2]),
-    contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
-    sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
-    render_mode="human",
-)
-env = FlexibleArmEnv(env_options)
-# env.reset()
-# for _ in range(500):
-#     env.render()
-# env.renderer.viz.viewer.stop()
-# --------------------------------------
-
-# --- Create MPC controller ---
-fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
-mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
-controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
-
-
-# create MPC expert
-expert = CallableMPCExpert(
-    controller,
-    observation_space=env.observation_space,
-    action_space=env.action_space,
-    observation_includes_goal=True,
-)
-# -----------------------------
+env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
 
 # --- Collect expert trajectories ---
 print("Sampling expert transitions.")
@@ -73,6 +25,7 @@ rollouts = rollout.rollout(
     rollout.make_sample_until(min_timesteps=None, min_episodes=100),
     rng=rng,
     verbose=True,
+    render=False,
 )
 serialize.save("mpc_expert_rollouts.pkl", rollouts)
 # -----------------------------------

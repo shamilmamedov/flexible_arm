@@ -16,56 +16,19 @@ from imitation.algorithms import bc
 from imitation.algorithms.dagger import SimpleDAggerTrainer
 from imitation.data import serialize
 
-from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions, SymbolicFlexibleArm3DOF
-from mpc_3dof import Mpc3dofOptions, Mpc3Dof
-from utils.gym_utils import CallableMPCExpert
-from utils.utils import StateType, seed_everything
+from utils.utils import seed_everything
+from utils.gym_utils import create_unified_flexiblearmenv_and_controller
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 SEED = 0
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
-
-# --- Create FlexibleArm environment ---
-n_seg = 5
-n_seg_mpc = 3
-
-# create data environment
-R_Q = [3e-6] * 3
-R_DQ = [2e-3] * 3
-R_PEE = [1e-4] * 3
-env_options = FlexibleArmEnvOptions(
-    n_seg=n_seg,
-    n_seg_estimator=n_seg_mpc,
-    sim_time=1.3,
-    dt=0.01,
-    qa_range_start=np.array([np.pi // 6, np.pi // 6, np.pi // 6]),
-    qa_range_end=np.array([np.pi // 2, np.pi // 2, np.pi // 2]),
-    contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
-    sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
-    render_mode="human",
-)
-env = FlexibleArmEnv(env_options)
-venv = DummyVecEnv([lambda: env])
-# --------------------------------------
-
 if TRAIN_MODEL:
     logging.info("Training a DAGGER model")
-    # --- Create MPC controller ---
-    fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
-    mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
-    controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
-
-    # create MPC expert
-    expert = CallableMPCExpert(
-        controller,
-        observation_space=env.observation_space,
-        action_space=env.action_space,
-        observation_includes_goal=True,
-    )
-    # -----------------------------
+    env, expert = create_unified_flexiblearmenv_and_controller(return_controller=True)
+    venv = DummyVecEnv([lambda: env])
 
     bc_trainer = bc.BC(
         observation_space=env.observation_space,
@@ -103,6 +66,7 @@ if TRAIN_MODEL:
         torch.save(policy, "trained_models/policy_mpc_dagger.pt")
 
 else:
+    env, _ = create_unified_flexiblearmenv_and_controller(return_controller=False)
     logging.info("Loading a trained DAGGER model")
     policy = torch.load("trained_models/policy_mpc_dagger.pt")
 
