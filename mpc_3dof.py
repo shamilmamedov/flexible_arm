@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from optimal_planner import design_optimal_circular_trajectory
-
+from envs.flexible_arm_3dof import get_rest_configuration, inverse_kinematics_rb
 # Avoid circular imports with type checking
 if TYPE_CHECKING:
     from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
@@ -248,6 +248,27 @@ class Mpc3Dof(BaseController):
         self.debug_timings = []
         self.iteration_counter = 0
 
+    def _get_x_ref(self, p_ee_ref: np.ndarray):
+        """
+        Compute reference states genaralized coordinates (angles q, angular velocities dq)
+        related to MPC model out of endeffetor states.
+        @param p_ee_ref: Endefector Cartesian reference position
+        """
+
+
+        qa_t0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+        q_t0_guess = get_rest_configuration(qa_t0, self.options.n_seg)
+
+        qa_guess = q_t0_guess[self.fa_model.qa_idx]
+
+        qa_guess = inverse_kinematics_rb(p_ee_ref, q_guess=qa_guess)
+        qa_0 = qa_guess.flatten()
+        q_0 = get_rest_configuration(qa_0, self.fa_model.n_seg).T
+
+        dq_0 = np.zeros_like(q_0)
+        x_0 = np.hstack((q_0, dq_0))
+        return x_0.T
+
     def set_reference_point(
         self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
     ):
@@ -255,9 +276,15 @@ class Mpc3Dof(BaseController):
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
         @param x_ref: States q and dq of the reference position
-        @param p_ee_ref: Endefector reference position
+        @param p_ee_ref: Endefector Cartesian Endefector reference position
         @param u_ref: Torques at endeffector position. Can be set to zero.
         """
+        # get reference states in generalized coordinates from ee position
+        x_ref = self._get_x_ref(p_ee_ref)
+
+        # set reference torques to zero
+        u_ref = np.array([[0.],[0.],[0.]])
+
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
         if len(x_ref.shape) < 2:

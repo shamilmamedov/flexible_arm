@@ -476,7 +476,7 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
     # Solve IK problemFalse
     if q_guess is None:
         q_guess = np.array([0, 0.1, -0.1])
-        
+
     q_num = F(q_guess)
     return (np.array(q_num) + np.pi) % (2 * np.pi) - np.pi
 

@@ -25,7 +25,7 @@ rollouts = rollout.rollout(
     rollout.make_sample_until(min_timesteps=None, min_episodes=100),
     rng=rng,
     verbose=True,
-    render=False,
+    render=True,
 )
 serialize.save("mpc_expert_rollouts.pkl", rollouts)
 # -----------------------------------
