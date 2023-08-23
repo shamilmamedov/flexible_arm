@@ -4,8 +4,7 @@ from scipy.integrate import solve_ivp
 from dataclasses import dataclass
 from numpy.random import multivariate_normal
 
-from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
-from integrator import RK4
+from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from utils.utils import StateType
 
 # Measurement noise covairance parameters
@@ -155,8 +154,6 @@ class Simulator:
                 atol=self.opts.atol,
             )
             x_next = sol.y[:, -1]
-        elif self.integrator == "RK4":
-            x_next = RK4(x, u, self.robot.ode, dt, n=5).flatten()
         elif self.integrator in ["collocation", "cvodes"]:
             x_next = np.array(self.F(x, u)).flatten()
         else:
