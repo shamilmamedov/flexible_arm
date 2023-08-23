@@ -7,7 +7,6 @@ import pinocchio as pin
 from scipy.linalg import block_diag
 from acados_template import AcadosModel
 
-from integrator import symbolic_RK4
 from animation import Panda3dAnimator, FlexibleArmVisualizer
 from copy import deepcopy
 
