@@ -38,7 +38,7 @@ class FlexibleArmEnvOptions:
     render_mode = None
     maximum_torques: np.ndarray = np.array([20, 10, 10])
     goal_dist_euclid: float = 0.01
-    goal_min_time: float = 1
+    goal_min_time: float = 0.03
     sim_noise_R: np.ndarray = None
     contr_input_states: StateType = StateType.REAL
     render_mode: Optional[str] = None
@@ -94,7 +94,7 @@ class FlexibleArmEnv(gym.Env):
             if options.contr_input_states is StateType.ESTIMATED
             else self.model_sym.nx
         )
-        nx_ += nx_ + 3  # add the goal state and position dimensions
+        nx_ += 3  # add goal position dimensions
 
         self.observation_space = spaces.Box(
             np.array([-np.pi * 200] * nx_),
@@ -197,8 +197,8 @@ class FlexibleArmEnv(gym.Env):
         else:
             observation = self._state
 
-        # Add goal state and position to observation
-        observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))
+        # Add goal position to observation
+        observation = np.hstack((observation, self.xee_final.flatten()))
         return observation, {}
 
     def step(
@@ -231,9 +231,8 @@ class FlexibleArmEnv(gym.Env):
         else:
             observation = self._state[:, 0]
 
-        # Add goal state and position to observation
-        observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))
-
+        # Add goal position to observation
+        observation = np.hstack((observation, self.xee_final.flatten()))
         return observation, reward, terminated, truncated, info
 
     def _terminal(self, dist: float):

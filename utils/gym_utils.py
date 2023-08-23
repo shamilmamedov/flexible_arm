@@ -30,15 +30,14 @@ class CallableMPCExpert(policies.BasePolicy):
 
     def _separate_observation_and_goal(self, observation: np.ndarray):
         """
-        separates the observation into the state, goal state and goal coordinates
+        separates the observation into the state, and goal coordinates
         observation: ndarray of shape (batch_size, observation_space.shape[0])
-        returns: state, goal_state, goal_coords
+        returns: state, goal_coords
         """
         L = self.observation_space.shape[0]
-        state = observation[:, 0 : int((L - 3) / 2)]
-        goal_state = observation[:, int((L - 3) / 2) : L - 3]
+        state = observation[:, 0 : L - 3]
         goal_coords = observation[:, L - 3 :]
-        return state, goal_state, goal_coords
+        return state, goal_coords
 
     def _predict(self, observation, deterministic: bool = False):
         """
@@ -62,13 +61,9 @@ class CallableMPCExpert(policies.BasePolicy):
         """
         B, D = observation.shape
         if self.observation_includes_goal:
-            observation, goal_state, goal_coords = self._separate_observation_and_goal(
-                observation
-            )
+            observation, goal_coords = self._separate_observation_and_goal(observation)
 
-            self.controller.set_reference_point(
-                p_ee_ref=goal_coords.reshape(-1, B)
-            )
+            self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
         observation = observation.reshape(-1, B)
         n_q = observation.shape[0] // 2
         torques = self.controller.compute_torques(
