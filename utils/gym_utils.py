@@ -65,11 +65,9 @@ class CallableMPCExpert(policies.BasePolicy):
             observation, goal_state, goal_coords = self._separate_observation_and_goal(
                 observation
             )
-            u_ref = np.zeros((self.action_space.shape[0], 1))
+
             self.controller.set_reference_point(
-                x_ref=goal_state.reshape(-1, B),
-                p_ee_ref=goal_coords.reshape(-1, B),
-                u_ref=u_ref,
+                p_ee_ref=goal_coords.reshape(-1, B)
             )
         observation = observation.reshape(-1, B)
         n_q = observation.shape[0] // 2

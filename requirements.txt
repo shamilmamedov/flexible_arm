@@ -1,7 +1,7 @@
 pin==2.6.4
 numpy~=1.22.4
 scipy~=1.8.1
-casadi~=3.5.5
+casadi>=3.6
 matplotlib~=3.5.2
 stable-baselines3
 imitation
