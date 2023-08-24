@@ -22,9 +22,11 @@ class CallableMPCExpert(policies.BasePolicy):
         observation_space,
         action_space,
         observation_includes_goal: bool,
+        observation_includes_obstacle: bool = False,
     ):
         super().__init__(observation_space, action_space)
         self.observation_includes_goal = observation_includes_goal
+        self.observation_includes_obstacle = observation_includes_obstacle
         self.controller = controller
         self.observation_space = observation_space
         self.action_space = action_space
@@ -35,11 +37,16 @@ class CallableMPCExpert(policies.BasePolicy):
         observation: ndarray of shape (batch_size, observation_space.shape[0])
         returns: state, goal_coords, wallObstacle
         """
-        state = observation[:,:-9]
-        goal_coords = observation[:,-9:-6]
-        w = observation[:,-6:-3].ravel()
-        b = observation[:,-3:].ravel()
-        return state, goal_coords, WallObstacle(w, b)
+        if self.observation_includes_obstacle:
+            state = observation[:,:-9]
+            goal_coords = observation[:,-9:-6]
+            w = observation[:,-6:-3].ravel()
+            b = observation[:,-3:].ravel()
+            return state, goal_coords, WallObstacle(w, b)
+        else:
+            state = observation[:,:-3]
+            goal_coords = observation[:,-3:]
+            return state, goal_coords, None
 
     def _predict(self, observation, deterministic: bool = False):
         """
@@ -106,13 +113,14 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
         w = np.array([0., 1., 0.])
         b = np.array([0., -0.15, 0.5])
         wall = WallObstacle(w, b)
+        observation_includes_obstacle = True
     else:
         wall = None
+        observation_includes_obstacle = False
 
     # Create environment
     env = FlexibleArmEnv(env_options, obstacle=wall)
     # -------------------------------------
-
     if create_controller:
         # --- Create MPC controller ---
         fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
@@ -125,6 +133,7 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
             observation_space=env.observation_space,
             action_space=env.action_space,
             observation_includes_goal=True,
+            observation_includes_obstacle=observation_includes_obstacle
         )
     else:
         expert = None

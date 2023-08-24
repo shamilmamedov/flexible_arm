@@ -15,7 +15,7 @@ SEED = 0
 rng = np.random.default_rng(SEED)
 
 
-env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True, add_wall_obstacle=True)
+env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True, add_wall_obstacle=False)
 
 # --- Collect expert trajectories ---
 print("Sampling expert transitions.")
