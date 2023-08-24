@@ -20,8 +20,8 @@ from utils.utils import StateType
 # using hyperplane equation w.T @ x >= b
 @dataclass
 class WallObstacle:
-    w: np.ndarray
-    b: np.ndarray
+    w: np.ndarray # 3x1 vector
+    b: np.ndarray # 3x1 vector
     
 
 @dataclass
@@ -105,6 +105,8 @@ class FlexibleArmEnv(gym.Env):
             else self.model_sym.nx
         )
         nx_ += 3  # add goal position dimensions
+        if self.obstacle is not None:
+            nx_ += 6  # add obstacle dimensions
 
         self.observation_space = spaces.Box(
             np.array([-np.pi * 200] * nx_),

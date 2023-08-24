@@ -35,11 +35,10 @@ class CallableMPCExpert(policies.BasePolicy):
         observation: ndarray of shape (batch_size, observation_space.shape[0])
         returns: state, goal_coords, wallObstacle
         """
-        state = observation[:-9]
-        goal_coords = observation[-9:-6]
-        w = observation[-6:-3]
-        b = observation[-3:]
-
+        state = observation[:,:-9]
+        goal_coords = observation[:,-9:-6]
+        w = observation[:,-6:-3].ravel()
+        b = observation[:,-3:].ravel()
         return state, goal_coords, WallObstacle(w, b)
 
     def _predict(self, observation, deterministic: bool = False):
