@@ -236,27 +236,9 @@ class SymbolicFlexibleArm3DOF:
         self.tau_max = np.array([20, 10, 10])
         self.dqa_max = np.array([2.5, 3.5, 3.5])
 
-        # Process flexibility parameters
-        if self.n_seg > 0:
-            params_file = 'flexibility_params.yml'
-            params_path = os.path.join(model_folder, params_file)
-
-            with open(params_path) as f:
-                flexibility_params = yaml.safe_load(f)
-
-            self.K2 = np.diag(flexibility_params['K2'])
-            self.K3 = np.diag(flexibility_params['K3'])
-            self.D2 = np.diag(flexibility_params['D2'])
-            self.D3 = np.diag(flexibility_params['D3'])
-
-        # Load the forward dynamics alogirthm function ABA and RNEA
-        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
-        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
-
-        # Get function for the forward kinematics and velocities
-        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
-        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
-        self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
+        # Load the model parameters and functions
+        self._load_flexibility_params()
+        self._load_kinematics_and_dynamics_fcns()
 
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
@@ -286,7 +268,7 @@ class SymbolicFlexibleArm3DOF:
             tau = u      
 
         # Accelerations and right-hand-side of the ODE
-        ddq = casadi_aba(q, dq, tau)
+        ddq = self.aba(q, dq, tau)
         rhs = cs.vertcat(dq, ddq)
         h = cs.vertcat(qa, dqa, self.p_ee(q))
 
@@ -329,6 +311,30 @@ class SymbolicFlexibleArm3DOF:
         x_next = I(x0=self.x, p=self.u)["xf"]
         self.F = cs.Function('F', [x, u], [x_next])
         self.dF_dx = cs.Function('dF_dx', [x, u], [cs.jacobian(x_next, x)])
+
+    def _load_kinematics_and_dynamics_fcns(self, model_folder: str):
+        # Load the forward dynamics alogirthm function ABA and RNEA
+        self.aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
+
+        # Get function for the forward kinematics and velocities
+        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
+        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+        self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
+
+    def _load_flexibility_params(self, model_folder: str):
+        # Process flexibility parameters
+        if self.n_seg > 0:
+            params_file = 'flexibility_params.yml'
+            params_path = os.path.join(model_folder, params_file)
+
+            with open(params_path) as f:
+                flexibility_params = yaml.safe_load(f)
+
+            self.K2 = np.diag(flexibility_params['K2'])
+            self.K3 = np.diag(flexibility_params['K3'])
+            self.D2 = np.diag(flexibility_params['D2'])
+            self.D3 = np.diag(flexibility_params['D3'])
 
     def get_acados_model(self) -> AcadosModel:
         """ Return an acados model later used in OCP
