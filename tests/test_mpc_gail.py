@@ -27,7 +27,7 @@ rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
 if TRAIN_MODEL:
-    env, expert = create_unified_flexiblearmenv_and_controller(return_controller=True)
+    env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
     venv = DummyVecEnv([lambda: env])
 
     # --- load expert rollouts ---
@@ -39,7 +39,7 @@ if TRAIN_MODEL:
         policy=MlpPolicy,
         batch_size=64,
         ent_coef=0.0,
-        learning_rate=0.0001,
+        learning_rate=0.00001,
         n_epochs=1,
         seed=SEED,
     )
@@ -63,20 +63,20 @@ if TRAIN_MODEL:
     learner_rewards_before_training, _ = evaluate_policy(
         model=learner,
         env=env,
-        n_eval_episodes=3,
+        n_eval_episodes=30,
         return_episode_rewards=True,
         render=False,
     )
     print("mean reward before training:", np.mean(learner_rewards_before_training))
 
     # train the learner and evaluate again
-    gail_trainer.train(20000)
+    gail_trainer.train(100000)
 
     # save the trained model (create directory if needed)
     os.makedirs("trained_models", exist_ok=True)
     learner.save("trained_models/policy_mpc_gail.zip")
 else:
-    env, _ = create_unified_flexiblearmenv_and_controller(return_controller=False)
+    env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
     learner = PPO.load("trained_models/policy_mpc_gail.zip")
 
 # evaluate the learner after training
@@ -84,9 +84,23 @@ env.reset(seed=SEED)
 learner_rewards_after_training, _ = evaluate_policy(
     model=learner,
     env=env,
-    n_eval_episodes=3,
+    n_eval_episodes=30,
     return_episode_rewards=True,
-    render=True,
+    render=False,
 )
 
 print("mean reward after training:", np.mean(learner_rewards_after_training))
+
+
+# plot histogram of rewards before and after training
+if TRAIN_MODEL:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    ax.hist(
+        [learner_rewards_before_training, learner_rewards_after_training],
+        label=["untrained", "trained"],
+    )
+    ax.legend()
+    fig.savefig("trained_models/policy_mpc_gail_reward_histogram.png")
+    plt.show()

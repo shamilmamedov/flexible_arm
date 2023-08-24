@@ -17,12 +17,12 @@ from utils.utils import seed_everything
 from utils.gym_utils import create_unified_flexiblearmenv_and_controller
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 SEED = 0
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
-env, _ = create_unified_flexiblearmenv_and_controller(return_controller=False)
+env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
 
 if TRAIN_MODEL:
     logging.info("Training a BC model")

@@ -16,6 +16,14 @@ from animation import Panda3dRenderer
 from utils.utils import StateType
 
 
+# dataclass that stores the wall obstacle parameters defined 
+# using hyperplane equation w.T @ x >= b
+@dataclass
+class WallObstacle:
+    w: np.ndarray
+    b: np.ndarray
+    
+
 @dataclass
 class FlexibleArmEnvOptions:
     """
@@ -33,12 +41,12 @@ class FlexibleArmEnvOptions:
     n_seg: int = 3
     n_seg_estimator: int = 3
     sim_time: float = 3
-    qa_range_start: np.ndarray = np.array([np.pi, np.pi, np.pi])
-    qa_range_end: np.ndarray = np.array([0.0, 0.0, 0.0])
+    qa_range_start: np.ndarray = np.array([-np.pi/2, 0., -np.pi+0.05])
+    qa_range_end: np.ndarray = np.array([3*np.pi/2, np.pi, np.pi-0.05])
     render_mode = None
     maximum_torques: np.ndarray = np.array([20, 10, 10])
     goal_dist_euclid: float = 0.01
-    goal_min_time: float = 1
+    goal_min_time: float = 0.03
     sim_noise_R: np.ndarray = None
     contr_input_states: StateType = StateType.REAL
     render_mode: Optional[str] = None
@@ -56,10 +64,12 @@ class FlexibleArmEnv(gym.Env):
     def __init__(
         self,
         options: FlexibleArmEnvOptions,
+        obstacle: Optional[WallObstacle] = None
     ) -> None:
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
         self.dt = options.dt
+        self.obstacle = obstacle
 
         # counter for integfration steps and max integration steps
         self.no_intg_steps = 0
@@ -94,7 +104,7 @@ class FlexibleArmEnv(gym.Env):
             if options.contr_input_states is StateType.ESTIMATED
             else self.model_sym.nx
         )
-        nx_ += nx_ + 3  # add the goal state and position dimensions
+        nx_ += 3  # add goal position dimensions
 
         self.observation_space = spaces.Box(
             np.array([-np.pi * 200] * nx_),
@@ -197,8 +207,10 @@ class FlexibleArmEnv(gym.Env):
         else:
             observation = self._state
 
-        # Add goal state and position to observation
-        observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))
+        # Add goal position to observation
+        observation = np.hstack((observation, self.xee_final.flatten()))
+        if self.obstacle is not None:
+            observation = np.hstack((observation, self.obstacle.w, self.obstacle.b))
         return observation, {}
 
     def step(
@@ -231,9 +243,10 @@ class FlexibleArmEnv(gym.Env):
         else:
             observation = self._state[:, 0]
 
-        # Add goal state and position to observation
-        observation = np.hstack((observation, self.x_final, self.xee_final.flatten()))
-
+        # Add goal position to observation
+        observation = np.hstack((observation, self.xee_final.flatten()))
+        if self.obstacle is not None:
+            observation = np.hstack((observation, self.obstacle.w, self.obstacle.b))
         return observation, reward, terminated, truncated, info
 
     def _terminal(self, dist: float):
@@ -263,3 +276,5 @@ class FlexibleArmEnv(gym.Env):
                 "No renderer defined. Render mode can be one of ['human', 'rgb_array']"
             )
         return frame
+
+

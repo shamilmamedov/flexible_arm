@@ -79,11 +79,11 @@ class Mpc3Dof(BaseController):
     """
 
     def __init__(
-            self,
-            model: "SymbolicFlexibleArm3DOF",
-            x0: np.ndarray = None,
-            pee_0: np.ndarray = None,
-            options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+        self,
+        model: "SymbolicFlexibleArm3DOF",
+        x0: np.ndarray = None,
+        pee_0: np.ndarray = None,
+        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
     ):
         """
         :parameter x0: initial state vector
@@ -147,11 +147,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx: nx + nu, :] = np.eye(nu)
+        Vu[nx : nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu:, :] = np.eye(nz)
+        Vz[nx + nu :, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -199,7 +199,7 @@ class Mpc3Dof(BaseController):
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([10 ** 3] * 3 + [10] * n_wall_constraints)
+            ocp.cost.zl = np.array([10**3] * 3 + [10] * n_wall_constraints)
             ocp.cost.Zl = np.array(
                 [options.w2_slack_speed] * 3
                 + [options.w2_slack_wall] * n_wall_constraints
@@ -280,7 +280,7 @@ class Mpc3Dof(BaseController):
         x_ref = self._get_x_ref(p_ee_ref)
 
         # set reference torques to zero
-        u_ref = np.array([[0.], [0.], [0.]])
+        u_ref = np.array([[0.0], [0.0], [0.0]])
 
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)

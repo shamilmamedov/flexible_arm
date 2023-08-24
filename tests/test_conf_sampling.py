@@ -19,9 +19,6 @@ def _create_env():
 
     # Create initial state data env
     # base-rotation, base-bend, elbow-bend
-    qa_initial = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
-    qa_final = np.array([0.0, 2 * np.pi / 5, -np.pi / 3])
-
     qa_range_start = np.array([-np.pi/2, 0., -np.pi+0.05])
     qa_range_end = np.array([3*np.pi/2, np.pi, np.pi-0.05])
 
@@ -34,8 +31,6 @@ def _create_env():
         n_seg_estimator=n_seg_control,
         sim_time=1.3,
         dt=0.01,
-        qa_start=qa_initial,
-        qa_end=qa_final,
         qa_range_start=qa_range_start,
         qa_range_end=qa_range_end,
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
