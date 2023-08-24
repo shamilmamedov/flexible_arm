@@ -7,6 +7,7 @@ from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from envs.flexible_arm_env import (
     FlexibleArmEnv,
     FlexibleArmEnvOptions,
+    WallObstacle
 )
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.utils import StateType
@@ -27,17 +28,18 @@ class CallableMPCExpert(policies.BasePolicy):
         self.controller = controller
         self.observation_space = observation_space
         self.action_space = action_space
-
-    def _separate_observation_and_goal(self, observation: np.ndarray):
+  
+    def _parse_observation(self, observation: np.ndarray):
         """
         separates the observation into the state, and goal coordinates
         observation: ndarray of shape (batch_size, observation_space.shape[0])
-        returns: state, goal_coords
+        returns: state, goal_coords, wallObstacle
         """
-        L = self.observation_space.shape[0]
-        state = observation[:, 0 : L - 3]
-        goal_coords = observation[:, L - 3 :]
-        return state, goal_coords
+        state = observation[:,:-9]
+        goal_coords = observation[:,-9:-6]
+        w = observation[:,-6:-3].ravel()
+        b = observation[:,-3:].ravel()
+        return state, goal_coords, WallObstacle(w, b)
 
     def _predict(self, observation, deterministic: bool = False):
         """
@@ -61,7 +63,7 @@ class CallableMPCExpert(policies.BasePolicy):
         """
         B, D = observation.shape
         if self.observation_includes_goal:
-            observation, goal_coords = self._separate_observation_and_goal(observation)
+            observation, goal_coords, obstacle = self._parse_observation(observation)
 
             self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
         observation = observation.reshape(-1, B)
@@ -75,7 +77,7 @@ class CallableMPCExpert(policies.BasePolicy):
         return self._predict(observation)
 
 
-def create_unified_flexiblearmenv_and_controller(create_controller=False):
+def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wall_obstacle=False):
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
     """
@@ -83,7 +85,7 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False):
     n_seg = 5
     n_seg_mpc = 3
 
-    # create data environment
+    # Environment options
     R_Q = [3e-6] * 3
     R_DQ = [2e-3] * 3
     R_PEE = [1e-4] * 3
@@ -92,13 +94,23 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False):
         n_seg_estimator=n_seg_mpc,
         sim_time=1.3,
         dt=0.01,
-        qa_range_start=np.array([np.pi // 6, np.pi // 6, np.pi // 6]),
-        qa_range_end=np.array([np.pi // 2, np.pi // 2, np.pi // 2]),
+        qa_range_start=np.array([-np.pi/2, 0., -np.pi+0.05]),
+        qa_range_end=np.array([3*np.pi/2, np.pi, np.pi-0.05]),
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
         sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
         render_mode="human",
     )
-    env = FlexibleArmEnv(env_options)
+    # Wall obstacle
+    if add_wall_obstacle:
+        # Wall obstacle
+        w = np.array([0., 1., 0.])
+        b = np.array([0., -0.15, 0.5])
+        wall = WallObstacle(w, b)
+    else:
+        wall = None
+
+    # Create environment
+    env = FlexibleArmEnv(env_options, obstacle=wall)
     # -------------------------------------
 
     if create_controller:

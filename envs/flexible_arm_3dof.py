@@ -1,13 +1,12 @@
 import os
 import yaml
 import numpy as np
-import matplotlib.pyplot as plt
 import casadi as cs
 import pinocchio as pin
 from scipy.linalg import block_diag
 from acados_template import AcadosModel
 
-from animation import Panda3dAnimator, FlexibleArmVisualizer
+# from animation import Panda3dAnimator, FlexibleArmVisualizer
 from copy import deepcopy
 
 n_seg_int2str = {0: 'zero', 1:'one', 2:'two', 3: 'three', 5: 'five', 10: 'ten'}
@@ -236,6 +235,26 @@ class SymbolicFlexibleArm3DOF:
         self.tau_max = np.array([20, 10, 10])
         self.dqa_max = np.array([2.5, 3.5, 3.5])
 
+        # Load the model parameters and functions
+        self._load_flexibility_params(model_folder)
+        self._load_kinematics_and_dynamics_fcns(model_folder)
+        self._get_dynamics_as_casadi_expressions()
+        self._generate_casadi_fcns_for_dynamics()
+        self._generate_casadi_fcns_for_linearized_dynamics()
+        self._create_integrator(dt, integrator)
+        self._create_fcns_for_discretized_dynamics()
+        
+    def _load_kinematics_and_dynamics_fcns(self, model_folder: str):
+        # Load the forward dynamics alogirthm function ABA and RNEA
+        self.aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
+        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
+
+        # Get function for the forward kinematics and velocities
+        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
+        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
+        self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
+
+    def _load_flexibility_params(self, model_folder: str):
         # Process flexibility parameters
         if self.n_seg > 0:
             params_file = 'flexibility_params.yml'
@@ -249,15 +268,7 @@ class SymbolicFlexibleArm3DOF:
             self.D2 = np.diag(flexibility_params['D2'])
             self.D3 = np.diag(flexibility_params['D3'])
 
-        # Load the forward dynamics alogirthm function ABA and RNEA
-        casadi_aba = cs.Function.load(os.path.join(model_folder, 'aba.casadi'))
-        self.rnea = cs.Function.load(os.path.join(model_folder, 'rnea.casadi'))
-
-        # Get function for the forward kinematics and velocities
-        self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
-        self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
-        self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
-
+    def _get_dynamics_as_casadi_expressions(self):
         # Symbolic variables for joint positions, velocities and controls
         q = cs.MX.sym("q", self.nq)
         dq = cs.MX.sym("dq", self.nq)
@@ -266,35 +277,10 @@ class SymbolicFlexibleArm3DOF:
         x = cs.vertcat(q, dq)
         x_dot = cs.MX.sym('xdot', self.nx) # needed for acados
 
-        if self.n_seg > 0:
-            # Compute torques of passive joints due to joint flexibility
-            # Keep in mind only the first joint is active
-            qa = q[[0, 1, 2 + n_seg]]
-            qp_link2 = q[2:2 + n_seg]
-            qp_link3 = q[2 + n_seg + 1:]
-
-            dqp_link2 = dq[2:2 + n_seg]
-            dqp_link3 = dq[2 + n_seg + 1:]
-            dqa = dq[[0, 1, 2 + n_seg]]
-
-            taup_link2 = -self.K2 @ qp_link2 - self.D2 @ dqp_link2
-            taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
-            tau = cs.vertcat(u[:2], taup_link2, u[2], taup_link3)
-        else:
-            qa = q
-            dqa = dq
-            tau = u      
-
-        # Accelerations and right-hand-side of the ODE
-        ddq = casadi_aba(q, dq, tau)
+        tau = self._get_joint_torques_expressions(q, dq, u)
+        ddq = self.aba(q, dq, tau)
         rhs = cs.vertcat(dq, ddq)
-        h = cs.vertcat(qa, dqa, self.p_ee(q))
-
-        # Calculate derivatives of the rhs and output wrt control and states to get linearized
-        # dynamics to be used in state observers for example
-        drhs_dx = cs.jacobian(rhs, x)
-        drhs_du = cs.jacobian(rhs, u)
-        dh_dx = cs.jacobian(h, x)
+        y = cs.vertcat(q[self.qa_idx], dq[self.qa_idx], self.p_ee(q))
 
         self.rhs_impl = self.p_ee(q)
         self.x = x
@@ -302,19 +288,44 @@ class SymbolicFlexibleArm3DOF:
         self.u = u
         self.z = z
         self.rhs = rhs
+        self.y = y
+
+    def _generate_casadi_fcns_for_dynamics(self):
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
                                ['x', 'u'], ['dx'])
-        self.h = cs.Function('h', [self.x], [h], ['x'], ['h'])
+        self.h = cs.Function('h', [self.x], [self.y], ['x'], ['h'])
 
+    def _generate_casadi_fcns_for_linearized_dynamics(self):
+        drhs_dx = cs.jacobian(self.rhs, self.x)
+        drhs_du = cs.jacobian(self.rhs, self.u)
+        dh_dx = cs.jacobian(self.y, self.x)
+       
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx], 
                                  ['x', 'u'], ['df_dx'])
         self.df_du = cs.Function('df_du', [self.x, self.u], [drhs_du], 
                                  ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx], 
                                  ['x'], ['dy_dx'])
+    
+    def _get_joint_torques_expressions(self, q, dq, u):
+        n_seg = self.n_seg
+        if n_seg > 0:
+            # Compute torques of passive joints due to joint flexibility
+            # Keep in mind only the first joint is active
+            qp_link2 = q[2:2 + n_seg]
+            qp_link3 = q[2 + n_seg + 1:]
 
+            dqp_link2 = dq[2:2 + n_seg]
+            dqp_link3 = dq[2 + n_seg + 1:]
 
-        # Create an integrator
+            taup_link2 = -self.K2 @ qp_link2 - self.D2 @ dqp_link2
+            taup_link3 = -self.K3 @ qp_link3 - self.D3 @ dqp_link3
+            tau = cs.vertcat(u[:2], taup_link2, u[2], taup_link3)
+        else:
+            tau = u 
+        return tau
+    
+    def _create_integrator(self, dt: float, integrator: str):
         dae = {'x': self.x, 'p': self.u, 'ode': self.rhs}
         if integrator == 'collocation':
             opts = {'t0': 0, 'tf': dt, 'number_of_finite_elements': 3, 
@@ -325,10 +336,12 @@ class SymbolicFlexibleArm3DOF:
             opts = {'t0': 0, 'tf': dt, 
                     'nonlinear_solver_iteration': 'functional', # 'expand': True,
                     'linear_multistep_method': 'bdf'}
-        I = cs.integrator('I', integrator, dae, opts)
-        x_next = I(x0=self.x, p=self.u)["xf"]
-        self.F = cs.Function('F', [x, u], [x_next])
-        self.dF_dx = cs.Function('dF_dx', [x, u], [cs.jacobian(x_next, x)])
+        self.I = cs.integrator('I', integrator, dae, opts)
+        
+    def _create_fcns_for_discretized_dynamics(self):
+        x_next = self.I(x0=self.x, p=self.u)["xf"]
+        self.F = cs.Function('F', [self.x, self.u], [x_next])
+        self.dF_dx = cs.Function('dF_dx', [self.x, self.u], [cs.jacobian(x_next, self.x)])
 
     def get_acados_model(self) -> AcadosModel:
         """ Return an acados model later used in OCP
@@ -488,13 +501,13 @@ def main(n_seg: int = 3):
     p_ee = np.array(robot.p_ee(q)) 
     p_goal = p_ee + np.random.uniform(-0.1, 0.1, size=(3,1))
     
-    viz = FlexibleArmVisualizer(robot.urdf_path, dt=0.01)
-    viz.visualize_configuration(q, p_goal)
-    viz.visualize_configuration(q)
+    # viz = FlexibleArmVisualizer(robot.urdf_path, dt=0.01)
+    # viz.visualize_configuration(q, p_goal)
+    # viz.visualize_configuration(q)
 
-    q = q.repeat(100, axis=1).T
-    viz.visualize_trajectory(q, p_goal)
-    viz.visualize_trajectory(q)
+    # q = q.repeat(100, axis=1).T
+    # viz.visualize_trajectory(q, p_goal)
+    # viz.visualize_trajectory(q)
 
 
 if __name__ == "__main__":

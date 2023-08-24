@@ -9,7 +9,6 @@ from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
-
 from envs.flexible_arm_3dof import get_rest_configuration, inverse_kinematics_rb
 
 # Avoid circular imports with type checking
@@ -296,23 +295,6 @@ class Mpc3Dof(BaseController):
         for stage in range(self.options.n):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
-
-    def set_reference_trajectory(self, qa_t0, tf: float = 0.75, r: float = 0.2):
-        t, q, dq, u, pee = design_optimal_circular_trajectory(
-            self.fa_model.n_seg, qa_t0, r=r, tf=tf, visualize=False
-        )
-        self.inter_t2q = interp1d(t, q, axis=0, bounds_error=False, fill_value=q[-1, :])
-        self.inter_t2dq = interp1d(
-            t, dq, axis=0, bounds_error=False, fill_value=dq[-1, :]
-        )
-        self.inter_t2u = interp1d(
-            t[:-1], u, axis=0, bounds_error=False, fill_value=u[-1, :]
-        )
-        self.inter_pee = interp1d(
-            t, pee, axis=0, bounds_error=False, fill_value=pee[-1, :]
-        )
-
-        return self.inter_pee
 
     def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """
