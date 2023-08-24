@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from stable_baselines3.ppo import MlpPolicy
 from envs.flexible_arm_3dof import FlexibleArm3DOF, SymbolicFlexibleArm3DOF
-from envs.gym_env import FlexibleArmEnv
+from envs.flexible_arm_env import FlexibleArmEnv
 from utils.gym_utils import CallableMPCExpert
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from utils.utils import ControlMode

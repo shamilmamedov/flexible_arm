@@ -4,14 +4,15 @@ from stable_baselines3.ppo import MlpPolicy
 import numpy as np
 from abc import ABC, abstractmethod
 
-from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
+from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 
 class BaseController(ABC):
-    """ Abstract base class for controllers
-    All the controllers must implement compute_torques 
+    """Abstract base class for controllers
+    All the controllers must implement compute_torques
     attrubute
     """
+
     debug_timings = []
 
     @abstractmethod
@@ -28,8 +29,7 @@ class BaseController(ABC):
 
 
 class DummyController(BaseController):
-    """ Controller that always returns zero torque
-    """
+    """Controller that always returns zero torque"""
 
     def __init__(self, n_joints=1) -> None:
         self.n_joints = n_joints
@@ -63,12 +63,11 @@ class OfflineController(BaseController):
         if self.iter < self.u_pre.shape[0]:
             return self.u_pre[self.iter, :]
         else:
-            return np.array([0., 0., 0.])
+            return np.array([0.0, 0.0, 0.0])
 
 
 class ConstantController(BaseController):
-    """ Controller that always returns a constant torque
-    """
+    """Controller that always returns a constant torque"""
 
     def __init__(self, tau_const: np.ndarray = np.zeros(3)) -> None:
         self.tau_const = tau_const.flatten()
@@ -78,8 +77,7 @@ class ConstantController(BaseController):
 
 
 class FeedforwardController(BaseController):
-    """ A controller that returns predefined sequence of torques
-    """
+    """A controller that returns predefined sequence of torques"""
 
     def __init__(self, u) -> None:
         """
@@ -100,8 +98,7 @@ class FeedforwardController(BaseController):
 
 
 class PDController(BaseController):
-    """ Proportional-Derivative controller
-    """
+    """Proportional-Derivative controller"""
 
     def __init__(self, Kp, Kd, q_ref) -> None:
         """
@@ -118,8 +115,7 @@ class PDController(BaseController):
 
 
 class PDController3Dof(BaseController):
-    """ Proportional-Derivative controller
-    """
+    """Proportional-Derivative controller"""
 
     def __init__(self, Kp: Tuple, Kd: Tuple, n_seg: int, q_ref: np.ndarray) -> None:
         """
@@ -135,15 +131,16 @@ class PDController3Dof(BaseController):
     def compute_torques(self, q, dq, t=None, y=None):
         out0 = self.Kp[0] * (self.q_ref[0] - q[0]) - self.Kd[0] * dq[0]
         out1 = self.Kp[1] * (self.q_ref[1] - q[1]) - self.Kd[1] * dq[1]
-        out2 = self.Kp[2] * (self.q_ref[self.n_seg + 2] -
-                             q[self.n_seg + 2]) - self.Kd[2] * dq[self.n_seg + 2]
+        out2 = (
+            self.Kp[2] * (self.q_ref[self.n_seg + 2] - q[self.n_seg + 2])
+            - self.Kd[2] * dq[self.n_seg + 2]
+        )
 
         return np.array([out0, out1, out2]).transpose()
 
 
 class NNController(BaseController):
-    """ Proportional-Derivative controller
-    """
+    """Proportional-Derivative controller"""
 
     def __init__(self, nn_file: str, n_seg: int) -> None:
         """
@@ -155,9 +152,11 @@ class NNController(BaseController):
         env_options.n_seg = n_seg
         env = FlexibleArmEnv(options=FlexibleArmEnvOptions(), estimator=None)
         # load trained policy. need a dummy policy.
-        learned_policy = MlpPolicy(observation_space=env.observation_space,
-                                   action_space=env.action_space,
-                                   lr_schedule=lambda x: 1)
+        learned_policy = MlpPolicy(
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            lr_schedule=lambda x: 1,
+        )
         self.learned_policy = learned_policy.load(nn_file)
         self.n_seg = n_seg
 

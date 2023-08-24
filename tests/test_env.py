@@ -6,7 +6,7 @@ This is a minimal example for testing the FlexibleArmEnv.
 from copy import deepcopy
 import numpy as np
 from envs.flexible_arm_3dof import FlexibleArm3DOF
-from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
+from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 n_seg = 3
 fa_ld = FlexibleArm3DOF(n_seg)

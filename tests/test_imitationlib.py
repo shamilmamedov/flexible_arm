@@ -17,7 +17,7 @@ from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 
 from envs.flexible_arm_3dof import FlexibleArm3DOF
-from envs.gym_env import FlexibleArmEnv, FlexibleArmEnvOptions
+from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions
 
 # Create Cartpole environment
 # env = gym.make("CartPole-v1")

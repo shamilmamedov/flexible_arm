@@ -4,7 +4,7 @@ from stable_baselines3.common import policies
 
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
-from envs.gym_env import (
+from envs.flexible_arm_env import (
     FlexibleArmEnv,
     FlexibleArmEnvOptions,
 )
