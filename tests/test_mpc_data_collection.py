@@ -9,13 +9,17 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
-from utils.gym_utils import create_unified_flexiblearmenv_and_controller
+from utils.gym_utils import (
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
 
 SEED = 0
 rng = np.random.default_rng(SEED)
 
 
-env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True, add_wall_obstacle=False)
+env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=True, add_wall_obstacle=False, create_safety_filter=False
+)
 
 # --- Collect expert trajectories ---
 print("Sampling expert transitions.")

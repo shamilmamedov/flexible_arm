@@ -14,7 +14,9 @@ from imitation.data import rollout
 from imitation.data import serialize
 
 from utils.utils import seed_everything
-from utils.gym_utils import create_unified_flexiblearmenv_and_controller
+from utils.gym_utils import (
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
 
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = False
@@ -22,7 +24,9 @@ SEED = 0
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
-env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
+env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=False, create_safety_filter=False
+)
 
 if TRAIN_MODEL:
     logging.info("Training a BC model")

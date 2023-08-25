@@ -16,13 +16,13 @@ from animation import Panda3dRenderer
 from utils.utils import StateType
 
 
-# dataclass that stores the wall obstacle parameters defined 
+# dataclass that stores the wall obstacle parameters defined
 # using hyperplane equation w.T @ x >= b
 @dataclass
 class WallObstacle:
-    w: np.ndarray # 3x1 vector
-    b: np.ndarray # 3x1 vector
-    
+    w: np.ndarray  # 3x1 vector
+    b: np.ndarray  # 3x1 vector
+
 
 @dataclass
 class FlexibleArmEnvOptions:
@@ -41,8 +41,8 @@ class FlexibleArmEnvOptions:
     n_seg: int = 3
     n_seg_estimator: int = 3
     sim_time: float = 3
-    qa_range_start: np.ndarray = np.array([-np.pi/2, 0., -np.pi+0.05])
-    qa_range_end: np.ndarray = np.array([3*np.pi/2, np.pi, np.pi-0.05])
+    qa_range_start: np.ndarray = np.array([-np.pi / 2, 0.0, -np.pi + 0.05])
+    qa_range_end: np.ndarray = np.array([3 * np.pi / 2, np.pi, np.pi - 0.05])
     render_mode = None
     maximum_torques: np.ndarray = np.array([20, 10, 10])
     goal_dist_euclid: float = 0.01
@@ -62,9 +62,7 @@ class FlexibleArmEnv(gym.Env):
     """
 
     def __init__(
-        self,
-        options: FlexibleArmEnvOptions,
-        obstacle: Optional[WallObstacle] = None
+        self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
     ) -> None:
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -259,7 +257,7 @@ class FlexibleArmEnv(gym.Env):
 
         done = False
         if (
-            self.goal_dist_counter >= self.options.goal_min_time / self.options.dt
+            self.goal_dist_counter >= int(self.options.goal_min_time / self.options.dt)
         ) and self.stop_if_goal_condition:
             done = True
         return bool(done)
@@ -278,5 +276,3 @@ class FlexibleArmEnv(gym.Env):
                 "No renderer defined. Render mode can be one of ['human', 'rgb_array']"
             )
         return frame
-
-

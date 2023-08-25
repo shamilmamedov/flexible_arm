@@ -18,7 +18,9 @@ from imitation.util.networks import RunningNorm
 from imitation.data import serialize
 
 from utils.utils import seed_everything
-from utils.gym_utils import create_unified_flexiblearmenv_and_controller
+from utils.gym_utils import (
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
 
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
@@ -27,7 +29,9 @@ rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
 if TRAIN_MODEL:
-    env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
+    env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+        create_controller=True
+    )
     venv = DummyVecEnv([lambda: env])
 
     # --- load expert rollouts ---
@@ -78,7 +82,9 @@ if TRAIN_MODEL:
     os.makedirs("trained_models", exist_ok=True)
     learner.save("trained_models/policy_mpc_airl.zip")
 else:
-    env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
+    env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+        create_controller=False, create_safety_filter=False
+    )
     learner = PPO.load("trained_models/policy_mpc_airl.zip")
 
 # evaluate the learner after training

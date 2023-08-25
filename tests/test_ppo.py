@@ -10,15 +10,21 @@ from stable_baselines3.ppo.policies import ActorCriticPolicy
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from utils.utils import seed_everything
-from utils.gym_utils import create_unified_flexiblearmenv_and_controller
+from utils.gym_utils import (
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
 
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
 SEED = 0
 seed_everything(SEED)
 
-env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
-eval_env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
+env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=False
+)
+eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=False
+)
 
 if TRAIN_MODEL:
     logging.info("Training an PPO model")
