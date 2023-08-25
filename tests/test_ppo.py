@@ -38,7 +38,7 @@ if TRAIN_MODEL:
     logging.info(f"Reward before training: {reward_before}")
 
     # train the agent
-    agent.learn(total_timesteps=100000)
+    agent.learn(total_timesteps=1000000)
 
     # save the trained policy
     os.makedirs("trained_models", exist_ok=True)

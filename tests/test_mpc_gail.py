@@ -42,6 +42,7 @@ if TRAIN_MODEL:
         learning_rate=0.00001,
         n_epochs=1,
         seed=SEED,
+        tensorboard_log="./logs/IRL/gail",
     )
     reward_net = BasicShapedRewardNet(
         observation_space=env.observation_space,
