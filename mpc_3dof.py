@@ -38,9 +38,6 @@ class Mpc3dofOptions:
         self.wall_constraint_on: bool = (
             False  # choose whether we activate the wall constraint
         )
-        self.wall_axis: int = 2  # Wall axis: 0,1,2 -> x,y,z
-        self.wall_value: float = 0.5  # wall height value on axis
-        self.wall_pos_side: bool = True  # defines the allowed side of the wall
 
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array(
@@ -68,6 +65,7 @@ class Mpc3dofOptions:
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
         self.w2_slack_speed: float = 1e6
         self.w2_slack_wall: float = 1e5
+        self.w1_slack_wall: float = 1e1
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -79,11 +77,11 @@ class Mpc3Dof(BaseController):
     """
 
     def __init__(
-        self,
-        model: "SymbolicFlexibleArm3DOF",
-        x0: np.ndarray = None,
-        pee_0: np.ndarray = None,
-        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+            self,
+            model: "SymbolicFlexibleArm3DOF",
+            x0: np.ndarray = None,
+            pee_0: np.ndarray = None,
+            options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
     ):
         """
         :parameter x0: initial state vector
@@ -114,6 +112,7 @@ class Mpc3Dof(BaseController):
         nx = model.x.size()[0]
         nu = model.u.size()[0]
         nz = model.z.size()[0]
+        n_p = model.p.size()[0]
         ny = nx + nu + nz
         ny_e = nx + nz
         self.nu = nu
@@ -147,11 +146,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx : nx + nu, :] = np.eye(nu)
+        Vu[nx: nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu :, :] = np.eye(nz)
+        Vz[nx + nu:, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -189,37 +188,47 @@ class Mpc3Dof(BaseController):
         ocp.constraints.idxbx_e = int(self.nx / 2) + np.array(
             [0, 1, 2 + options.n_seg], dtype="int"
         )
+
+        # Enumerating constraints, that should be slacked.
+        # Only velocities are constrained in the states
         ocp.constraints.idxsbx = np.array([0, 1, 2])
+        ocp.constraints.idxsbx_e = np.array([0, 1, 2])
 
         # safety constraints
         if options.wall_constraint_on:
-            ocp.model.con_h_expr = constraint_expr[options.wall_axis]
-            n_wall_constraints = 1
-            # self.n_constraints = constraint_expr.shape[0]
+            ocp.model.con_h_expr = constraint_expr
+            ocp.model.con_h_expr_e = constraint_expr
+            n_wall_constraints = constraint_expr.shape[0]
+            self.n_constraints = constraint_expr.shape[0]
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([10**3] * 3 + [10] * n_wall_constraints)
+            ocp.cost.zl = np.array([10 ** 3] * 3 +
+                                   [options.w1_slack_wall] * n_wall_constraints)
             ocp.cost.Zl = np.array(
                 [options.w2_slack_speed] * 3
                 + [options.w2_slack_wall] * n_wall_constraints
             )
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
-            ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if options.wall_pos_side else -1e3
-            )
-            ocp.constraints.uh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if not options.wall_pos_side else 1e3
-            )
-            ocp.constraints.lsh = np.zeros(nsh)
-            ocp.constraints.ush = np.zeros(nsh)
+
+            ocp.constraints.lh = np.zeros((n_wall_constraints,))
+            ocp.constraints.uh = 1e6 * np.ones((n_wall_constraints,))
+            ocp.constraints.lh_e = ocp.constraints.lh
+            ocp.constraints.uh_e = ocp.constraints.uh
+
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
+            ocp.constraints.idxsh_e = np.array(range(n_wall_constraints))
         else:
             ocp.cost.zl = np.array([0] * 3)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
+
+        ocp.cost.zl_e = ocp.cost.zl
+        ocp.cost.zu_e = ocp.cost.zu
+        ocp.cost.Zl_e = ocp.cost.Zl
+        ocp.cost.Zu_e = ocp.cost.Zu
 
         # solver options
         ocp.solver_options.qp_solver = (
@@ -236,6 +245,10 @@ class Mpc3Dof(BaseController):
         ocp.solver_options.sim_method_num_stages = 2
         ocp.solver_options.sim_method_num_steps = 2
         ocp.solver_options.qp_solver_cond_N = options.n
+
+        # set parameter values
+        p_wall_outside = np.array([0, 1, 0, 0, -1e3, 0])
+        ocp.parameter_values = p_wall_outside
 
         # set prediction horizon
         ocp.solver_options.tf = options.tf
@@ -267,6 +280,16 @@ class Mpc3Dof(BaseController):
         dq_0 = np.zeros_like(q_0)
         x_0 = np.hstack((q_0, dq_0))
         return x_0.T
+
+    def set_wall_parameters(self, w: np.ndarray, b: np.ndarray):
+        """
+        Set wall parameters such that w.T @ (x_ee @ b) >= 0
+        @param w: vector in the direction of feasibility
+        @param b: distance to a point on the wall
+        """
+        p = np.hstack((w, b))
+        for ii in range(self.options.n):
+            self.acados_ocp_solver.set(ii, "p", p)
 
     def set_reference_point(self, p_ee_ref: np.ndarray):
         """
