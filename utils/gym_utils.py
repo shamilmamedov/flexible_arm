@@ -1,15 +1,13 @@
 import numpy as np
 import torch
 from stable_baselines3.common import policies
+import torch
 
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
-from envs.flexible_arm_env import (
-    FlexibleArmEnv,
-    FlexibleArmEnvOptions,
-    WallObstacle
-)
+from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions, WallObstacle
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
+from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 from utils.utils import StateType
 
 
@@ -30,7 +28,7 @@ class CallableMPCExpert(policies.BasePolicy):
         self.controller = controller
         self.observation_space = observation_space
         self.action_space = action_space
-  
+
     def _parse_observation(self, observation: np.ndarray):
         """
         separates the observation into the state, and goal coordinates
@@ -38,14 +36,14 @@ class CallableMPCExpert(policies.BasePolicy):
         returns: state, goal_coords, wallObstacle
         """
         if self.observation_includes_obstacle:
-            state = observation[:,:-9]
-            goal_coords = observation[:,-9:-6]
-            w = observation[:,-6:-3].ravel()
-            b = observation[:,-3:].ravel()
+            state = observation[:, :-9]
+            goal_coords = observation[:, -9:-6]
+            w = observation[:, -6:-3].ravel()
+            b = observation[:, -3:].ravel()
             return state, goal_coords, WallObstacle(w, b)
         else:
-            state = observation[:,:-3]
-            goal_coords = observation[:,-3:]
+            state = observation[:, :-3]
+            goal_coords = observation[:, -3:]
             return state, goal_coords, None
 
     def _predict(self, observation, deterministic: bool = False):
@@ -75,16 +73,33 @@ class CallableMPCExpert(policies.BasePolicy):
             self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
         observation = observation.reshape(-1, B)
         n_q = observation.shape[0] // 2
-        torques = self.controller.compute_torques(
-            q=observation[0:n_q, :], dq=observation[n_q:, :]
-        )
+        torques = self.controller.compute_torques(q=observation[0:n_q, :], dq=observation[n_q:, :])
         return torques
 
     def __call__(self, observation):
         return self._predict(observation)
 
 
-def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wall_obstacle=False):
+class SafetyWrapper(policies.BasePolicy):
+    """
+    This is a wrapper class that takes in a policy and adds a safety filter and modifies the
+    unsafe actions of the policy if need be.
+    """
+
+    def __init__(self, policy: policies.BasePolicy, safety_filter: SafetyFilter3Dof):
+        super().__init__(policy.observation_space, policy.action_space)
+        self.policy = policy
+        self.safety_filter = safety_filter
+
+    def _predict(self, observation: torch.Tensor, deterministic: bool = False) -> torch.Tensor:
+        proposed_action = self.policy._predict(observation, deterministic)
+        safe_action = self.safety_filter.filter(u0=proposed_action, y=observation)
+        return safe_action
+
+
+def create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=False, create_safety_filter=False, add_wall_obstacle=False
+):
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
     """
@@ -101,8 +116,9 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
         n_seg_estimator=n_seg_mpc,
         sim_time=1.5,
         dt=0.004,
-        qa_range_start=np.array([-np.pi/2, 0., -np.pi+0.05]),
-        qa_range_end=np.array([3*np.pi/2, np.pi, np.pi-0.05]),
+        goal_min_time=0.01,
+        qa_range_start=np.array([-np.pi / 2, 0.0, -np.pi + 0.05]),
+        qa_range_end=np.array([3 * np.pi / 2, np.pi, np.pi - 0.05]),
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
         sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
         render_mode="human",
@@ -110,8 +126,8 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
     # Wall obstacle
     if add_wall_obstacle:
         # Wall obstacle
-        w = np.array([0., 1., 0.])
-        b = np.array([0., -0.15, 0.5])
+        w = np.array([0.0, 1.0, 0.0])
+        b = np.array([0.0, -0.15, 0.5])
         wall = WallObstacle(w, b)
         observation_includes_obstacle = True
     else:
@@ -133,8 +149,15 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
             observation_space=env.observation_space,
             action_space=env.action_space,
             observation_includes_goal=True,
-            observation_includes_obstacle=observation_includes_obstacle
+            observation_includes_obstacle=observation_includes_obstacle,
         )
     else:
         expert = None
-    return env, expert
+
+    if create_safety_filter:
+        safety_model = SymbolicFlexibleArm3DOF(n_seg=1)
+        safety_filter_options = SafetyFilter3dofOptions(n_seg=1)
+        safety_filter = SafetyFilter3Dof(model=safety_model, options=safety_filter_options)
+    else:
+        safety_filter = None
+    return env, expert, safety_filter

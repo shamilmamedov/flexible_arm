@@ -17,7 +17,9 @@ from imitation.algorithms.dagger import SimpleDAggerTrainer
 from imitation.data import serialize
 
 from utils.utils import seed_everything
-from utils.gym_utils import create_unified_flexiblearmenv_and_controller
+from utils.gym_utils import (
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
 
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = False
@@ -27,7 +29,9 @@ seed_everything(SEED)
 
 if TRAIN_MODEL:
     logging.info("Training a DAGGER model")
-    env, expert = create_unified_flexiblearmenv_and_controller(create_controller=True)
+    env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+        create_controller=True, create_safety_filter=False
+    )
     venv = DummyVecEnv([lambda: env])
 
     bc_trainer = bc.BC(
@@ -66,7 +70,9 @@ if TRAIN_MODEL:
         torch.save(policy, "trained_models/policy_mpc_dagger.pt")
 
 else:
-    env, _ = create_unified_flexiblearmenv_and_controller(create_controller=False)
+    env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+        create_controller=False, create_safety_filter=False
+    )
     logging.info("Loading a trained DAGGER model")
     policy = torch.load("trained_models/policy_mpc_dagger.pt")
 
