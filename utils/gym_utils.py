@@ -99,8 +99,8 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
     env_options = FlexibleArmEnvOptions(
         n_seg=n_seg,
         n_seg_estimator=n_seg_mpc,
-        sim_time=1.3,
-        dt=0.01,
+        sim_time=1.5,
+        dt=0.004,
         qa_range_start=np.array([-np.pi/2, 0., -np.pi+0.05]),
         qa_range_end=np.array([3*np.pi/2, np.pi, np.pi-0.05]),
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
@@ -124,7 +124,7 @@ def create_unified_flexiblearmenv_and_controller(create_controller=False, add_wa
     if create_controller:
         # --- Create MPC controller ---
         fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
-        mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=1.3, n=130)
+        mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
         controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
         # create MPC expert
