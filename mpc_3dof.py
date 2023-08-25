@@ -36,7 +36,7 @@ class Mpc3dofOptions:
         self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
         self.wall_constraint_on: bool = (
-            False  # choose whether we activate the wall constraint
+            True  # choose whether we activate the wall constraint
         )
 
         # States are ordered for each link

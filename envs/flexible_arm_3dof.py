@@ -294,8 +294,11 @@ class SymbolicFlexibleArm3DOF:
         self.rhs = rhs
         self.y = y
         self.p = p
-        self.con_h_expr = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b))
-        self.con_h_expr_e = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b))
+
+        self.con_h_expr = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b),
+                                     wall_par_w.T @ (self.p_elbow(q) - wall_par_b))
+        self.con_h_expr_e = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b),
+                                       wall_par_w.T @ (self.p_elbow(q) - wall_par_b))
 
     def _generate_casadi_fcns_for_dynamics(self):
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
@@ -350,28 +353,28 @@ class SymbolicFlexibleArm3DOF:
         self.F = cs.Function('F', [self.x, self.u], [x_next])
         self.dF_dx = cs.Function('dF_dx', [self.x, self.u], [cs.jacobian(x_next, self.x)])
 
-    def get_acados_model(self) -> AcadosModel:
-        """ Return an acados model later used in OCP
-        Implicit dynamics is extended with an algebraic state that
-        corresponds to the end-effector position (I guess it is needed
-        for tracking)
-        """
-        model = AcadosModel()
-        model.x = self.x
-        model.z = self.z
-        model.u = self.u
-        model.xdot = self.x_dot
-
-        # CasADi expression for implicit dynamics
-        model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
-                                       self.z - self.rhs_impl)
-        # CasADi expression for explicit dynamics
-        model.f_expl_expr = self.rhs
-
-        # model.p = w  # Not used right now
-        model.name = "flexible_arm_nq" + str(self.nq)
-
-        return model
+    # def get_acados_model(self) -> AcadosModel:
+    #     """ Return an acados model later used in OCP
+    #     Implicit dynamics is extended with an algebraic state that
+    #     corresponds to the end-effector position (I guess it is needed
+    #     for tracking)
+    #     """
+    #     model = AcadosModel()
+    #     model.x = self.x
+    #     model.z = self.z
+    #     model.u = self.u
+    #     model.xdot = self.x_dot
+    #
+    #     # CasADi expression for implicit dynamics
+    #     model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
+    #                                    self.z - self.rhs_impl)
+    #     # CasADi expression for explicit dynamics
+    #     model.f_expl_expr = self.rhs
+    #
+    #     # model.p = w  # Not used right now
+    #     model.name = "flexible_arm_nq" + str(self.nq)
+    #
+    #     return model
 
     def get_acados_model_safety(self):
         model = AcadosModel()
