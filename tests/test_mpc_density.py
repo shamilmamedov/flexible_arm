@@ -37,7 +37,7 @@ if TRAIN_MODEL:
     transitions = rollout.flatten_trajectories(rollouts)
 
     imitation_trainer = SAC(
-        SACPolicy, env, verbose=1, seed=SEED, tensorboard_log="./logs"
+        SACPolicy, env, verbose=1, seed=SEED, tensorboard_log="./logs/IRL/density"
     )
     density_trainer = density.DensityAlgorithm(
         venv=venv,
