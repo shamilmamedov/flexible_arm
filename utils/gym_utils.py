@@ -73,7 +73,8 @@ class CallableMPCExpert(policies.BasePolicy):
             observation, goal_coords, obstacle = self._parse_observation(observation)
 
             self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
-            self.controller.set_wall_parameters(w=obstacle.w, b=obstacle.b)
+            if obstacle is not None:
+                self.controller.set_wall_parameters(w=obstacle.w, b=obstacle.b)
         observation = observation.reshape(-1, B)
         n_q = observation.shape[0] // 2
         torques = self.controller.compute_torques(
