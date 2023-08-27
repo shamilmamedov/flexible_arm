@@ -253,8 +253,9 @@ class Mpc3Dof(BaseController):
         # set prediction horizon
         ocp.solver_options.tf = options.tf
 
+        ocp.code_export_directory = "c_generated_code_mpc"
         self.acados_ocp_solver = AcadosOcpSolver(
-            ocp, json_file="acados_ocp_" + model.name + ".json"
+            ocp, json_file="acados_ocp_mpc.json"
         )
 
     def reset(self):

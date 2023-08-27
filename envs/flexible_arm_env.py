@@ -102,7 +102,7 @@ class FlexibleArmEnv(gym.Env):
             if options.contr_input_states is StateType.ESTIMATED
             else self.model_sym.nx
         )
-        nx_ += 3  # add goal position dimensions
+        nx_ += 6  # add goal and ee position dimensions
         if self.obstacle is not None:
             nx_ += 6  # add obstacle dimensions
 
@@ -207,10 +207,21 @@ class FlexibleArmEnv(gym.Env):
         else:
             observation = self._state
 
+        # compute current end-effector position
+        x_ee = np.array(self.model_sym.p_ee(self._state[: int(self.model_sym.nq)]))
+
         # Add goal position to observation
-        observation = np.hstack((observation, self.xee_final.flatten()))
+
         if self.obstacle is not None:
-            observation = np.hstack((observation, self.obstacle.w, self.obstacle.b))
+            observation = np.hstack((observation,
+                                     x_ee.flatten(),
+                                     self.xee_final.flatten(),
+                                     self.obstacle.w,
+                                     self.obstacle.b))
+        else:
+            observation = np.hstack((observation,
+                                     x_ee.flatten(),
+                                     self.xee_final.flatten()))
         return observation, {}
 
     def step(
@@ -244,9 +255,17 @@ class FlexibleArmEnv(gym.Env):
             observation = self._state[:, 0]
 
         # Add goal position to observation
-        observation = np.hstack((observation, self.xee_final.flatten()))
+
         if self.obstacle is not None:
-            observation = np.hstack((observation, self.obstacle.w, self.obstacle.b))
+            observation = np.hstack((observation,
+                                     x_ee.flatten(),
+                                     self.xee_final.flatten(),
+                                     self.obstacle.w,
+                                     self.obstacle.b))
+        else:
+            observation = np.hstack((observation,
+                                     x_ee.flatten(),
+                                     self.xee_final.flatten()))
         return observation, reward, terminated, truncated, info
 
     def _terminal(self, dist: float):
@@ -257,7 +276,7 @@ class FlexibleArmEnv(gym.Env):
 
         done = False
         if (
-            self.goal_dist_counter >= int(self.options.goal_min_time / self.options.dt)
+                self.goal_dist_counter >= int(self.options.goal_min_time / self.options.dt)
         ) and self.stop_if_goal_condition:
             done = True
         return bool(done)

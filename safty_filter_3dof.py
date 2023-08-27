@@ -26,24 +26,22 @@ class SafetyFilter3dofOptions:
     Dataclass for MPC options
     """
 
-    def __init__(self, n_seg: int):
-        self.n_seg: int = n_seg  # n_links corresponds to (n+1)*2 states
-        self.n: int = 10  # number of discretization points
-        self.tf: float = 0.1  # time horizon
+    def __init__(self):
+        self.n_seg: int = 1  # n_links corresponds to (n+1)*2 states
+        self.n: int = 20  # number of discretization points
+        self.tf: float = 0.2  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
         self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
-        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e1
-        self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-4
+        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1
+        self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-5
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e5
         self.w1_slack_wall: float = 1
-        self.w_reg_dq: float = 0.1
-        self.w_reg_dq_terminal: float = 1e2
+        self.w_reg_dq: float = 1e-2
+        self.w_reg_dq_terminal: float = 1e-2
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
-        self.wall_axis: int = 0  # Wall axis: 0,1,2 -> x,y,z
-        self.wall_value: float = 0.0  # wall height value on axis
-        self.wall_pos_side: bool = True  # defines the allowed side of the wall
+        # todo: check how to tune weights
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -55,23 +53,21 @@ class SafetyFilter3Dof:
     """
 
     def __init__(
-        self,
-        model: "SymbolicFlexibleArm3DOF",
-        model_nonsymbolic,
-        x0: np.ndarray = None,
-        x0_ee: np.ndarray = None,
-        options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(n_seg=1),
+            self,
+            x0: np.ndarray = None,
+            x0_ee: np.ndarray = None,
+            options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(),
     ):
         if x0 is None:
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
         if x0_ee is None:
             x0_ee = np.zeros((3, 1))
 
-        self.u_max = model.tau_max  # [Nm]
-        self.dq_active_max = model.dqa_max
-        self.model_ns = model_nonsymbolic
-        self.fa_model = model
-        model, constraint_expr = model.get_acados_model_safety()
+        fa_model = SymbolicFlexibleArm3DOF(n_seg=options.n_seg)
+        self.u_max = fa_model.tau_max  # [Nm]
+        self.dq_active_max = fa_model.dqa_max
+        self.fa_model = fa_model
+        model, constraint_expr = fa_model.get_acados_model_safety()
         self.model = model
         self.options = options
         self.debug_timings = []
@@ -85,7 +81,6 @@ class SafetyFilter3Dof:
         # set up simulator for initial state
         integrator = "RK45"
         self.offline_controller = OfflineController()
-        self.sim = Simulator(self.model_ns, self.offline_controller, integrator, None)
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
@@ -119,10 +114,10 @@ class SafetyFilter3Dof:
         # setting state weights
         q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
-        q_diag[0 : int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2) :] = options.w_reg_dq
-        q_e_diag[0 : int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2) :] = options.w_reg_dq_terminal
+        q_diag[0: int(len(q_diag) / 2)] = 0
+        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
+        q_e_diag[0: int(len(q_e_diag) / 2)] = 0
+        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
@@ -140,33 +135,42 @@ class SafetyFilter3Dof:
         ocp.constraints.ubx_e = self.dq_active_max
         ocp.constraints.idxbx_e = int(self.nx / 2) + np.array([0, 1, 2 + options.n_seg], dtype="int")
         ocp.constraints.idxsbx = np.array([0, 1, 2])
-
+        ocp.constraints.idxsbx_e = np.array([0, 1, 2])
         # safety constraints
         if options.wall_constraint_on:
-            ocp.model.con_h_expr = constraint_expr[options.wall_axis]
-            n_wall_constraints = 1
-            # self.n_constraints = constraint_expr.shape[0]
+            ocp.model.con_h_expr = constraint_expr
+            ocp.model.con_h_expr_e = constraint_expr
+            n_wall_constraints = constraint_expr.shape[0]
+            self.n_constraints = constraint_expr.shape[0]
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
-            ocp.cost.zl = np.array([0] * 3 + [options.w1_slack_wall] * n_wall_constraints)
-            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3 + [options.w2_slack_wall] * n_wall_constraints)
+            ocp.cost.zl = np.array([0] * 3 +
+                                   [options.w1_slack_wall] * n_wall_constraints)
+            ocp.cost.Zl = np.array(
+                [options.w2_slack_speed] * 3
+                + [options.w2_slack_wall] * n_wall_constraints
+            )
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
-            ocp.constraints.lh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if options.wall_pos_side else -1e3
-            )
-            ocp.constraints.uh = np.ones((n_wall_constraints,)) * (
-                options.wall_value if not options.wall_pos_side else 1e3
-            )
-            ocp.constraints.lsh = np.zeros(nsh)
-            ocp.constraints.ush = np.zeros(nsh)
+
+            ocp.constraints.lh = np.zeros((n_wall_constraints,))
+            ocp.constraints.uh = 1e6 * np.ones((n_wall_constraints,))
+            ocp.constraints.lh_e = ocp.constraints.lh
+            ocp.constraints.uh_e = ocp.constraints.uh
+
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
+            ocp.constraints.idxsh_e = np.array(range(n_wall_constraints))
         else:
             ocp.cost.zl = np.array([0] * 3)
             ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
+
+        ocp.cost.zl_e = ocp.cost.zl
+        ocp.cost.zu_e = ocp.cost.zu
+        ocp.cost.Zl_e = ocp.cost.Zl
+        ocp.cost.Zu_e = ocp.cost.Zu
 
         ocp.cost.W = scipy.linalg.block_diag(Q, R, Z)
         ocp.cost.W_e = scipy.linalg.block_diag(Q_e, Z_e)
@@ -175,11 +179,11 @@ class SafetyFilter3Dof:
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx : nx + nu, :] = np.eye(nu)
+        Vu[nx: nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu :, :] = np.eye(nz)
+        Vz[nx + nu:, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -220,10 +224,16 @@ class SafetyFilter3Dof:
         ocp.solver_options.sim_method_num_steps = 2
         ocp.solver_options.qp_solver_cond_N = int(1 * options.n)
 
+        # set parameter values
+        p_wall_outside = np.array([0, 1, 0, 0, -1e3, 0])
+        ocp.parameter_values = p_wall_outside
+
         # set prediction horizon
         ocp.solver_options.tf = options.tf
 
-        self.acados_ocp_solver = AcadosOcpSolver(ocp, json_file="acados_ocp_" + model.name + ".json")
+        ocp.code_export_directory = "c_generated_code_safety_filter"
+
+        self.acados_ocp_solver = AcadosOcpSolver(ocp, json_file="acados_ocp_sf.json")
 
         # set costs only for the first stage, ignore the rest
         for stage in range(self.options.n):
@@ -234,7 +244,7 @@ class SafetyFilter3Dof:
         self.acados_ocp_solver.cost_set(self.options.n, "W", scipy.linalg.block_diag(Q_e, np.zeros_like(Z)))
 
         # Create model instances
-        est_model = SymbolicFlexibleArm3DOF(options.n_seg, dt=self.options.tf / options.n, integrator="collocation")
+        est_model = SymbolicFlexibleArm3DOF(options.n_seg, dt=self.options.tf / options.n, integrator="cvodes")
 
         # Design estimator
         # initial covariance matrix
@@ -256,6 +266,16 @@ class SafetyFilter3Dof:
         x0_est = np.vstack((q0_est, dq0_est))
 
         self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
+
+    def set_wall_parameters(self, w: np.ndarray, b: np.ndarray):
+        """
+        Set wall parameters such that w.T @ (x_ee @ b) >= 0
+        @param w: vector in the direction of feasibility
+        @param b: distance to a point on the wall
+        """
+        p = np.hstack((w, b))
+        for ii in range(self.options.n):
+            self.acados_ocp_solver.set(ii, "p", p)
 
     def set_reference_point(self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array):
         """
@@ -287,6 +307,11 @@ class SafetyFilter3Dof:
         # first estimate state
         y = np.expand_dims(y, 1)
         if self.u_pre_safe is None:
+            qa = y[:3]
+            x_hat = np.zeros_like(self.E.x_hat)
+            idx_qa = [0, 1, 2 + self.options.n_seg]
+            x_hat[idx_qa] = qa
+            self.E.x_hat = x_hat
             self.x_hat = self.E.estimate(y).flatten()
         else:
             self.x_hat = self.E.estimate(y, self.u_pre_safe).flatten()
@@ -358,7 +383,7 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
         def compute_torques(self, q, dq, t=None, y=None):
             assert y is not None
             u = super(ControllerSafetyWrapper, self).compute_torques(q, dq, t=t)
-            u_safe = safety_filter.filter(u0=u, y=y, u_pre_safe=self.u_pre_safe)
+            u_safe = safety_filter.filter(u0=u, y=y)
             # print(u - u_safe)
             self.u_pre_safe = u_safe
             return u_safe
