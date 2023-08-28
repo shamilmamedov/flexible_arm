@@ -97,9 +97,7 @@ class SafetyWrapper(policies.BasePolicy):
         super().__init__(policy.observation_space, policy.action_space)
         self.policy = policy
         self.safety_filter = safety_filter
-        self.observation_includes_obstacle = (
-            True  # TODO@ erfi, please verify how to set this here
-        )
+        self.observation_includes_obstacle = safety_filter.options.wall_constraint_on
         self.observation_includes_goal = True
 
     def _parse_observation(self, observation: np.ndarray):
