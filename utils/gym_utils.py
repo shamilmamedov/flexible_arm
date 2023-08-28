@@ -126,34 +126,7 @@ class SafetyWrapper(policies.BasePolicy):
         with torch.no_grad():
             proposed_action = self.policy._predict(observation, deterministic)
 
-        if isinstance(observation, torch.Tensor):
-            observation = observation.cpu().numpy()
-
-        B, D = observation.shape
-        if self.observation_includes_goal:
-            observation, goal_coords, obstacle = self._parse_observation(observation)
-
-            # self.safety_filter.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
-            if obstacle is not None:
-                self.safety_filter.set_wall_parameters(w=obstacle.w, b=obstacle.b)
-
-        if isinstance(proposed_action, torch.Tensor):
-            proposed_action = proposed_action.cpu().numpy()
-
-        # get pee coordinate
-        # todo verify this is true
-        # in order to extract [qa, dqa and pee of the observation, we need to know the number of segments
-        n_seg = ((observation.shape[1] - 3) - 6) // 4
-        qa_idx = [0, 1, 2 + n_seg]
-        d_offset = 1 + 2 * (n_seg + 1)
-        dqa_idx = [d_offset, d_offset + 1, d_offset + 2 + n_seg]
-        qa = observation[0, qa_idx]
-        dqa = observation[0, dqa_idx]
-        p_ee = observation[0, -3:]
-        y = np.hstack((qa, dqa, p_ee))
-        safe_action = self.safety_filter.filter(u0=proposed_action, y=y)
-        # print(np.max((safe_action-proposed_action)))
-        safe_action = torch.from_numpy(safe_action)
+        safe_action = self._apply_safety(proposed_action, observation)
         return safe_action
 
     def _apply_safety(self, proposed_action: torch.Tensor, observation: torch.Tensor):
