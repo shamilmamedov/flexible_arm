@@ -213,7 +213,7 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
         mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
 
-        # set other options of environment, wich are passed as dictionary
+        # set other options of the controller, wich are passed as dictionary
         if cntrl_opts:
             mpc_options.update(cntrl_opts)
 
@@ -232,7 +232,7 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
 
     if create_safety_filter:
         safety_filter_options = SafetyFilter3dofOptions()
-        # set other options of environment, wich are passed as dictionary
+        # set other options of safety filter, wich are passed as dictionary
         if safety_fltr_opts:
             safety_filter_options.update(safety_fltr_opts)
 
