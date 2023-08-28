@@ -387,6 +387,12 @@ class SafetyFilter3Dof:
         t_min = float(np.min(timing_array))
         return t_mean, t_std, t_min, t_max
 
+    def get_last_computation_time(self):
+        """
+        Return most recent computation time. Empty, if not started.
+        """
+        return self.debug_timings[-1]
+
 
 def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter3Dof):
     """
