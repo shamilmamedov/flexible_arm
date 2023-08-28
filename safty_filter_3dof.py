@@ -28,18 +28,18 @@ class SafetyFilter3dofOptions:
 
     def __init__(self):
         self.n_seg: int = 1  # n_links corresponds to (n+1)*2 states
-        self.n: int = 20  # number of discretization points
-        self.tf: float = 0.2  # time horizon
+        self.n: int = 100  # number of discretization points
+        self.tf: float = 1.0  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
-        self.z_diag: np.ndarray = np.array([0] * 3) * 1e1
-        self.z_e_diag: np.ndarray = np.array([0] * 3) * 1e3
+        self.z_diag: np.ndarray = np.array([0] * 3) * 0 # 1e1
+        self.z_e_diag: np.ndarray = np.array([0] * 3) * 0 # 1e3
         self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1
         self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-5
         self.w2_slack_speed: float = 1e3
-        self.w2_slack_wall: float = 1e5
-        self.w1_slack_wall: float = 1
+        self.w2_slack_wall: float = 1e6
+        self.w1_slack_wall: float = 1e5
         self.w_reg_dq: float = 1e-2
-        self.w_reg_dq_terminal: float = 1e-2
+        self.w_reg_dq_terminal: float = 1
         self.wall_constraint_on: bool = True  # choose whether we activate the wall constraint
         # todo: check how to tune weights
 

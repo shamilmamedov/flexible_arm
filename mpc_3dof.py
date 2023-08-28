@@ -65,7 +65,7 @@ class Mpc3dofOptions:
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
         self.w2_slack_speed: float = 1e6
         self.w2_slack_wall: float = 1e5
-        self.w1_slack_wall: float = 1e1
+        self.w1_slack_wall: float = 1e4
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n

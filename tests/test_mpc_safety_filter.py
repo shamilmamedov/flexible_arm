@@ -16,9 +16,18 @@ from utils.gym_utils import (
 SEED = 0
 rng = np.random.default_rng(SEED)
 
-env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=True, add_wall_obstacle=False, create_safety_filter=False
+# set goal behind wall
+env_opts = {"qa_goal": np.array([-np.pi / 2, 0, 0])}
+
+# turn of obstacle avoidance within MPC
+cntrl_opts = {"wall_constraint_on": False}
+
+# prepare elements for rl environment
+env, expert, safety_filter = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=True, add_wall_obstacle=True, create_safety_filter=True,
+    env_opts=env_opts, cntrl_opts=cntrl_opts
 )
+expert = SafetyWrapper(expert, safety_filter)
 
 # --- Collect expert trajectories ---
 print("Sampling expert transitions.")
@@ -30,5 +39,5 @@ rollouts = rollout.rollout(
     verbose=True,
     render=True,
 )
-serialize.save("mpc_expert_rollouts.pkl", rollouts)
+# serialize.save("mpc_expert_rollouts.pkl", rollouts)
 # -----------------------------------

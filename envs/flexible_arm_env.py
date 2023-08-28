@@ -43,6 +43,7 @@ class FlexibleArmEnvOptions:
     sim_time: float = 3
     qa_range_start: np.ndarray = np.array([-np.pi / 2, 0.0, -np.pi + 0.05])
     qa_range_end: np.ndarray = np.array([3 * np.pi / 2, np.pi, np.pi - 0.05])
+    qa_goal: np.ndarray = None  # set this value, if goal point was considered
     render_mode = None
     maximum_torques: np.ndarray = np.array([20, 10, 10])
     goal_dist_euclid: float = 0.01
@@ -62,7 +63,7 @@ class FlexibleArmEnv(gym.Env):
     """
 
     def __init__(
-        self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
+            self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
     ) -> None:
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -128,7 +129,7 @@ class FlexibleArmEnv(gym.Env):
         #     self.renderer = None
 
     def _create_estimator(
-        self, n_seg_estimator: int, dt: float
+            self, n_seg_estimator: int, dt: float
     ) -> ExtendedKalmanFilter:
         estimator_model = SymbolicFlexibleArm3DOF(
             n_seg_estimator, dt=dt, integrator="cvodes"
@@ -144,7 +145,10 @@ class FlexibleArmEnv(gym.Env):
         estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
         return estimator
 
-    def sample_rand_config(self, use_estimator: bool = False):
+    def sample_rand_config(self, use_estimator: bool = False,
+                           qa_range_start: np.ndarray = None,
+                           qa_range_end: np.ndarray = None,
+                           consider_wall: bool = True):
         """
         Samples a random joint configuration from a given range using
         uniform distrubution
@@ -152,17 +156,20 @@ class FlexibleArmEnv(gym.Env):
                             the forward kinematics (end effector position)
         :return: (sampled active & passive joint configs and their derivatives, end effector position)
         """
+        if qa_range_start is None or qa_range_end is None:
+            qa_range_end = self.options.qa_range_end
+            qa_range_start = self.options.qa_range_start
         _dinstance_margin = 0.01
         n_seg = self.options.n_seg_estimator if use_estimator else self.options.n_seg
         model = self.simulator.estimator.model if use_estimator else self.model_sym
         while True:
-            qa = np.random.uniform(
-                self.options.qa_range_start, self.options.qa_range_end
-            )
+            qa = np.random.uniform(qa_range_start, qa_range_end)
             q = get_rest_configuration(qa, n_seg)
             p_ee = np.array(model.p_ee(q))
             p_elbow = np.array(model.p_elbow(q))
 
+            if not consider_wall:
+                break
             wall_pos = -0.15 + _dinstance_margin
             if p_ee[2] > 0 and p_ee[1] > wall_pos and p_elbow[1] > wall_pos:
                 break
@@ -172,7 +179,7 @@ class FlexibleArmEnv(gym.Env):
         return x[:, 0], p_ee
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[dict] = None
+            self, *, seed: Optional[int] = None, options: Optional[dict] = None
     ) -> Tuple[np.ndarray, dict]:
         super().reset(seed=seed)
 
@@ -186,9 +193,13 @@ class FlexibleArmEnv(gym.Env):
         # NOTE: If the estimator is availabe we use the dimention of the estimator
         # otherwise we need to use the dimention of the model and then estimate the goal using the estimator.
         # Estimating the goal seems unecessary since we are the ones deciding where to go.
+        # the goal position is either sampled randomly within the range or at a specific point
         use_estimator = self.options.contr_input_states is StateType.ESTIMATED
         self.x_final, self.xee_final = self.sample_rand_config(
             use_estimator=use_estimator,
+            qa_range_start=self.options.qa_goal,
+            qa_range_end=self.options.qa_goal,
+            consider_wall=True if self.options.qa_goal is None else False
         )
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
@@ -225,7 +236,7 @@ class FlexibleArmEnv(gym.Env):
         return observation, {}
 
     def step(
-        self, action: np.ndarray
+            self, action: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
         """
         TODO: Make sure actions are in the action space;

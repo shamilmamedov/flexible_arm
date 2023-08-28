@@ -1,8 +1,9 @@
+from typing import Dict
+
 import numpy as np
 import torch
 from stable_baselines3.common import policies
 import torch
-
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions, WallObstacle
@@ -134,7 +135,7 @@ class SafetyWrapper(policies.BasePolicy):
         # get pee coordinate
         # todo verify this is true
         # in order to extract [qa, dqa and pee of the observation, we need to know the number of segments
-        n_seg = ((observation.shape[1] - 3) -6)//4
+        n_seg = ((observation.shape[1] - 3) - 6) // 4
         qa_idx = [0, 1, 2 + n_seg]
         d_offset = 1 + 2 * (n_seg + 1)
         dqa_idx = [d_offset, d_offset + 1, d_offset + 2 + n_seg]
@@ -143,16 +144,24 @@ class SafetyWrapper(policies.BasePolicy):
         p_ee = observation[0, -3:]
         y = np.hstack((qa, dqa, p_ee))
         safe_action = self.safety_filter.filter(u0=proposed_action, y=y)
-        #print(np.max((safe_action-proposed_action)))
+        # print(np.max((safe_action-proposed_action)))
         safe_action = torch.from_numpy(safe_action)
         return safe_action
 
 
 def create_unified_flexiblearmenv_and_controller_and_safety_filter(
-        create_controller=False, create_safety_filter=False, add_wall_obstacle=False
+        create_controller=False,
+        create_safety_filter=False,
+        add_wall_obstacle=False,
+        env_opts: Dict = None,
+        cntrl_opts: Dict = None,
+        safety_fltr_opts: Dict = None
 ):
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
+    @env_opts: dict valued environment options are overwritten
+    @cntrl_opts: dict valued mpc options are overwritten
+    @safety_fltr_opts: dict valued safety filter options are overwritten
     """
     # --- Create FlexibleArm environment ---
     n_seg = 5
@@ -174,6 +183,12 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
         render_mode="human",
     )
+
+    # set other options of environment, wich are passed as dictionary
+    env_opts = {} if env_opts is None else env_opts
+    for option, value in zip(env_opts.keys(), env_opts.values()):
+        env_options.__setattr__(option, value)
+
     # Wall obstacle
     if add_wall_obstacle:
         # Wall obstacle
@@ -192,6 +207,12 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         # --- Create MPC controller ---
         fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
         mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
+
+        # set other options of environment, wich are passed as dictionary
+        cntrl_opts = {} if cntrl_opts is None else cntrl_opts
+        for option, value in zip(cntrl_opts.keys(), cntrl_opts.values()):
+            mpc_options.__setattr__(option, value)
+
         controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
         # create MPC expert
@@ -207,6 +228,10 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
 
     if create_safety_filter:
         safety_filter_options = SafetyFilter3dofOptions()
+        # set other options of environment, wich are passed as dictionary
+        safety_fltr_opts = {} if safety_fltr_opts is None else safety_fltr_opts
+        for option, value in zip(safety_fltr_opts.keys(), safety_fltr_opts.values()):
+            safety_filter_options.__setattr__(option, value)
         safety_filter = SafetyFilter3Dof(options=safety_filter_options)
     else:
         safety_filter = None
