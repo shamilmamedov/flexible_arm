@@ -13,19 +13,19 @@ from estimator import ExtendedKalmanFilter
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
 from simulation import Simulator, SimulatorOptions
 from animation import Panda3dRenderer
-from utils.utils import StateType
+from utils.utils import StateType, Updatable
 
 
 # dataclass that stores the wall obstacle parameters defined
 # using hyperplane equation w.T @ x >= b
 @dataclass
-class WallObstacle:
+class WallObstacle(Updatable):
     w: np.ndarray  # 3x1 vector
     b: np.ndarray  # 3x1 vector
 
 
 @dataclass
-class FlexibleArmEnvOptions:
+class FlexibleArmEnvOptions(Updatable):
     """
     Options for imitation learning
 
@@ -63,7 +63,7 @@ class FlexibleArmEnv(gym.Env):
     """
 
     def __init__(
-            self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
+        self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
     ) -> None:
         self.options = options
         self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
@@ -129,7 +129,7 @@ class FlexibleArmEnv(gym.Env):
         #     self.renderer = None
 
     def _create_estimator(
-            self, n_seg_estimator: int, dt: float
+        self, n_seg_estimator: int, dt: float
     ) -> ExtendedKalmanFilter:
         estimator_model = SymbolicFlexibleArm3DOF(
             n_seg_estimator, dt=dt, integrator="cvodes"
@@ -145,10 +145,13 @@ class FlexibleArmEnv(gym.Env):
         estimator = ExtendedKalmanFilter(estimator_model, zero_x0, P0, Q, R)
         return estimator
 
-    def sample_rand_config(self, use_estimator: bool = False,
-                           qa_range_start: np.ndarray = None,
-                           qa_range_end: np.ndarray = None,
-                           consider_wall: bool = True):
+    def sample_rand_config(
+        self,
+        use_estimator: bool = False,
+        qa_range_start: np.ndarray = None,
+        qa_range_end: np.ndarray = None,
+        consider_wall: bool = True,
+    ):
         """
         Samples a random joint configuration from a given range using
         uniform distrubution
@@ -179,7 +182,7 @@ class FlexibleArmEnv(gym.Env):
         return x[:, 0], p_ee
 
     def reset(
-            self, *, seed: Optional[int] = None, options: Optional[dict] = None
+        self, *, seed: Optional[int] = None, options: Optional[dict] = None
     ) -> Tuple[np.ndarray, dict]:
         super().reset(seed=seed)
 
@@ -199,7 +202,7 @@ class FlexibleArmEnv(gym.Env):
             use_estimator=use_estimator,
             qa_range_start=self.options.qa_goal,
             qa_range_end=self.options.qa_goal,
-            consider_wall=True if self.options.qa_goal is None else False
+            consider_wall=True if self.options.qa_goal is None else False,
         )
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
@@ -224,19 +227,23 @@ class FlexibleArmEnv(gym.Env):
         # Add goal position to observation
 
         if self.obstacle is not None:
-            observation = np.hstack((observation,
-                                     x_ee.flatten(),
-                                     self.xee_final.flatten(),
-                                     self.obstacle.w,
-                                     self.obstacle.b))
+            observation = np.hstack(
+                (
+                    observation,
+                    x_ee.flatten(),
+                    self.xee_final.flatten(),
+                    self.obstacle.w,
+                    self.obstacle.b,
+                )
+            )
         else:
-            observation = np.hstack((observation,
-                                     x_ee.flatten(),
-                                     self.xee_final.flatten()))
+            observation = np.hstack(
+                (observation, x_ee.flatten(), self.xee_final.flatten())
+            )
         return observation, {}
 
     def step(
-            self, action: np.ndarray
+        self, action: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
         """
         TODO: Make sure actions are in the action space;
@@ -268,15 +275,19 @@ class FlexibleArmEnv(gym.Env):
         # Add goal position to observation
 
         if self.obstacle is not None:
-            observation = np.hstack((observation,
-                                     x_ee.flatten(),
-                                     self.xee_final.flatten(),
-                                     self.obstacle.w,
-                                     self.obstacle.b))
+            observation = np.hstack(
+                (
+                    observation,
+                    x_ee.flatten(),
+                    self.xee_final.flatten(),
+                    self.obstacle.w,
+                    self.obstacle.b,
+                )
+            )
         else:
-            observation = np.hstack((observation,
-                                     x_ee.flatten(),
-                                     self.xee_final.flatten()))
+            observation = np.hstack(
+                (observation, x_ee.flatten(), self.xee_final.flatten())
+            )
         return observation, reward, terminated, truncated, info
 
     def _terminal(self, dist: float):
@@ -287,7 +298,7 @@ class FlexibleArmEnv(gym.Env):
 
         done = False
         if (
-                self.goal_dist_counter >= int(self.options.goal_min_time / self.options.dt)
+            self.goal_dist_counter >= int(self.options.goal_min_time / self.options.dt)
         ) and self.stop_if_goal_condition:
             done = True
         return bool(done)
