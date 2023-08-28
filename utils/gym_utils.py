@@ -55,7 +55,7 @@ class CallableMPCExpert(policies.BasePolicy):
         @return: torques computed by expert
         """
         if isinstance(observation, torch.Tensor):
-            observation = observation.numpy()
+            observation = observation.cpu().numpy()
         torques = self.predict_np(observation)
         torques = torch.tensor(torques)
         return torques
@@ -117,13 +117,17 @@ class SafetyWrapper(policies.BasePolicy):
             goal_coords = observation[:, -3:]
             return state, goal_coords, None
 
+    def forward(self, observation: torch.Tensor, deterministic: bool = False):
+        return self._predict(observation, deterministic)
+
     def _predict(
         self, observation: torch.Tensor, deterministic: bool = False
     ) -> torch.Tensor:
-        proposed_action = self.policy._predict(observation, deterministic)
+        with torch.no_grad():
+            proposed_action = self.policy._predict(observation, deterministic)
 
         if isinstance(observation, torch.Tensor):
-            observation = observation.numpy()
+            observation = observation.cpu().numpy()
 
         B, D = observation.shape
         if self.observation_includes_goal:
@@ -134,7 +138,41 @@ class SafetyWrapper(policies.BasePolicy):
                 self.safety_filter.set_wall_parameters(w=obstacle.w, b=obstacle.b)
 
         if isinstance(proposed_action, torch.Tensor):
-            proposed_action = proposed_action.numpy()
+            proposed_action = proposed_action.cpu().numpy()
+
+        # get pee coordinate
+        # todo verify this is true
+        # in order to extract [qa, dqa and pee of the observation, we need to know the number of segments
+        n_seg = ((observation.shape[1] - 3) - 6) // 4
+        qa_idx = [0, 1, 2 + n_seg]
+        d_offset = 1 + 2 * (n_seg + 1)
+        dqa_idx = [d_offset, d_offset + 1, d_offset + 2 + n_seg]
+        qa = observation[0, qa_idx]
+        dqa = observation[0, dqa_idx]
+        p_ee = observation[0, -3:]
+        y = np.hstack((qa, dqa, p_ee))
+        safe_action = self.safety_filter.filter(u0=proposed_action, y=y)
+        # print(np.max((safe_action-proposed_action)))
+        safe_action = torch.from_numpy(safe_action)
+        return safe_action
+
+    def _apply_safety(self, proposed_action: torch.Tensor, observation: torch.Tensor):
+        """
+        Same as _predict but with the proposed action as input
+        """
+        if isinstance(observation, torch.Tensor):
+            observation = observation.cpu().numpy()
+
+        B, D = observation.shape
+        if self.observation_includes_goal:
+            observation, goal_coords, obstacle = self._parse_observation(observation)
+
+            # self.safety_filter.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
+            if obstacle is not None:
+                self.safety_filter.set_wall_parameters(w=obstacle.w, b=obstacle.b)
+
+        if isinstance(proposed_action, torch.Tensor):
+            proposed_action = proposed_action.cpu().numpy()
 
         # get pee coordinate
         # todo verify this is true
