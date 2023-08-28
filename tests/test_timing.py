@@ -15,14 +15,14 @@ import matplotlib.pyplot as plt
 
 # --- Neural Network ---
 device = torch.device("cuda")
-env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False, add_wall_obstacle=True, create_safety_filter=False
+env, controller, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
+    create_controller=True, add_wall_obstacle=True, create_safety_filter=False
 )
 agent = SAC(policy=SACPolicy, env=env, verbose=0, seed=0)
 policy = agent.policy.to(device)
-dummy_observations = torch.randn(1, agent.observation_space.shape[0]).to(
-    device
-)  # single observation
+dummy_observations, _ = env.reset()
+dummy_observations = torch.from_numpy(dummy_observations.reshape(1, -1)).to(device)
+
 
 starter = torch.cuda.Event(enable_timing=True)
 ender = torch.cuda.Event(enable_timing=True)
@@ -48,7 +48,14 @@ print(f"Std inference time: {nn_std} ms")
 
 
 # --- MPC ---
-# TODO: add MPC timing
+for _ in range(reps):
+    controller.predict(dummy_observations.cpu())
+mpc_mean, mpc_std, _, _ = controller.controller.get_timing_statistics()
+mpc_mean *= 1000  # convert to ms
+mpc_std *= 1000  # convert to ms
+print(f"Mean MPC time: {mpc_mean} ms")
+print(f"Std MPC time: {mpc_std} ms")
+
 
 # --- Plotting ---
 fig, ax = plt.subplots()
@@ -64,18 +71,19 @@ ax.bar(
 )
 ax.bar(
     1,
-    nn_mean,  # TODO: change to MPC mean
-    yerr=nn_std,  # TODO: change to MPC std
+    mpc_mean,
+    yerr=mpc_std,
     align="center",
     alpha=0.5,
     ecolor="black",
     capsize=10,
     label="MPC",
 )
-ax.set_ylabel("Inference Time (ms)")
+ax.set_yscale("log")
+ax.set_ylabel("Log Inference Time (ms)")
 ax.set_xticks([0, 1])
 ax.set_xticklabels(["NeuralNet", "MPC"])
-ax.set_title("Inference Time Comparison")
+ax.set_title("Inference Time Comparison (Log Scale)")
 ax.yaxis.grid(True)
 ax.legend()
 fig.tight_layout()
