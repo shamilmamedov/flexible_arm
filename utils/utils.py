@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from typing import Dict
 import random
 
 import matplotlib.pyplot as plt
@@ -16,6 +17,17 @@ class ControlMode(Enum):
 class StateType(Enum):
     REAL = auto()
     ESTIMATED = auto()
+
+
+class Updatable:
+    """
+    Class for making the dataclass updatable from dictionaries.
+    """
+
+    def update(self, new: Dict):
+        for key, value in new.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
 
 def plot_result(x: np.ndarray, u: np.ndarray, t: np.ndarray):

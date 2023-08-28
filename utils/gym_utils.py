@@ -16,12 +16,12 @@ class CallableMPCExpert(policies.BasePolicy):
     """a callable expert is needed for sb3 which involves the mpc controler"""
 
     def __init__(
-            self,
-            controller,
-            observation_space,
-            action_space,
-            observation_includes_goal: bool,
-            observation_includes_obstacle: bool = False,
+        self,
+        controller,
+        observation_space,
+        action_space,
+        observation_includes_goal: bool,
+        observation_includes_obstacle: bool = False,
     ):
         super().__init__(observation_space, action_space)
         self.observation_includes_goal = observation_includes_goal
@@ -78,7 +78,9 @@ class CallableMPCExpert(policies.BasePolicy):
 
         # observation entries: [states_q, states_dq, p_ee]
         n_q = (observation.shape[0] - 3) // 2
-        torques = self.controller.compute_torques(q=observation[0:n_q, :], dq=observation[n_q:2 * n_q, :])
+        torques = self.controller.compute_torques(
+            q=observation[0:n_q, :], dq=observation[n_q : 2 * n_q, :]
+        )
         return torques
 
     def __call__(self, observation):
@@ -95,7 +97,9 @@ class SafetyWrapper(policies.BasePolicy):
         super().__init__(policy.observation_space, policy.action_space)
         self.policy = policy
         self.safety_filter = safety_filter
-        self.observation_includes_obstacle = True  # TODO@ erfi, please verify how to set this here
+        self.observation_includes_obstacle = (
+            True  # TODO@ erfi, please verify how to set this here
+        )
         self.observation_includes_goal = True
 
     def _parse_observation(self, observation: np.ndarray):
@@ -115,7 +119,9 @@ class SafetyWrapper(policies.BasePolicy):
             goal_coords = observation[:, -3:]
             return state, goal_coords, None
 
-    def _predict(self, observation: torch.Tensor, deterministic: bool = False) -> torch.Tensor:
+    def _predict(
+        self, observation: torch.Tensor, deterministic: bool = False
+    ) -> torch.Tensor:
         proposed_action = self.policy._predict(observation, deterministic)
 
         if isinstance(observation, torch.Tensor):
@@ -150,12 +156,12 @@ class SafetyWrapper(policies.BasePolicy):
 
 
 def create_unified_flexiblearmenv_and_controller_and_safety_filter(
-        create_controller=False,
-        create_safety_filter=False,
-        add_wall_obstacle=False,
-        env_opts: Dict = None,
-        cntrl_opts: Dict = None,
-        safety_fltr_opts: Dict = None
+    create_controller=False,
+    create_safety_filter=False,
+    add_wall_obstacle=False,
+    env_opts: Dict = None,
+    cntrl_opts: Dict = None,
+    safety_fltr_opts: Dict = None,
 ):
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
@@ -185,9 +191,8 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     )
 
     # set other options of environment, wich are passed as dictionary
-    env_opts = {} if env_opts is None else env_opts
-    for option, value in zip(env_opts.keys(), env_opts.values()):
-        env_options.__setattr__(option, value)
+    if env_opts:
+        env_options.update(env_opts)
 
     # Wall obstacle
     if add_wall_obstacle:
@@ -209,9 +214,8 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
 
         # set other options of environment, wich are passed as dictionary
-        cntrl_opts = {} if cntrl_opts is None else cntrl_opts
-        for option, value in zip(cntrl_opts.keys(), cntrl_opts.values()):
-            mpc_options.__setattr__(option, value)
+        if cntrl_opts:
+            mpc_options.update(cntrl_opts)
 
         controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
@@ -229,9 +233,9 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     if create_safety_filter:
         safety_filter_options = SafetyFilter3dofOptions()
         # set other options of environment, wich are passed as dictionary
-        safety_fltr_opts = {} if safety_fltr_opts is None else safety_fltr_opts
-        for option, value in zip(safety_fltr_opts.keys(), safety_fltr_opts.values()):
-            safety_filter_options.__setattr__(option, value)
+        if safety_fltr_opts:
+            safety_filter_options.update(safety_fltr_opts)
+
         safety_filter = SafetyFilter3Dof(options=safety_filter_options)
     else:
         safety_filter = None

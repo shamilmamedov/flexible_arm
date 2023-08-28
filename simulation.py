@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from numpy.random import multivariate_normal
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
-from utils.utils import StateType
+from utils.utils import StateType, Updatable
 
 # Measurement noise covairance parameters
 R_Q = [3e-6] * 3
@@ -14,7 +14,7 @@ R_PEE = [1e-4] * 3
 
 
 @dataclass
-class SimulatorOptions:
+class SimulatorOptions(Updatable):
     """
     NOTE R is the covariance of the measurements error
     """
