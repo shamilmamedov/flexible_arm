@@ -20,19 +20,19 @@ __pycache__/
 .ipynb_checkpoints/
 # json files
 /*.json
-/c_generated_code/
-/c_generated_code/flexible_arm_nq9_model/
-/c_generated_code/acados_sim_solver_flexible_arm_nq9.c
-/c_generated_code/acados_sim_solver_flexible_arm_nq9.h
-/c_generated_code/acados_solver.pxd
-/c_generated_code/acados_solver_flexible_arm_nq9.c
-/c_generated_code/acados_solver_flexible_arm_nq9.h
-/c_generated_code/acados_solver_flexible_arm_nq9.o
-/c_generated_code/acados_solver_sfunction_flexible_arm_nq9.c
-/c_generated_code/libacados_ocp_solver_flexible_arm_nq9.so
-/c_generated_code/main_flexible_arm_nq9.c
-/c_generated_code/main_sim_flexible_arm_nq9.c
-/c_generated_code/make_sfun_flexible_arm_nq9.m
-/c_generated_code/Makefile
-/c_generated_code/flexible_arm_nq9_model/
+/c_generated_code_mpc/
+/c_generated_code_mpc/flexible_arm_nq9_model/
+/c_generated_code_mpc/acados_sim_solver_flexible_arm_nq9.c
+/c_generated_code_mpc/acados_sim_solver_flexible_arm_nq9.h
+/c_generated_code_mpc/acados_solver.pxd
+/c_generated_code_mpc/acados_solver_flexible_arm_nq9.c
+/c_generated_code_mpc/acados_solver_flexible_arm_nq9.h
+/c_generated_code_mpc/acados_solver_flexible_arm_nq9.o
+/c_generated_code_mpc/acados_solver_sfunction_flexible_arm_nq9.c
+/c_generated_code_mpc/libacados_ocp_solver_flexible_arm_nq9.so
+/c_generated_code_mpc/main_flexible_arm_nq9.c
+/c_generated_code_mpc/main_sim_flexible_arm_nq9.c
+/c_generated_code_mpc/make_sfun_flexible_arm_nq9.m
+/c_generated_code_mpc/Makefile
+/c_generated_code_mpc/flexible_arm_nq9_model/
 
