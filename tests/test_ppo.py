@@ -15,7 +15,7 @@ from utils.gym_utils import (
 )
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 SEED = 0
 seed_everything(SEED)
 
@@ -44,7 +44,7 @@ if TRAIN_MODEL:
     logging.info(f"Reward before training: {reward_before}")
 
     # train the agent
-    agent.learn(total_timesteps=1000000)
+    agent.learn(total_timesteps=2000000)
 
     # save the trained policy
     os.makedirs("trained_models", exist_ok=True)
