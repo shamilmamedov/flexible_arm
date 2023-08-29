@@ -8,6 +8,7 @@ import os
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import ActorCriticPolicy
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import EvalCallback
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
@@ -15,8 +16,13 @@ from utils.gym_utils import (
 )
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 SEED = 0
+LOG_DIR = "logs/RL/PPO"
+MODEL_DIR = "trained_models/RL/PPO"
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
+
 seed_everything(SEED)
 
 env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
@@ -28,12 +34,21 @@ eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
 
 if TRAIN_MODEL:
     logging.info("Training an PPO model")
+    eval_callback = EvalCallback(
+        eval_env=eval_env,
+        n_eval_episodes=3,
+        best_model_save_path=MODEL_DIR,
+        log_path=LOG_DIR,
+        eval_freq=10000,
+        deterministic=True,
+        render=False,
+    )
     agent = PPO(
         policy=ActorCriticPolicy,
         env=env,
         verbose=1,
         seed=SEED,
-        tensorboard_log="./logs/RL",
+        tensorboard_log=LOG_DIR,
     )
 
     # evaluate the policy before training
@@ -47,11 +62,10 @@ if TRAIN_MODEL:
     agent.learn(total_timesteps=2000000)
 
     # save the trained policy
-    os.makedirs("trained_models", exist_ok=True)
-    agent.save("trained_models/policy_ppo.zip")
+    agent.save(f"{MODEL_DIR}/policy_ppo_last")
 else:
     # load the trained policy
-    agent = PPO.load("trained_models/policy_ppo.zip")
+    agent = PPO.load(f"{MODEL_DIR}/policy_ppo_last")
 
 # evaluate the policy after training
 eval_env.reset(seed=SEED)
