@@ -10,14 +10,14 @@ from imitation.data import rollout
 from imitation.data.wrappers import RolloutInfoWrapper
 from imitation.data import serialize
 from utils.gym_utils import (
-    create_unified_flexiblearmenv_and_controller_and_safety_filter, SafetyWrapper,
+    create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
 
 SEED = 0
 rng = np.random.default_rng(SEED)
 
 env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=True, add_wall_obstacle=False, create_safety_filter=False
+    create_controller=True, add_wall_obstacle=True, create_safety_filter=False
 )
 
 # --- Collect expert trajectories ---
@@ -25,7 +25,7 @@ print("Sampling expert transitions.")
 rollouts = rollout.rollout(
     expert,
     DummyVecEnv([lambda: RolloutInfoWrapper(env)]),
-    rollout.make_sample_until(min_timesteps=None, min_episodes=100),
+    rollout.make_sample_until(min_timesteps=None, min_episodes=10),
     rng=rng,
     verbose=True,
     render=True,
