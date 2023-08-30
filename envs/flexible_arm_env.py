@@ -254,7 +254,7 @@ class FlexibleArmEnv(gym.Env):
         """
         try:
             self.simulator.step(action)
-        except Exception as e:
+        except RuntimeError as e:
             logging.warning(
                 f"Exception in simulator.step: {e}. Simulating with zero action"
             )

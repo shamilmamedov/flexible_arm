@@ -56,7 +56,7 @@ if TRAIN_MODEL:
         n_eval_episodes=1,
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
-        eval_freq=1000,
+        eval_freq=10000,
         deterministic=True,
         render=False,
     )
@@ -84,7 +84,7 @@ if TRAIN_MODEL:
         demonstrations=rollouts,
         demo_batch_size=1024,
         gen_replay_buffer_capacity=1000000,
-        n_disc_updates_per_round=4,
+        n_disc_updates_per_round=2,
         venv=venv,
         gen_algo=learner,
         gen_train_timesteps=1,
@@ -92,8 +92,8 @@ if TRAIN_MODEL:
         custom_logger=custom_logger,
         reward_net=reward_net,
         init_tensorboard=True,
-        debug_use_ground_truth=False,
         log_dir=LOG_DIR,
+        debug_use_ground_truth=False,
     )
 
     # evaluate the learner before training
@@ -105,7 +105,9 @@ if TRAIN_MODEL:
         return_episode_rewards=True,
         render=False,
     )
-    print("mean reward before training:", np.mean(learner_rewards_before_training))
+    logging.info(
+        "mean reward before training:", np.mean(learner_rewards_before_training)
+    )
 
     # train the learner and evaluate again
     gail_trainer.train(2000000)
@@ -125,7 +127,7 @@ learner_rewards_after_training, _ = evaluate_policy(
     render=False,
 )
 
-print("mean reward after training:", np.mean(learner_rewards_after_training))
+logging.info("mean reward after training:", np.mean(learner_rewards_after_training))
 
 
 # plot histogram of rewards before and after training

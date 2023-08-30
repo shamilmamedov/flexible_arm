@@ -1,9 +1,9 @@
 """
 This demo trains a PPO agent on the flexible arm environment.
 """
-
-import logging
 import os
+import logging
+from datetime import datetime
 
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import ActorCriticPolicy
@@ -18,8 +18,10 @@ from utils.gym_utils import (
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
 SEED = 0
-LOG_DIR = "logs/RL/PPO"
-MODEL_DIR = "trained_models/RL/PPO"
+
+now = datetime.now()
+LOG_DIR = f"logs/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}"
+MODEL_DIR = f"trained_models/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}"
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
