@@ -2,6 +2,7 @@
 Implements a gym environment for flexible link robot arm. The environment
 is used for behavioral cloning
 """
+import logging
 from typing import Tuple, Optional
 from dataclasses import dataclass
 
@@ -14,6 +15,8 @@ from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configurati
 from simulation import Simulator, SimulatorOptions
 from animation import Panda3dRenderer
 from utils.utils import StateType, Updatable
+
+logging.basicConfig(level=logging.INFO)
 
 
 # dataclass that stores the wall obstacle parameters defined
@@ -249,7 +252,15 @@ class FlexibleArmEnv(gym.Env):
         TODO: Make sure actions are in the action space;
               Clip actions if necessary
         """
-        self.simulator.step(action)
+        try:
+            self.simulator.step(action)
+        except Exception as e:
+            logging.warning(
+                f"Exception in simulator.step: {e}. Simulating with zero action"
+            )
+            action = np.zeros(self.action_space.shape)
+            self.simulator.step(action)
+
         # Real state (not estimated)
         self._state = self.simulator.x[self.simulator.k, :]
         self.no_intg_steps += 1
