@@ -22,5 +22,6 @@ __pycache__/
 /*.json
 /c_generated_code_mpc/
 /c_generated_code_safety_filter/
+c_generated_code/
 
 

@@ -407,6 +407,40 @@ class SymbolicFlexibleArm3DOF:
         """
         t_ = np.zeros_like(q)
         return np.array(self.rnea(q, t_, t_))[self.qa_idx, :]
+    
+    def propagate_uncertainty_covariance(self, x, u, P0, Sigma) -> np.ndarray:
+        """
+        Computes uncertainty covariance matrix using linearization
+        around a nominal trajectory
+
+        NOTE for now it is assumed that the process noise is additive to the 
+             discretized dynamics
+
+        NOTE to linearize the dynamics we need both state and control, thus 
+             we ignore all the states for which the control is not defined
+        
+        :param x: [ns x nx] vector of state trajectory
+        :param u: [ns-1 x nu] vector of control trajectory
+        :param P0: [nx x nx] initial covariance matrix
+        :param Sigma: [nx x nx] process noise covariance matrix
+
+        :return: [ns x nx x nx] covariance matrix trajectory
+        """
+        x = x.reshape(-1, self.nx, 1)
+        u = u.reshape(-1, self.nu, 1)
+        
+        # Compute linearized dynamics
+        n_samples = u.shape[0]
+        A = np.zeros((n_samples, self.nx, self.nx))
+        for k, xk, uk in zip(range(n_samples), x, u):
+            A[k] = np.array(self.dF_dx(xk, uk))
+
+        # Propagate uncertainty covariance
+        P = np.zeros((n_samples+1, self.nx, self.nx))
+        P[0] = P0
+        for k, Ak in zip(range(n_samples), A):
+            P[k+1] = Ak @ P[k] @ Ak.T + Sigma
+        return P[1:]
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
