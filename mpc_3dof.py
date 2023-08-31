@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d, CubicSpline
 from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
-from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver, ZoroDescription
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from envs.flexible_arm_3dof import get_rest_configuration, inverse_kinematics_rb
 from utils.utils import Updatable
@@ -78,11 +78,11 @@ class Mpc3Dof(BaseController):
     """
 
     def __init__(
-        self,
-        model: "SymbolicFlexibleArm3DOF",
-        x0: np.ndarray = None,
-        pee_0: np.ndarray = None,
-        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+            self,
+            model: "SymbolicFlexibleArm3DOF",
+            x0: np.ndarray = None,
+            pee_0: np.ndarray = None,
+            options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
     ):
         """
         :parameter x0: initial state vector
@@ -147,11 +147,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx : nx + nu, :] = np.eye(nu)
+        Vu[nx: nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu :, :] = np.eye(nz)
+        Vz[nx + nu:, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -205,7 +205,7 @@ class Mpc3Dof(BaseController):
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array(
-                [10**3] * 3 + [options.w1_slack_wall] * n_wall_constraints
+                [10 ** 3] * 3 + [options.w1_slack_wall] * n_wall_constraints
             )
             ocp.cost.Zl = np.array(
                 [options.w2_slack_speed] * 3
@@ -231,6 +231,22 @@ class Mpc3Dof(BaseController):
         ocp.cost.zu_e = ocp.cost.zu
         ocp.cost.Zl_e = ocp.cost.Zl
         ocp.cost.Zu_e = ocp.cost.Zu
+
+        # zoro stuff
+        if options.wall_constraint_on:
+            zoro_description = ZoroDescription()
+            zoro_description.backoff_scaling_gamma = 3.0
+            # uncertainty propagation: P_{k+1} = (A_k+B_kK) @ P_k @ (A_k+B_kK)^T + G @ W @ G^T
+            # G.shape = (nx, nw), W.shape = (nw, nw)
+            #zoro_description.fdbk_K_mat = cfg.fdbk_K_mat
+            #zoro_description.unc_jac_G_mat = cfg.unc_jac_G_mat  # G above
+            zoro_description.P0_mat = np.diag([0.01] * (nx // 2) + [0.1] *(nx // 2))
+            zoro_description.W_mat = np.diag([0.01] * (nx // 2) + [0.1] * (nx // 2)) * 1e-1
+            zoro_description.idx_lh_t = [3,4]
+            zoro_description.idx_uh_t = [3,4]
+            zoro_description.idx_lh_e_t = [3,4]
+            zoro_description.idx_uh_e_t = [3,4]
+            ocp.zoro_description = zoro_description
 
         # solver options
         ocp.solver_options.qp_solver = (
@@ -366,7 +382,7 @@ class Mpc3Dof(BaseController):
         status = self.acados_ocp_solver.solve()
 
         # Get timing result
-        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot")[0])
+        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot"))
 
         # Check for errors in acados
         if status != 0 and status != 2:

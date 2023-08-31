@@ -8,7 +8,7 @@ import scipy
 from scipy.interpolate import interp1d
 from controller import BaseController, OfflineController
 from typing import TYPE_CHECKING, Tuple
-from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver, ZoroDescription
 
 from estimator import ExtendedKalmanFilter
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
@@ -38,7 +38,7 @@ class SafetyFilter3dofOptions(Updatable):
         self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-5
         self.w2_slack_speed: float = 1e3
         self.w2_slack_wall: float = 1e6
-        self.w1_slack_wall: float = 1e5
+        self.w1_slack_wall: float = 1e6
         self.w_reg_dq: float = 1e-2
         self.w_reg_dq_terminal: float = 1
         self.wall_constraint_on: bool = (
@@ -196,6 +196,31 @@ class SafetyFilter3Dof:
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
         ocp.cost.Vx_e[:nx, :nx] = np.ones(nx)
+
+        # zoro stuff
+        if options.wall_constraint_on and True:
+            zoro_description = ZoroDescription()
+            zoro_description.backoff_scaling_gamma = 1.0 # standardabweichung in constraint richtung
+            # uncertainty propagation: P_{k+1} = (A_k+B_kK) @ P_k @ (A_k+B_kK)^T + G @ W @ G^T
+            # G.shape = (nx, nw), W.shape = (nw, nw)
+            # zoro_description.fdbk_K_mat = cfg.fdbk_K_mat
+            # zoro_description.unc_jac_G_mat = cfg.unc_jac_G_mat  # G above
+            zoro_description.unc_jac_G_mat = np.eye(nx)
+            zoro_description.P0_mat = np.diag([1e-4] * (nx // 2) + [1e-6] * (nx // 2))
+            zoro_description.W_mat = np.diag([0] * (nx // 2) + [1e-4] * (nx // 2))
+            zoro_description.idx_lh_t = [0, 1]
+            zoro_description.idx_lh_e_t = [0, 1]
+
+            zoro_description.fdbk_K_mat = np.zeros((nu, nx))
+            ocp.zoro_description = zoro_description
+            ocp.solver_options.custom_update_filename = 'custom_update_function.c'
+            ocp.solver_options.custom_update_header_filename = 'custom_update_function.h'
+
+            ocp.solver_options.custom_update_copy = False
+            ocp.solver_options.custom_templates = [
+                ('custom_update_function_zoro_template.in.c', 'custom_update_function.c'),
+                ('custom_update_function_zoro_template.in.h', 'custom_update_function.h'),
+            ]
 
         # Vz_e = np.zeros((ny_e, nz))
         # Vz_e[nx:, :] = np.eye(nz)
@@ -355,10 +380,23 @@ class SafetyFilter3Dof:
         self.acados_ocp_solver.cost_set(stage, "yref", yref)
 
         # acados solve NLP
-        status = self.acados_ocp_solver.solve()
+        max_zoro_iter = 10
+        for idx_iter in range(max_zoro_iter):
+            self.acados_ocp_solver.options_set('rti_phase', 1)
+            status = self.acados_ocp_solver.solve()
+
+            # constraint tightening
+            self.acados_ocp_solver.custom_update([])
+            # call SQP_RTI solver: feedback phase
+            self.acados_ocp_solver.options_set('rti_phase', 2)
+            status = self.acados_ocp_solver.solve()
+
+        #print(self.acados_ocp_solver.get(10, "lh"))
+        #for ii in range(0,self.options.n,10):
+        #print(self.acados_ocp_solver.get_from_qp_in(self.options.n-1, "lbx")[0])
 
         # Get timing result
-        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot")[0])
+        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot"))
 
         # Check for errors in acados
         if status != 0:

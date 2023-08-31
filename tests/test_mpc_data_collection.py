@@ -17,7 +17,7 @@ SEED = 0
 rng = np.random.default_rng(SEED)
 
 env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=True, add_wall_obstacle=False, create_safety_filter=False
+    create_controller=True, add_wall_obstacle=True, create_safety_filter=False
 )
 
 # --- Collect expert trajectories ---
