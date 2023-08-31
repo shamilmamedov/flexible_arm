@@ -33,8 +33,6 @@ SEED = 0
 now = datetime.now()
 LOG_DIR = f"logs/IRL/AIRL/{now.strftime('%Y-%m-%d_%H-%M')}"
 MODEL_DIR = f"trained_models/IRL/AIRL/{now.strftime('%Y-%m-%d_%H-%M')}"
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
 
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
@@ -46,6 +44,10 @@ eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
     create_controller=False, create_safety_filter=False, add_wall_obstacle=True
 )
 if TRAIN_MODEL:
+    logging.info("Training AIRL model from scratch")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
     venv = DummyVecEnv([lambda: env])
 
     # --- load expert rollouts ---

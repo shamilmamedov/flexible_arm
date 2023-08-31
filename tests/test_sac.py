@@ -22,8 +22,6 @@ SEED = 0
 now = datetime.now()
 LOG_DIR = f"logs/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}"
 MODEL_DIR = f"trained_models/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}"
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
 
 seed_everything(SEED)
 
@@ -35,7 +33,9 @@ eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
 )
 
 if TRAIN_MODEL:
-    logging.info("Training an SAC model")
+    logging.info("Training an SAC model from scratch")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
     eval_callback = EvalCallback(
         eval_env=eval_env,

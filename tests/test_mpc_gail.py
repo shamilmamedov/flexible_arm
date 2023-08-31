@@ -2,24 +2,24 @@
 This demo loads MPC rollouts as the expert and uses GAIL for imitation learning.
 RUN COMMAND: python -m tests.test_mpc_gail
 """
-from datetime import datetime
-import logging
 import os
+import logging
+from datetime import datetime
 
 import numpy as np
 
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import SAC
 from stable_baselines3.sac.policies import SACPolicy
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import configure_logger
+from stable_baselines3.common.evaluation import evaluate_policy
 
 
+from imitation.data import serialize
+from imitation.util.networks import RunningNorm
 from imitation.algorithms.adversarial.gail import GAIL
 from imitation.rewards.reward_nets import BasicShapedRewardNet
-from imitation.util.networks import RunningNorm
-from imitation.data import serialize
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
@@ -33,8 +33,6 @@ SEED = 0
 now = datetime.now()
 LOG_DIR = f"logs/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}"
 MODEL_DIR = f"trained_models/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}"
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
 
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
@@ -46,6 +44,10 @@ eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
     create_controller=False, create_safety_filter=False, add_wall_obstacle=True
 )
 if TRAIN_MODEL:
+    logging.info("Training GAIL model from scratch")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
     venv = DummyVecEnv([lambda: env])
 
     # --- load expert rollouts ---
