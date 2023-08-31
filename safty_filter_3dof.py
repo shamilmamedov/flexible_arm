@@ -358,7 +358,7 @@ class SafetyFilter3Dof:
         status = self.acados_ocp_solver.solve()
 
         # Get timing result
-        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot")[0])
+        self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot"))
 
         # Check for errors in acados
         if status != 0:
