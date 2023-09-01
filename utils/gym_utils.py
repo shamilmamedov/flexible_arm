@@ -179,7 +179,7 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     @safety_fltr_opts: dict valued safety filter options are overwritten
     """
     # --- Create FlexibleArm environment ---
-    n_seg = 5
+    n_seg = 10
     n_seg_mpc = 3
 
     # Environment options
@@ -192,8 +192,8 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         sim_time=1.5,
         dt=0.004,
         goal_min_time=0.01,
-        qa_range_start=np.array([-np.pi / 2, 0.0, -np.pi + 0.05]),
-        qa_range_end=np.array([3 * np.pi / 2, np.pi, np.pi - 0.05]),
+        qa_range_start=np.array([-np.pi / 2, 0.0, -np.pi + 0.075]),
+        qa_range_end=np.array([3 * np.pi / 2, np.pi, np.pi - 0.075]),
         contr_input_states=StateType.ESTIMATED,  # "real" if the n_seg is the same for the data and control env
         sim_noise_R=np.diag([*R_Q, *R_DQ, *R_PEE]),
         render_mode="human",
