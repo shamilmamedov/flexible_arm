@@ -309,6 +309,7 @@ class SymbolicFlexibleArm3DOF:
         drhs_dx = cs.jacobian(self.rhs, self.x)
         drhs_du = cs.jacobian(self.rhs, self.u)
         dh_dx = cs.jacobian(self.y, self.x)
+        d_con_h_dx = cs.jacobian(self.con_h_expr, self.x)
 
         self.df_dx = cs.Function('df_dx', [self.x, self.u], [drhs_dx],
                                  ['x', 'u'], ['df_dx'])
@@ -316,6 +317,8 @@ class SymbolicFlexibleArm3DOF:
                                  ['x', 'u'], ['df_du'])
         self.dh_dx = cs.Function('dy_dx', [self.x], [dh_dx],
                                  ['x'], ['dy_dx'])
+        self.d_con_h_dx = cs.Function('d_con_h_dx', [self.x, self.p], [d_con_h_dx],
+                                      ['x', 'p'], ['d_con_h_dx'])
 
     def _get_joint_torques_expressions(self, q, dq, u):
         n_seg = self.n_seg
@@ -353,29 +356,6 @@ class SymbolicFlexibleArm3DOF:
         self.F = cs.Function('F', [self.x, self.u], [x_next])
         self.dF_dx = cs.Function('dF_dx', [self.x, self.u], [cs.jacobian(x_next, self.x)])
 
-    # def get_acados_model(self) -> AcadosModel:
-    #     """ Return an acados model later used in OCP
-    #     Implicit dynamics is extended with an algebraic state that
-    #     corresponds to the end-effector position (I guess it is needed
-    #     for tracking)
-    #     """
-    #     model = AcadosModel()
-    #     model.x = self.x
-    #     model.z = self.z
-    #     model.u = self.u
-    #     model.xdot = self.x_dot
-    #
-    #     # CasADi expression for implicit dynamics
-    #     model.f_impl_expr = cs.vertcat(self.x_dot - self.rhs,
-    #                                    self.z - self.rhs_impl)
-    #     # CasADi expression for explicit dynamics
-    #     model.f_expl_expr = self.rhs
-    #
-    #     # model.p = w  # Not used right now
-    #     model.name = "flexible_arm_nq" + str(self.nq)
-    #
-    #     return model
-
     def get_acados_model_safety(self):
         model = AcadosModel()
         model.x = self.x
@@ -408,7 +388,7 @@ class SymbolicFlexibleArm3DOF:
         t_ = np.zeros_like(q)
         return np.array(self.rnea(q, t_, t_))[self.qa_idx, :]
     
-    def propagate_uncertainty_covariance(self, x, u, P0, Sigma) -> np.ndarray:
+    def propagate_state_uncertainty_covariance(self, x, u, P0, Sigma) -> np.ndarray:
         """
         Computes uncertainty covariance matrix using linearization
         around a nominal trajectory
@@ -441,6 +421,35 @@ class SymbolicFlexibleArm3DOF:
         for k, Ak in zip(range(n_samples), A):
             P[k+1] = Ak @ P[k] @ Ak.T + Sigma
         return P[1:]
+    
+    def propagate_constraint_uncertainty_covariance(self, x, p, Px) -> np.ndarray:
+        """
+        Computess uncertainty covariance matrix for the constraints that are
+        hyperplane constraint on the end-effector and elbow positions
+
+        :param x: [-1 x nx] vector of state trajectory 
+        :param u: [-1 x nu] vector of control trajectory
+        :param p: [6x1] vector of wall hyperplane parameters
+        :param Px: [nx x nx] uncertainty covariance matrix for the state
+
+        :return: [ns x nz x nz] covariance matrix trajectory
+        """
+        x = x.reshape(-1, self.nx, 1)
+
+        # Compute linearized constraints
+        n_samples = Px.shape[0]
+        n_con_h = self.con_h_expr.numel()
+        C = np.zeros((n_samples, n_con_h, self.nx))
+        for k, xk in zip(range(n_samples), x):
+            C[k] = np.array(self.d_con_h_dx(xk, p))
+
+        # Propagate uncertainty covariance
+        Pcon = np.zeros((n_samples, n_con_h, n_con_h))
+        for k, Ck in zip(range(n_samples), C):
+            Pcon[k] = Ck @ Px[k] @ Ck.T
+        
+        return Pcon
+
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
@@ -543,10 +552,21 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
 def main(n_seg: int = 3):
     robot = SymbolicFlexibleArm3DOF(n_seg)
 
-    qa = np.array([0., np.pi / 4, -np.pi / 4])
-    q = get_rest_configuration(qa, n_seg)
-    p_ee = np.array(robot.p_ee(q))
-    p_goal = p_ee + np.random.uniform(-0.1, 0.1, size=(3, 1))
+    w = np.array([0.0, 1.0, 0.0])
+    b = np.array([0.0, -0.15, 0.5])
+    p = np.concatenate((w, b))
+
+    u = np.zeros((10,robot.nu))
+    x = np.zeros((11,robot.nx))
+    P0 = 0.01*np.eye(robot.nx)
+    Sigma = 0.01*np.eye(robot.nx)
+    Px = robot.propagate_state_uncertainty_covariance(x, u, P0, Sigma)
+    Pcon = robot.propagate_constraint_uncertainty_covariance(x, p, Px)
+
+    # qa = np.array([0., np.pi / 4, -np.pi / 4])
+    # q = get_rest_configuration(qa, n_seg)
+    # p_ee = np.array(robot.p_ee(q))
+    # p_goal = p_ee + np.random.uniform(-0.1, 0.1, size=(3, 1))
 
     # viz = FlexibleArmVisualizer(robot.urdf_path, dt=0.01)
     # viz.visualize_configuration(q, p_goal)
