@@ -40,7 +40,6 @@ env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
 eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
     create_controller=False, create_safety_filter=False, add_wall_obstacle=True
 )
-breakpoint()
 if TRAIN_MODEL:
     logging.info("Training a BC model from scratch")
     os.makedirs(LOG_DIR, exist_ok=True)
