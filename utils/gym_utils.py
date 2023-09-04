@@ -85,7 +85,6 @@ class CallableMPCExpert(policies.BasePolicy):
             torques = self.controller.compute_torques(
                 q=observation[0:n_q, :], dq=observation[n_q : 2 * n_q, :]
             )
-            raise ValueError("This should not happen")
         except Exception as e:
             logging.warning(f"Exception in MPC controller: {e}")
             logging.warning("Setting torques to zero")
