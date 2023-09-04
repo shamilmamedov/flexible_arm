@@ -18,6 +18,7 @@ from utils.gym_utils import (
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
 SEED = 0
+DEVICE = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}"
@@ -53,6 +54,7 @@ if TRAIN_MODEL:
         seed=SEED,
         tensorboard_log=LOG_DIR,
         learning_rate=0.0003,
+        device=f"cuda:{DEVICE}",
     )
 
     # evaluate the policy before training

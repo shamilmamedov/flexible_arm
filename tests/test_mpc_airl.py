@@ -29,6 +29,7 @@ from utils.gym_utils import (
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
 SEED = 0
+DEVICE = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/IRL/AIRL/{now.strftime('%Y-%m-%d_%H-%M')}"
@@ -68,6 +69,7 @@ if TRAIN_MODEL:
         verbose=1,
         seed=SEED,
         tensorboard_log=LOG_DIR,
+        device=f"cuda:{DEVICE}",
     )
     custom_logger = configure_logger(
         verbose=learner.verbose,

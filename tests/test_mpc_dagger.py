@@ -27,6 +27,7 @@ from utils.gym_utils import (
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = True
 SEED = 0
+DEVICE = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}"
@@ -66,6 +67,7 @@ if TRAIN_MODEL:
         policy=policy,
         rng=rng,
         custom_logger=custom_logger,
+        device=f"cuda:{DEVICE}",
     )
     eval_callback = bc.BCEvalCallback(
         eval_env=eval_env,
@@ -98,9 +100,9 @@ if TRAIN_MODEL:
             n_eval_episodes=3,
             render=False,
         )
-        print(f"Reward before training: {reward}")
+        logging.info(f"Reward before training: {reward}")
 
-        print("Training a policy using Dagger")
+        logging.info("Training a policy using Dagger")
         dagger_trainer.train(
             total_timesteps=2000000,
             rollout_round_min_episodes=5,
@@ -125,4 +127,4 @@ reward, _ = evaluate_policy(
     n_eval_episodes=3,
     render=False,
 )
-print(f"Reward after training: {reward}")
+logging.info(f"Reward after training: {reward}")

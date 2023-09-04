@@ -25,6 +25,7 @@ from utils.gym_utils import (
 logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = False
 SEED = 0
+DEVICE = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/IL/BC/{now.strftime('%Y-%m-%d_%H-%M')}"
@@ -80,6 +81,7 @@ if TRAIN_MODEL:
         demonstrations=transitions,
         rng=rng,
         custom_logger=custom_logger,
+        device=f"cuda:{DEVICE}",
     )
     eval_env.reset(seed=SEED)
     reward, _ = evaluate_policy(
