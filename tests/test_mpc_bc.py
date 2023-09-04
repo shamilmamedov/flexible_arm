@@ -23,12 +23,12 @@ from utils.gym_utils import (
 )
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 SEED = 0
 DEVICE = 0
 
 now = datetime.now()
-LOG_DIR = f"logs/IL/BC/{now.strftime('%Y-%m-%d_%H-%M')}"
+LOG_DIR = f"logs/IL/BC/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 MODEL_DIR = f"trained_models/IL/BC/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 
 rng = np.random.default_rng(SEED)
@@ -40,6 +40,7 @@ env, expert, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
 eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
     create_controller=False, create_safety_filter=False, add_wall_obstacle=True
 )
+breakpoint()
 if TRAIN_MODEL:
     logging.info("Training a BC model from scratch")
     os.makedirs(LOG_DIR, exist_ok=True)
