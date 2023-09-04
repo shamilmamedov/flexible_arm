@@ -2,8 +2,11 @@
 This demo trains a PPO agent on the flexible arm environment.
 """
 import os
+import sys
 import logging
 from datetime import datetime
+
+from hydra import compose, initialize
 
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import ActorCriticPolicy
@@ -15,10 +18,14 @@ from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
 
+# Get hydra config
+initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
+cfg = compose(config_name="config", overrides=sys.argv[1:])
+
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = True
-SEED = 0
-DEVICE = 0
+TRAIN_MODEL = cfg.train
+SEED = cfg.seed
+DEVICE = cfg.device
 
 now = datetime.now()
 LOG_DIR = f"logs/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"

@@ -3,12 +3,14 @@ This demo loads MPC rollouts as the expert and uses DAGGER for imitation learnin
 RUN COMMAND: python -m tests.test_mpc_dagger
 """
 import os
+import sys
 import logging
 import tempfile
 from datetime import datetime
 
 import torch
 import numpy as np
+from hydra import compose, initialize
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.utils import configure_logger
@@ -24,10 +26,15 @@ from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
 
+
+# Get hydra config
+initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
+cfg = compose(config_name="config", overrides=sys.argv[1:])
+
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = True
-SEED = 0
-DEVICE = 0
+TRAIN_MODEL = cfg.train
+SEED = cfg.seed
+DEVICE = cfg.device
 
 now = datetime.now()
 LOG_DIR = f"logs/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}/SEEED_{SEED}"
