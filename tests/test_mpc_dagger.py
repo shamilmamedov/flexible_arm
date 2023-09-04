@@ -30,7 +30,7 @@ SEED = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}"
-MODEL_DIR = f"trained_models/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}"
+MODEL_DIR = f"trained_models/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
