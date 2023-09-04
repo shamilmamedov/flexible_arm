@@ -70,7 +70,7 @@ if TRAIN_MODEL:
     logging.info(f"Reward before training: {reward_before}")
 
     # train the agent
-    agent.learn(total_timesteps=2000000)
+    agent.learn(total_timesteps=2000000, callback=eval_callback)
 
     # save the trained policy
     agent.save(f"{MODEL_DIR}/policy_ppo_last")
