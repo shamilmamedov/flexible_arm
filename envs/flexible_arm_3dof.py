@@ -262,6 +262,7 @@ class SymbolicFlexibleArm3DOF:
         self.p_ee = cs.Function.load(os.path.join(model_folder, 'fkp.casadi'))
         self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
         self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
+        self.v_elbow = cs.Function.load(os.path.join(model_folder, 'fkvelbow.casadi'))
 
     def _load_flexibility_params(self, fparams_path: str):
         if fparams_path is None:
