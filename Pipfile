@@ -15,6 +15,7 @@ stable-baselines3 = ">=2.0.0a1"
 ipython = "*"
 panda3d-viewer = "*"
 tensorboard = "*"
+hydra-core = "*"
 
 [dev-packages]
 

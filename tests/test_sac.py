@@ -2,8 +2,11 @@
 This demo trains an SAC agent on the flexible arm environment.
 """
 import os
+import sys
 import logging
 from datetime import datetime
+
+from hydra import compose, initialize
 
 from stable_baselines3 import SAC
 from stable_baselines3.sac.policies import SACPolicy
@@ -15,13 +18,17 @@ from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
 
+# Get hydra config
+initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
+cfg = compose(config_name="config", overrides=sys.argv[1:])
+
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = True
-SEED = 0
-DEVICE = 0
+TRAIN_MODEL = cfg.train
+SEED = cfg.seed
+DEVICE = cfg.device
 
 now = datetime.now()
-LOG_DIR = f"logs/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}"
+LOG_DIR = f"logs/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 MODEL_DIR = f"trained_models/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 
 seed_everything(SEED)
@@ -43,7 +50,7 @@ if TRAIN_MODEL:
         n_eval_episodes=3,
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
-        eval_freq=10000,
+        eval_freq=5000,
         deterministic=True,
         render=False,
     )
