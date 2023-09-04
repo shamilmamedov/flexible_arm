@@ -338,6 +338,12 @@ class SafetyFilter3Dof:
         else:
             self.x_hat = self.E.estimate(y, self.u_pre_safe).flatten()
 
+        q = np.linalg.norm(self.x_hat[:self.x_hat.shape[0] // 2])
+        dq = np.linalg.norm(self.x_hat[self.x_hat.shape[0]//2:])
+
+        print("|v_ee|={}".format(np.linalg.norm(self.fa_model.v_ee(q,dq).full())))
+        #print("|p_ee|={}".format(self.fa_model.p_ee(self.x_hat).full()))
+
         # set initial state
         start_time = time.time()
         xcurrent = self.x_hat  # np.vstack((q, dq))
