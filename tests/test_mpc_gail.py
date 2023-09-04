@@ -38,7 +38,7 @@ SEED = cfg.seed
 DEVICE = cfg.device
 
 now = datetime.now()
-LOG_DIR = f"logs/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}/SEEED_{SEED}"
+LOG_DIR = f"logs/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 MODEL_DIR = f"trained_models/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 
 rng = np.random.default_rng(SEED)
