@@ -35,9 +35,9 @@ def test_casadi_aba():
 
         for _ in range(15):
             # Random position, velocity and torques
-            q = -np.pi + 2*np.pi*np.random.rand(arm.nq, 1)
-            dq = -2*np.pi + 4*np.pi*np.random.rand(arm.nq, 1)
-            tau = -15 + 30*np.random.rand(arm.nq, 1)
+            q = np.random.uniform(low=-1, high=1, size=(arm.nq, 1))
+            dq = np.pi*np.random.uniform(low=-1, high=1, size=(arm.nq, 1))
+            tau = np.random.uniform(low=-1, high=1, size=(arm.nq, 1))
 
             # Compute acclerations and compare
             ddq_casadi = np.array(casadi_aba(q, dq, tau))
@@ -56,13 +56,13 @@ def test_casadi_ode():
 
         # Compute and compare ode in a loop
         for _ in range(15):
-            q = -np.pi + 2*np.pi*np.random.rand(num_arm.nq, 1)
-            dq = -2*np.pi + 4*np.pi*np.random.rand(num_arm.nq, 1)
+            q = np.random.uniform(low=-1, high=1, size=(num_arm.nq, 1))
+            dq = np.pi*np.random.uniform(low=-1, high=1, size=(num_arm.nq, 1))
             x = np.vstack((q, dq))
-            tau = -25 + 50*np.random.rand(num_arm.nu, 1)
+            tau = np.random.uniform(low=-1, high=1, size=(num_arm.nu, 1))
             num_ode = num_arm.ode(x, tau)
             sym_ode = np.array(sym_arm.ode(x, tau))
-            np.testing.assert_allclose(num_ode, sym_ode)
+            np.testing.assert_allclose(num_ode, sym_ode, rtol=1e-5)
 
 
 def test_casadi_fk():

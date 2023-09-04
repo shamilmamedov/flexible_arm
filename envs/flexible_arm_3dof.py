@@ -5,11 +5,12 @@ import casadi as cs
 import pinocchio as pin
 from scipy.linalg import block_diag
 from acados_template import AcadosModel
-
-# from animation import Panda3dAnimator, FlexibleArmVisualizer
 from copy import deepcopy
 
-n_seg_int2str = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 5: 'five', 10: 'ten'}
+# from animation import Panda3dAnimator, FlexibleArmVisualizer
+from envs import rfem
+from utils.utils import n_seg_int2str
+
 
 
 class FlexibleArm3DOF:
@@ -204,10 +205,17 @@ class SymbolicFlexibleArm3DOF:
             variable that should be provided during numerial integration.
     """
 
-    def __init__(self, n_seg: int, integrator: str = 'collocation', dt: float = 0.001) -> None:
+    def __init__(
+            self, 
+            n_seg: int, 
+            fparams_path: str = None, 
+            integrator: str = 'collocation', 
+            dt: float = 0.001
+    ) -> None:
         """ Class constructor
 
         :parameter n_seg: number of segments of a link
+        :parameter fparams_path: path to a file with flexibility parameters
         :parameter integrator: an integration scheme used to get discrete map
         :parameter dt: integration step
         """
@@ -237,7 +245,7 @@ class SymbolicFlexibleArm3DOF:
         self.dqa_max = np.array([2.5, 3.5, 3.5])
 
         # Load the model parameters and functions
-        self._load_flexibility_params(model_folder)
+        self._load_flexibility_params(fparams_path)
         self._load_kinematics_and_dynamics_fcns(model_folder)
         self._get_dynamics_as_casadi_expressions()
         self._generate_casadi_fcns_for_dynamics()
@@ -255,19 +263,19 @@ class SymbolicFlexibleArm3DOF:
         self.v_ee = cs.Function.load(os.path.join(model_folder, 'fkv.casadi'))
         self.p_elbow = cs.Function.load(os.path.join(model_folder, 'fkpelbow.casadi'))
 
-    def _load_flexibility_params(self, model_folder: str):
+    def _load_flexibility_params(self, fparams_path: str):
+        if fparams_path is None:
+            fparams_path = 'models/three_dof/flexible_link_params.yml'
+        beam_params = rfem.load_rectangular_beam_params_from_yaml(fparams_path)
+
         # Process flexibility parameters
         if self.n_seg > 0:
-            params_file = 'flexibility_params.yml'
-            params_path = os.path.join(model_folder, params_file)
+            k, d = rfem.compute_flexible_joint_params(beam_params, self.n_seg)
 
-            with open(params_path) as f:
-                flexibility_params = yaml.safe_load(f)
-
-            self.K2 = np.diag(flexibility_params['K2'])
-            self.K3 = np.diag(flexibility_params['K3'])
-            self.D2 = np.diag(flexibility_params['D2'])
-            self.D3 = np.diag(flexibility_params['D3'])
+            self.K2 = np.diag(k)
+            self.K3 = np.diag(k)
+            self.D2 = np.diag(d)
+            self.D3 = np.diag(d)
 
     def _get_dynamics_as_casadi_expressions(self):
         # Symbolic variables for joint positions, velocities and controls
