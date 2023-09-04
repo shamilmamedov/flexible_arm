@@ -43,7 +43,7 @@ if TRAIN_MODEL:
         n_eval_episodes=3,
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
-        eval_freq=10000,
+        eval_freq=5000,
         deterministic=True,
         render=False,
     )

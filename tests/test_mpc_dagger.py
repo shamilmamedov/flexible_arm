@@ -81,7 +81,7 @@ if TRAIN_MODEL:
         render=False,
     )
 
-    rollouts = serialize.load("mpc_expert_rollouts.pkl")
+    rollouts = serialize.load("demos/mpc_expert_rollouts.pkl")
 
     with tempfile.TemporaryDirectory(prefix="dagger_trained_") as tmpdir:
         dagger_trainer = SimpleDAggerTrainer(

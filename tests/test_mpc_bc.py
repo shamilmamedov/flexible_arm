@@ -45,7 +45,7 @@ if TRAIN_MODEL:
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
 
-    rollouts = serialize.load("mpc_expert_rollouts.pkl")
+    rollouts = serialize.load("demos/mpc_expert_rollouts.pkl")
 
     transitions = rollout.flatten_trajectories(rollouts)
 
@@ -66,7 +66,7 @@ if TRAIN_MODEL:
     eval_callback = bc.BCEvalCallback(
         eval_env=eval_env,
         model=policy,
-        eval_freq=1000,
+        eval_freq=5000,
         n_eval_episodes=3,
         logger=custom_logger,
         verbose=1,
@@ -94,7 +94,7 @@ if TRAIN_MODEL:
 
     logging.info("Training a policy using Behavior Cloning")
     bc_trainer.train(
-        n_batches=10000,
+        n_batches=2000000,
         log_interval=100,
         on_batch_end=eval_callback,
     )

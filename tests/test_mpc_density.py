@@ -49,14 +49,14 @@ if TRAIN_MODEL:
 
     venv = DummyVecEnv([lambda: env])
 
-    rollouts = serialize.load("mpc_expert_rollouts.pkl")
+    rollouts = serialize.load("demos/mpc_expert_rollouts.pkl")
 
     eval_callback = EvalCallback(
         eval_env=eval_env,
         n_eval_episodes=1,
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
-        eval_freq=10000,
+        eval_freq=5000,
         deterministic=True,
         render=False,
     )
