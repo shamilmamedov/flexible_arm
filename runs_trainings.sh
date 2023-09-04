@@ -1,6 +1,3 @@
-# Run all trainings
-# Usage: ./runs.sh
-
 DEVICE=0
 SEED=0
 
