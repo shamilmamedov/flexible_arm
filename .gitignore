@@ -24,4 +24,14 @@ __pycache__/
 /c_generated_code_safety_filter/
 c_generated_code/
 
+# logs
+logs/
+
+# trained_models
+trained_models/
+
+# expert demonstrations
+demos/
+
+
 

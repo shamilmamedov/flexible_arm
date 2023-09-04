@@ -1,4 +1,5 @@
 from typing import Dict
+import logging
 
 import numpy as np
 import torch
@@ -10,6 +11,8 @@ from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions, WallObs
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
 from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 from utils.utils import StateType
+
+logging.basicConfig(level=logging.INFO)
 
 
 class CallableMPCExpert(policies.BasePolicy):
@@ -78,9 +81,15 @@ class CallableMPCExpert(policies.BasePolicy):
 
         # observation entries: [states_q, states_dq, p_ee]
         n_q = (observation.shape[0] - 3) // 2
-        torques = self.controller.compute_torques(
-            q=observation[0:n_q, :], dq=observation[n_q : 2 * n_q, :]
-        )
+        try:
+            torques = self.controller.compute_torques(
+                q=observation[0:n_q, :], dq=observation[n_q : 2 * n_q, :]
+            )
+            raise ValueError("This should not happen")
+        except Exception as e:
+            logging.warning(f"Exception in MPC controller: {e}")
+            logging.warning("Setting torques to zero")
+            torques = np.zeros(self.action_space.shape)
         return torques
 
     def __call__(self, observation):
