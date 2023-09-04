@@ -72,7 +72,7 @@ if TRAIN_MODEL:
     agent.save(f"{MODEL_DIR}/policy_sac_last")
 else:
     # load the trained policy
-    agent = SAC.load(f"{MODEL_DIR}/policy_sac_last")
+    agent = SAC.load(f"trained_models/RL/SAC/2023-08-30_14-14/best_model.zip")
 
 # evaluate the policy after training
 eval_env.reset(seed=SEED)

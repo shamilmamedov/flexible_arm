@@ -70,7 +70,7 @@ if TRAIN_MODEL:
     eval_callback = bc.BCEvalCallback(
         eval_env=eval_env,
         model=policy,
-        eval_freq=1000,  # smaller than n_batches in bc.train()
+        eval_freq=5000,  # smaller than n_batches in bc.train()
         n_eval_episodes=3,
         logger=custom_logger,
         verbose=1,
@@ -102,7 +102,8 @@ if TRAIN_MODEL:
 
         print("Training a policy using Dagger")
         dagger_trainer.train(
-            1000000,
+            total_timesteps=2000000,
+            rollout_round_min_episodes=5,
             bc_train_kwargs={
                 "on_batch_end": eval_callback,
                 "n_batches": 10000,
@@ -115,7 +116,7 @@ if TRAIN_MODEL:
 
 else:
     logging.info("Loading a trained DAGGER model")
-    policy = torch.load("trained_models/IL/DAGGER/policy_mpc_dagger_last.pt")
+    policy = torch.load("trained_models/IL/DAGGER/2023-09-01_13-07/best_model.pt")
 
 eval_env.reset(seed=SEED)
 reward, _ = evaluate_policy(

@@ -55,7 +55,7 @@ if TRAIN_MODEL:
     # ----------------------------
     eval_callback = EvalCallback(
         eval_env=eval_env,
-        n_eval_episodes=1,
+        n_eval_episodes=3,
         best_model_save_path=MODEL_DIR,
         log_path=LOG_DIR,
         eval_freq=10000,
@@ -96,6 +96,7 @@ if TRAIN_MODEL:
         init_tensorboard=True,
         log_dir=LOG_DIR,
         debug_use_ground_truth=False,
+        allow_variable_horizon=True,
     )
 
     # evaluate the learner before training
