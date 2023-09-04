@@ -21,7 +21,7 @@ SEED = 0
 
 now = datetime.now()
 LOG_DIR = f"logs/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}"
-MODEL_DIR = f"trained_models/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}"
+MODEL_DIR = f"trained_models/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
 
 seed_everything(SEED)
 
