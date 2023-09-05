@@ -164,13 +164,11 @@ class SafetyFilter3Dof:
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array(
                 [options.w1_slack_angular_speed] * ns_angular_velocity +
-                [options.w1_slack_wall] * n_wall_pos_constraints +
-                [options.w1_slack_speed_wall] * n_wall_speed_constraints
+                [options.w1_slack_wall] * n_wall_constraints
             )
             ocp.cost.Zl = np.array(
                 [options.w2_slack_angular_speed] * ns_angular_velocity
-                + [options.w2_slack_wall] * n_wall_pos_constraints
-                + [options.w2_slack_speed_wall] * n_wall_speed_constraints
+                + [options.w2_slack_wall] * n_wall_constraints
             )
 
             ocp.cost.zu = ocp.cost.zl

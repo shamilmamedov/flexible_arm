@@ -336,20 +336,14 @@ class SymbolicFlexibleArm3DOF:
                                      dist_ee_ground,
                                      dist_elbow_ground,
 
-                                     v_contraint_ee_wall,
-                                     v_contraint_elbow_wall,
-                                     v_contraint_ee_ground,
-                                     v_contraint_elbow_ground
+
                                      )
         self.con_h_expr_e = cs.vertcat(dist_ee_wall,
                                        dist_elbow_wall,
                                        dist_ee_ground,
                                        dist_elbow_ground,
 
-                                       v_contraint_ee_wall,
-                                       v_contraint_elbow_wall,
-                                       v_contraint_ee_ground,
-                                       v_contraint_elbow_ground
+
                                        )
 
     def _generate_casadi_fcns_for_dynamics(self):
