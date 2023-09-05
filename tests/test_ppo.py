@@ -81,6 +81,6 @@ else:
 # evaluate the policy after training
 eval_env.reset(seed=SEED)
 reward_after, _ = evaluate_policy(
-    model=agent, env=eval_env, n_eval_episodes=3, render=True
+    model=agent, env=eval_env, n_eval_episodes=3, render=False
 )
 logging.info(f"Reward after training: {reward_after}")

@@ -117,6 +117,6 @@ reward, _ = evaluate_policy(
     policy,  # type: ignore[arg-type]
     eval_env,
     n_eval_episodes=3,
-    render=True,
+    render=False,
 )
 logging.info(f"Reward after training: {reward}")
