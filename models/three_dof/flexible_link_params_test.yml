@@ -1,0 +1,8 @@
+L: 0.5 # length [m]
+a: 0.05 # width [m]
+h: 0.002  # thickness [m]
+rho: 7870 # density [kg/m^3]
+E: 17.E+10 # Young's modulus [Pa]
+G: 74.E+9 # shear modulus [Pa]
+eta: 8511.E+5 # normal damping coefficient
+eta_bar: 1.E+9 # tangential damping coefficient

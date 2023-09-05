@@ -15,10 +15,16 @@ from imitation.data import rollout, serialize
 from stable_baselines3 import SAC
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+import matplotlib.pyplot as plt
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
+from kpi import (
+    time2reach_goal,
+    path_length,
+    _constraint_violation
 )
 
 # Get hydra config
@@ -34,7 +40,9 @@ seed_everything(SEED)
 
 if cfg.kpi.collect_demos:
     env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-        create_controller=False, add_wall_obstacle=True, create_safety_filter=False
+        create_controller=False, 
+        add_wall_obstacle=True, 
+        create_safety_filter=False
     )
     venv = DummyVecEnv([lambda: env])
 
@@ -152,6 +160,18 @@ else:
     sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
     ppo_rollouts = serialize.load(f"{DEMO_DIR}/ppo.pkl")
 
+
+print(time2reach_goal(bc_rollouts, 0.1))
+# print(path_length(bc_rollouts))
+print(_constraint_violation(bc_rollouts[0]))
+# print(bc_rollouts[0].acts)
+
+acts = bc_rollouts[0].acts
+_, axs = plt.subplots(3, 1, figsize=(10, 5))
+axs[0].plot(acts[:, 0])
+axs[1].plot(acts[:, 1])
+axs[2].plot(acts[:, 2])
+# plt.show()
 
 # Measure KPIs
 # TODO: MEASURE KPIs FOR EACH ALGORITHM

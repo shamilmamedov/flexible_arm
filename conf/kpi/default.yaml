@@ -2,7 +2,7 @@ demo_dir: demos
 seed: 0
 n_demos: 10                                                                         # number of demos to collect
 render: False                                                                       # render the environment while collecting demos
-collect_demos: True                                                                 # if False, then load from demos
+collect_demos: False                                                                 # if False, then load from demos
 
 collect_bc: True                                                                    # if False, then load from demos
 bc_model_path: trained_models/IL/BC/2023-09-04_14-44/SEED_0/best_model.pt
