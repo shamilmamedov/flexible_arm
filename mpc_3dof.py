@@ -67,6 +67,8 @@ class Mpc3dofOptions(Updatable):
         self.w2_slack_speed: float = 1e6
         self.w2_slack_wall: float = 1e5
         self.w1_slack_wall: float = 1e4
+        self.w2_slack_speed_wall: float = 1e1
+        self.w1_slack_speed_wall: float = 1e1
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -194,6 +196,7 @@ class Mpc3Dof(BaseController):
         # Only velocities are constrained in the states
         ocp.constraints.idxsbx = np.array([0, 1, 2])
         ocp.constraints.idxsbx_e = np.array([0, 1, 2])
+        ns_angular_velocity = 3
 
         # safety constraints
         if options.wall_constraint_on:
@@ -201,15 +204,22 @@ class Mpc3Dof(BaseController):
             ocp.model.con_h_expr_e = constraint_expr
             n_wall_constraints = constraint_expr.shape[0]
             self.n_constraints = constraint_expr.shape[0]
+
+            n_wall_pos_constraints = n_wall_constraints // 2
+            n_wall_speed_constraints = n_wall_constraints // 2
+
             ns = n_wall_constraints
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array(
-                [10**3] * 3 + [options.w1_slack_wall] * n_wall_constraints
+                [10**3] * ns_angular_velocity +
+                [options.w1_slack_wall] * n_wall_pos_constraints +
+                [options.w1_slack_speed_wall] * n_wall_speed_constraints
             )
             ocp.cost.Zl = np.array(
-                [options.w2_slack_speed] * 3
-                + [options.w2_slack_wall] * n_wall_constraints
+                [options.w2_slack_speed] * ns_angular_velocity
+                + [options.w2_slack_wall] * n_wall_pos_constraints
+                + [options.w2_slack_speed_wall] * n_wall_speed_constraints
             )
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
@@ -222,8 +232,8 @@ class Mpc3Dof(BaseController):
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
             ocp.constraints.idxsh_e = np.array(range(n_wall_constraints))
         else:
-            ocp.cost.zl = np.array([0] * 3)
-            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
+            ocp.cost.zl = np.array([0] * ns_angular_velocity)
+            ocp.cost.Zl = np.array([options.w2_slack_speed] * ns_angular_velocity)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
 
