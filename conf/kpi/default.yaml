@@ -1,0 +1,26 @@
+demo_dir: demos
+seed: 0
+n_demos: 10                                                                         # number of demos to collect
+render: False                                                                       # render the environment while collecting demos
+collect_demos: True                                                                 # if False, then load from demos
+
+collect_bc: True                                                                    # if False, then load from demos
+bc_model_path: trained_models/IL/BC/2023-09-04_14-44/SEED_0/best_model.pt
+
+collect_dagger: True                                                                # if False, then load from demos
+dagger_model_path: trained_models/IL/DAGGER/2023-09-04_14-44/SEED_0/best_model.pt
+
+collect_gail: True                                                                  # if False, then load from demos
+gail_model_path: trained_models/IRL/GAIL/2023-09-04_14-44/SEED_0/best_model.zip
+
+collect_airl: True                                                                  # if False, then load from demos
+airl_model_path: trained_models/IRL/AIRL/2023-09-04_14-44/SEED_0/best_model.zip
+
+collect_density: True                                                               # if False, then load from demos
+density_model_path: trained_models/IRL/DENSITY/2023-09-04_14-44/SEED_0/best_model.zip
+
+collect_sac: True                                                                   # if False, then load from demos
+sac_model_path: trained_models/RL/SAC/2023-09-04_14-44/SEED_0/best_model.zip
+
+collect_ppo: True                                                                   # if False, then load from demos
+ppo_model_path: trained_models/RL/PPO/2023-09-04_15-01/SEED_0/best_model.zip
