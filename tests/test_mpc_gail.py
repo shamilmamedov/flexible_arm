@@ -33,9 +33,9 @@ initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
 cfg = compose(config_name="config", overrides=sys.argv[1:])
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = cfg.train
-SEED = cfg.seed
-DEVICE = cfg.device
+TRAIN_MODEL = cfg.training.train
+SEED = cfg.training.seed
+DEVICE = cfg.training.device
 
 now = datetime.now()
 LOG_DIR = f"logs/IRL/GAIL/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"

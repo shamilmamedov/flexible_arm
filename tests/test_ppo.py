@@ -23,9 +23,9 @@ initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
 cfg = compose(config_name="config", overrides=sys.argv[1:])
 
 logging.basicConfig(level=logging.INFO)
-TRAIN_MODEL = cfg.train
-SEED = cfg.seed
-DEVICE = cfg.device
+TRAIN_MODEL = cfg.training.train
+SEED = cfg.training.seed
+DEVICE = cfg.training.device
 
 now = datetime.now()
 LOG_DIR = f"logs/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
@@ -34,10 +34,10 @@ MODEL_DIR = f"trained_models/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}
 seed_everything(SEED)
 
 env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False
+    create_controller=False, add_wall_obstacle=True
 )
 eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False
+    create_controller=False, add_wall_obstacle=True
 )
 
 if TRAIN_MODEL:
