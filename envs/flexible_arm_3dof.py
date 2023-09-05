@@ -290,8 +290,8 @@ class SymbolicFlexibleArm3DOF:
         p = cs.MX.sym("p", self.np)
         wall_par_w = p[:3]
         wall_par_b = p[3:6]
-        ground_par_w = cs.MX([0,0,1])#np.array([0, 0, 1])
-        ground_par_b = cs.MX([0,0,0]) #np.array([0, 0, 0])
+        ground_par_w = cs.MX([0, 0, 1])  # np.array([0, 0, 1])
+        ground_par_b = cs.MX([0, 0, 0])  # np.array([0, 0, 0])
 
         tau = self._get_joint_torques_expressions(q, dq, u)
         ddq = self.aba(q, dq, tau)
@@ -324,26 +324,35 @@ class SymbolicFlexibleArm3DOF:
         dist_elbow_ground = ground_par_w.T @ (self.p_elbow(q) - ground_par_b)
 
         # speed contraint close to wall
-        alpha = 1000000
-        v_contraint_ee_wall = v_ee_wall - dist_ee_wall * alpha
-        v_contraint_elbow_wall = v_elbow_wall - dist_elbow_wall * alpha
+        alpha = 3  # velocity < dist * alpha
+        v_contraint_ee_wall = v_ee_wall + dist_ee_wall * alpha
+        v_contraint_elbow_wall = v_elbow_wall + dist_elbow_wall * alpha
 
-        v_contraint_ee_ground = v_ee_ground - dist_ee_ground * alpha
-        v_contraint_elbow_ground = v_elbow_ground - dist_elbow_ground * alpha
+        v_contraint_ee_ground = v_ee_ground + dist_ee_ground * alpha
+        v_contraint_elbow_ground = v_elbow_ground + dist_elbow_ground * alpha
 
+        # path constraints
         self.con_h_expr = cs.vertcat(dist_ee_wall,
                                      dist_elbow_wall,
                                      dist_ee_ground,
                                      dist_elbow_ground,
 
-
+                                     v_contraint_ee_wall,
+                                     v_contraint_elbow_wall,
+                                     v_contraint_ee_ground,
+                                     v_contraint_elbow_ground
                                      )
+
+        # terminal constraints
         self.con_h_expr_e = cs.vertcat(dist_ee_wall,
                                        dist_elbow_wall,
                                        dist_ee_ground,
                                        dist_elbow_ground,
 
-
+                                       v_contraint_ee_wall,
+                                       v_contraint_elbow_wall,
+                                       v_contraint_ee_ground,
+                                       v_contraint_elbow_ground
                                        )
 
     def _generate_casadi_fcns_for_dynamics(self):

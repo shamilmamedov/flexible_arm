@@ -34,7 +34,7 @@ class Mpc3dofOptions(Updatable):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
         self.n: int = n  # number of discretization points
         self.tf: float = tf  # time horizon
-        self.nlp_iter: int = 50  # number of iterations of the nonlinear solver
+        self.nlp_iter: int = 50  # number of iterations of the nonlinear solver, only used if NOT RTI
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
         self.wall_constraint_on: bool = (
             True  # choose whether we activate the wall constraint
@@ -61,12 +61,23 @@ class Mpc3dofOptions(Updatable):
             + [Q_DQA_E] * (1)  # dqp 1st link
             + [Q_DQP] * (self.n_seg)  # dqa3
         )  # dqp 2nd link
+
+        # weights on algebraic variables related to reference p_ee. Not needed in safety filter
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
+
+        # weights on control
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
+
+        # slacks for angular speed constraints of active joints
         self.w2_slack_speed: float = 1e6
+        self.w1_slack_speed: float = 1e3
+
+        # slacks for position and wall penetration
         self.w2_slack_wall: float = 1e5
         self.w1_slack_wall: float = 1e4
+
+        # slacks for speed limitation in wall direction
         self.w2_slack_speed_wall: float = 1e1
         self.w1_slack_speed_wall: float = 1e1
 
@@ -80,11 +91,11 @@ class Mpc3Dof(BaseController):
     """
 
     def __init__(
-        self,
-        model: "SymbolicFlexibleArm3DOF",
-        x0: np.ndarray = None,
-        pee_0: np.ndarray = None,
-        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+            self,
+            model: "SymbolicFlexibleArm3DOF",
+            x0: np.ndarray = None,
+            pee_0: np.ndarray = None,
+            options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
     ):
         """
         :parameter x0: initial state vector
@@ -149,11 +160,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx : nx + nu, :] = np.eye(nu)
+        Vu[nx: nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu :, :] = np.eye(nz)
+        Vz[nx + nu:, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -212,7 +223,7 @@ class Mpc3Dof(BaseController):
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array(
-                [10**3] * ns_angular_velocity +
+                [options.w1_slack_speed] * ns_angular_velocity +
                 [options.w1_slack_wall] * n_wall_pos_constraints +
                 [options.w1_slack_speed_wall] * n_wall_speed_constraints
             )
