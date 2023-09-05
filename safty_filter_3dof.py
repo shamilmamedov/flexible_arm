@@ -32,19 +32,38 @@ class SafetyFilter3dofOptions(Updatable):
         self.n: int = 100  # number of discretization points
         self.tf: float = 1.0  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
+
+        # weights on algebraic variables related to reference p_ee. Not needed in safety filter
         self.z_diag: np.ndarray = np.array([0] * 3) * 0  # 1e1
         self.z_e_diag: np.ndarray = np.array([0] * 3) * 0  # 1e3
+
+        # weight related to first control command. Most important in safety filter.
+        # the higher this weight, the more it will stick to the proposed input action
         self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1
+
+        # rollout weight needed for regularization. keeps inputs small along the horizon.
+        # we dont want extreme solutions
         self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-5
-        self.w2_slack_speed: float = 1e3
+
+        # weight for regularizing the joint speeds. They should be kept small. Needed for convergence
+        self.w_reg_dq: float = 1e-1 * 1e-1
+        self.w_reg_dq_terminal: float = 1e1 * 1e-1
+
+        # slacks for position and wall penetration
         self.w2_slack_wall: float = 1e6
         self.w1_slack_wall: float = 1e5
-        self.w_reg_dq: float = 1e-2
-        self.w_reg_dq_terminal: float = 1
+
+        # slacks for speed limitation in wall direction
+        self.w2_slack_speed_wall: float = 1e2
+        self.w1_slack_speed_wall: float = 1e1
+
+        # slacks for angular speed constraints of active joints
+        self.w2_slack_angular_speed: float = 0
+        self.w1_slack_angular_speed: float = 1e3
+
         self.wall_constraint_on: bool = (
             True  # choose whether we activate the wall constraint
         )
-        # todo: check how to tune weights
 
     def get_sampling_time(self) -> float:
         return self.tf / self.n
@@ -56,10 +75,10 @@ class SafetyFilter3Dof:
     """
 
     def __init__(
-        self,
-        x0: np.ndarray = None,
-        x0_ee: np.ndarray = None,
-        options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(),
+            self,
+            x0: np.ndarray = None,
+            x0_ee: np.ndarray = None,
+            options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(),
     ):
         if x0 is None:
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
@@ -117,10 +136,10 @@ class SafetyFilter3Dof:
         # setting state weights
         q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
-        q_diag[0 : int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2) :] = options.w_reg_dq
-        q_e_diag[0 : int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2) :] = options.w_reg_dq_terminal
+        q_diag[0: int(len(q_diag) / 2)] = 0
+        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
+        q_e_diag[0: int(len(q_e_diag) / 2)] = 0
+        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
@@ -143,6 +162,8 @@ class SafetyFilter3Dof:
         )
         ocp.constraints.idxsbx = np.array([0, 1, 2])
         ocp.constraints.idxsbx_e = np.array([0, 1, 2])
+        ns_angular_velocity = 3
+
         # safety constraints
         if options.wall_constraint_on:
             ocp.model.con_h_expr = constraint_expr
@@ -150,18 +171,30 @@ class SafetyFilter3Dof:
             n_wall_constraints = constraint_expr.shape[0]
             self.n_constraints = constraint_expr.shape[0]
             ns = n_wall_constraints
-            nsh = n_wall_constraints  # self.n_constraints
+
+            n_wall_pos_constraints = n_wall_constraints // 2
+            n_wall_speed_constraints = n_wall_constraints // 2
+
             self.current_slacks = np.zeros((ns,))
+
+            # L1 slack weights
             ocp.cost.zl = np.array(
-                [0] * 3 + [options.w1_slack_wall] * n_wall_constraints
+                [options.w1_slack_angular_speed] * ns_angular_velocity +
+                [options.w1_slack_wall] * n_wall_pos_constraints +
+                [options.w1_slack_speed_wall] * n_wall_speed_constraints
             )
+
+            # L2 slack weights
             ocp.cost.Zl = np.array(
-                [options.w2_slack_speed] * 3
-                + [options.w2_slack_wall] * n_wall_constraints
+                [options.w2_slack_angular_speed] * ns_angular_velocity
+                + [options.w2_slack_wall] * n_wall_pos_constraints
+                + [options.w2_slack_speed_wall] * n_wall_speed_constraints
             )
+
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
 
+            # set lower bounds (we always define constraints as h(x) \geq 0)
             ocp.constraints.lh = np.zeros((n_wall_constraints,))
             ocp.constraints.uh = 1e6 * np.ones((n_wall_constraints,))
             ocp.constraints.lh_e = ocp.constraints.lh
@@ -170,8 +203,8 @@ class SafetyFilter3Dof:
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
             ocp.constraints.idxsh_e = np.array(range(n_wall_constraints))
         else:
-            ocp.cost.zl = np.array([0] * 3)
-            ocp.cost.Zl = np.array([options.w2_slack_speed] * 3)
+            ocp.cost.zl = np.array([options.w1_slack_angular_speed] * ns_angular_velocity)
+            ocp.cost.Zl = np.array([options.w2_slack_angular_speed] * ns_angular_velocity)
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
 
@@ -187,11 +220,11 @@ class SafetyFilter3Dof:
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx : nx + nu, :] = np.eye(nu)
+        Vu[nx: nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu :, :] = np.eye(nz)
+        Vz[nx + nu:, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -219,15 +252,12 @@ class SafetyFilter3Dof:
         ocp.constraints.ubu = umax
         ocp.constraints.x0 = x0.reshape((nx,))
         ocp.constraints.idxbu = np.array(range(nu))
-        # ocp.constraints.idxbx = np.array([0])
-        # ocp.constraints.lbx = -np.array([np.pi / 2])
-        # ocp.constraints.ubx = np.array([np.pi / 2])
 
         # solver options
         ocp.solver_options.qp_solver = (
             "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
         )
-        ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
+        ocp.solver_options.hessian_approx = "GAUSS_NEWTON"  # gauss newton ULTRAS
         ocp.solver_options.integrator_type = "IRK"
         ocp.solver_options.nlp_solver_type = "SQP_RTI"  # SQP_RTI, SQP
         ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
@@ -298,7 +328,7 @@ class SafetyFilter3Dof:
             self.acados_ocp_solver.set(ii, "p", p)
 
     def set_reference_point(
-        self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
+            self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
     ):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
@@ -338,11 +368,11 @@ class SafetyFilter3Dof:
         else:
             self.x_hat = self.E.estimate(y, self.u_pre_safe).flatten()
 
-        q = np.linalg.norm(self.x_hat[:self.x_hat.shape[0] // 2])
-        dq = np.linalg.norm(self.x_hat[self.x_hat.shape[0]//2:])
+        q = self.x_hat[:self.x_hat.shape[0] // 2]
+        dq = self.x_hat[self.x_hat.shape[0] // 2:]
 
-        print("|v_ee|={}".format(np.linalg.norm(self.fa_model.v_ee(q,dq).full())))
-        #print("|p_ee|={}".format(self.fa_model.p_ee(self.x_hat).full()))
+        v_ee = self.fa_model.v_ee(q, dq)
+        v_elbow = self.fa_model.v_elbow(q, dq)
 
         # set initial state
         start_time = time.time()
@@ -414,7 +444,7 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
             self.u_pre_safe = None
 
         def set_reference_point(
-            self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
+                self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
         ):
             safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
 

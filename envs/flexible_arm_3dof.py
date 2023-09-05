@@ -12,7 +12,6 @@ from envs import rfem
 from utils.utils import n_seg_int2str
 
 
-
 class FlexibleArm3DOF:
     """ Implements flexible arm robot by dividing a link into
     a several smaller virtual links with virtual joint in between. Joints
@@ -206,10 +205,10 @@ class SymbolicFlexibleArm3DOF:
     """
 
     def __init__(
-            self, 
-            n_seg: int, 
-            fparams_path: str = None, 
-            integrator: str = 'collocation', 
+            self,
+            n_seg: int,
+            fparams_path: str = None,
+            integrator: str = 'collocation',
             dt: float = 0.001
     ) -> None:
         """ Class constructor
@@ -286,9 +285,13 @@ class SymbolicFlexibleArm3DOF:
         z = cs.MX.sym("z", self.nz)
         x = cs.vertcat(q, dq)
         x_dot = cs.MX.sym('xdot', self.nx)  # needed for acados
+
+        # separation of parameters for wall constraints
         p = cs.MX.sym("p", self.np)
         wall_par_w = p[:3]
-        wall_par_b = p[3:]
+        wall_par_b = p[3:6]
+        ground_par_w = cs.MX([0, 0, 1])  # np.array([0, 0, 1])
+        ground_par_b = cs.MX([0, 0, 0])  # np.array([0, 0, 0])
 
         tau = self._get_joint_torques_expressions(q, dq, u)
         ddq = self.aba(q, dq, tau)
@@ -304,10 +307,53 @@ class SymbolicFlexibleArm3DOF:
         self.y = y
         self.p = p
 
-        self.con_h_expr = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b),
-                                     wall_par_w.T @ (self.p_elbow(q) - wall_par_b))
-        self.con_h_expr_e = cs.vertcat(wall_par_w.T @ (self.p_ee(q) - wall_par_b),
-                                       wall_par_w.T @ (self.p_elbow(q) - wall_par_b))
+        # velocities in wall direction
+        v_ee_wall = wall_par_w.T @ self.v_ee(q, dq)
+        v_elbow_wall = wall_par_w.T @ self.v_elbow(q, dq)
+
+        # velocities in ground direction
+        v_ee_ground = ground_par_w.T @ self.v_ee(q, dq)
+        v_elbow_ground = ground_par_w.T @ self.v_elbow(q, dq)
+
+        # distances to wall
+        dist_ee_wall = wall_par_w.T @ (self.p_ee(q) - wall_par_b)
+        dist_elbow_wall = wall_par_w.T @ (self.p_elbow(q) - wall_par_b)
+
+        # distances to ground
+        dist_ee_ground = ground_par_w.T @ (self.p_ee(q) - ground_par_b)
+        dist_elbow_ground = ground_par_w.T @ (self.p_elbow(q) - ground_par_b)
+
+        # speed contraint close to wall
+        alpha = 3  # velocity < dist * alpha
+        v_contraint_ee_wall = v_ee_wall + dist_ee_wall * alpha
+        v_contraint_elbow_wall = v_elbow_wall + dist_elbow_wall * alpha
+
+        v_contraint_ee_ground = v_ee_ground + dist_ee_ground * alpha
+        v_contraint_elbow_ground = v_elbow_ground + dist_elbow_ground * alpha
+
+        # path constraints
+        self.con_h_expr = cs.vertcat(dist_ee_wall,
+                                     dist_elbow_wall,
+                                     dist_ee_ground,
+                                     dist_elbow_ground,
+
+                                     v_contraint_ee_wall,
+                                     v_contraint_elbow_wall,
+                                     v_contraint_ee_ground,
+                                     v_contraint_elbow_ground
+                                     )
+
+        # terminal constraints
+        self.con_h_expr_e = cs.vertcat(dist_ee_wall,
+                                       dist_elbow_wall,
+                                       dist_ee_ground,
+                                       dist_elbow_ground,
+
+                                       v_contraint_ee_wall,
+                                       v_contraint_elbow_wall,
+                                       v_contraint_ee_ground,
+                                       v_contraint_elbow_ground
+                                       )
 
     def _generate_casadi_fcns_for_dynamics(self):
         self.ode = cs.Function('ode', [self.x, self.u], [self.rhs],
@@ -396,7 +442,7 @@ class SymbolicFlexibleArm3DOF:
         """
         t_ = np.zeros_like(q)
         return np.array(self.rnea(q, t_, t_))[self.qa_idx, :]
-    
+
     def propagate_state_uncertainty_covariance(self, x, u, P0, Sigma) -> np.ndarray:
         """
         Computes uncertainty covariance matrix using linearization
@@ -417,7 +463,7 @@ class SymbolicFlexibleArm3DOF:
         """
         x = x.reshape(-1, self.nx, 1)
         u = u.reshape(-1, self.nu, 1)
-        
+
         # Compute linearized dynamics
         n_samples = u.shape[0]
         A = np.zeros((n_samples, self.nx, self.nx))
@@ -425,12 +471,12 @@ class SymbolicFlexibleArm3DOF:
             A[k] = np.array(self.dF_dx(xk, uk))
 
         # Propagate uncertainty covariance
-        P = np.zeros((n_samples+1, self.nx, self.nx))
+        P = np.zeros((n_samples + 1, self.nx, self.nx))
         P[0] = P0
         for k, Ak in zip(range(n_samples), A):
-            P[k+1] = Ak @ P[k] @ Ak.T + Sigma
+            P[k + 1] = Ak @ P[k] @ Ak.T + Sigma
         return P[1:]
-    
+
     def propagate_constraint_uncertainty_covariance(self, x, p, Px) -> np.ndarray:
         """
         Computess uncertainty covariance matrix for the constraints that are
@@ -456,9 +502,8 @@ class SymbolicFlexibleArm3DOF:
         Pcon = np.zeros((n_samples, n_con_h, n_con_h))
         for k, Ck in zip(range(n_samples), C):
             Pcon[k] = Ck @ Px[k] @ Ck.T
-        
-        return Pcon
 
+        return Pcon
 
     def __str__(self) -> str:
         return f"3dof symbolic flexible arm model with {self.n_seg} segments"
@@ -565,10 +610,10 @@ def main(n_seg: int = 3):
     b = np.array([0.0, -0.15, 0.5])
     p = np.concatenate((w, b))
 
-    u = np.zeros((10,robot.nu))
-    x = np.zeros((11,robot.nx))
-    P0 = 0.01*np.eye(robot.nx)
-    Sigma = 0.01*np.eye(robot.nx)
+    u = np.zeros((10, robot.nu))
+    x = np.zeros((11, robot.nx))
+    P0 = 0.01 * np.eye(robot.nx)
+    Sigma = 0.01 * np.eye(robot.nx)
     Px = robot.propagate_state_uncertainty_covariance(x, u, P0, Sigma)
     Pcon = robot.propagate_constraint_uncertainty_covariance(x, p, Px)
 
