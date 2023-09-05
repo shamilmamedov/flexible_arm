@@ -34,10 +34,10 @@ MODEL_DIR = f"trained_models/RL/PPO/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}
 seed_everything(SEED)
 
 env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False
+    create_controller=False, add_wall_obstacle=True
 )
 eval_env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False
+    create_controller=False, add_wall_obstacle=True
 )
 
 if TRAIN_MODEL:

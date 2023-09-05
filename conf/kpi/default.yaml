@@ -23,4 +23,4 @@ collect_sac: True                                                               
 sac_model_path: trained_models/RL/SAC/2023-09-04_14-44/SEED_0/best_model.zip
 
 collect_ppo: True                                                                   # if False, then load from demos
-ppo_model_path: trained_models/RL/PPO/2023-09-04_15-01/SEED_0/best_model.zip
+ppo_model_path: trained_models/RL/PPO/2023-09-05_11-18/SEED_0/best_model.zip
