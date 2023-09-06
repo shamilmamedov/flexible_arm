@@ -16,7 +16,13 @@ def _parse_observation(obs: np.ndarray, n_seg: int = 3) -> np.ndarray:
     dq = obs[:, dq_idxs]
     pee = obs[:, pee_idxs]
     pee_goal = obs[:, pee_goal_idxs]
-    return q, dq, pee, pee_goal
+    b = obs[:,-3:]
+    w = obs[:,-6:-3]
+
+    assert (np.mean(np.std(w, axis=0)) < 1e-10)
+    assert (np.mean(np.std(b, axis=0)) < 1e-10)
+
+    return q, dq, pee, pee_goal, (w[0],b[0])
 
 
 def find_index_after_true(binary_array):
@@ -27,7 +33,7 @@ def find_index_after_true(binary_array):
     return None
 
 
-def _time2reach_goal(traj, r: float, n_seg: int = 3) -> Union[int, None]:
+def _steps2reach_goal(traj, r: float, n_seg: int = 3) -> Union[int, None]:
     """ Computes amount of time that was required to
     arrive to a ball of specified radius and stay there
     
@@ -36,7 +42,7 @@ def _time2reach_goal(traj, r: float, n_seg: int = 3) -> Union[int, None]:
     :return: a sample at which the robot entered the ball
              of radius r and never left afterwards
     """
-    q, dq, pee, pee_goal = _parse_observation(traj.obs, n_seg)
+    q, dq, pee, pee_goal, wall_params = _parse_observation(traj.obs, n_seg)
     traj_len = q.shape[0]
 
     # a boolean vector indicating if the ee is inside
@@ -60,8 +66,8 @@ def _time2reach_goal(traj, r: float, n_seg: int = 3) -> Union[int, None]:
         return idx
 
 
-def time2reach_goal(trajs, r: float, n_seg: int = 3) -> List[int]:
-    return [_time2reach_goal(traj, r, n_seg) for traj in trajs]
+def steps2reach_goal(trajs, r: float, n_seg: int = 3) -> List[int]:
+    return [_steps2reach_goal(traj, r, n_seg) for traj in trajs]
 
 
 def _path_length(traj, n_seg: int = 3) -> float:
@@ -73,7 +79,7 @@ def _path_length(traj, n_seg: int = 3) -> float:
     :return: the path (arc) length of the end-effector
     """
 
-    q, dq, pee, pee_goal = _parse_observation(traj.obs, n_seg)
+    q, dq, pee, pee_goal, wall_params = _parse_observation(traj.obs, n_seg)
     traj_len = q.shape[0]
 
     out = 0.
@@ -99,8 +105,11 @@ def _input_constraint_violation(u, input_range: tuple) -> np.ndarray:
 
     for k, uk in enumerate(u):
         u_constr_violated[k,:] = np.logical_or(uk > u_max, uk < u_min) 
-        
-    return np.sum(u_constr_violated, axis=0)
+
+    # number of times each constraint was violated
+    times_constr_were_violated = np.sum(u_constr_violated, axis=0)
+
+    return np.max(times_constr_were_violated)
 
 
 def _joint_velocity_constraint_violation(dqa, dqa_range: float) -> np.ndarray:
@@ -116,21 +125,44 @@ def _joint_velocity_constraint_violation(dqa, dqa_range: float) -> np.ndarray:
     for k, dqak in enumerate(dqa) :
         dqa_constr_violated[k,:] = np.logical_or(dqak > dqa_max,
                                                  dqak < dqa_min)
-        if k > 50 and k < 60:
-            print(dqak)
-            print(dqa_max)
-            print(dqa_min)
-    return np.sum(dqa_constr_violated, axis=0)
+        
+    # number of times each constraint was violated
+    times_constr_were_violated = np.sum(dqa_constr_violated, axis=0)
+    return np.max(times_constr_were_violated)
         
 
-def _wall_constraint_violation(q, wall_params: dict) -> np.ndarray:
-    pass
+def _wall_constraint_violation(p_ee: np.ndarray, wall_params: tuple) -> np.ndarray:
+    """ Computes the number of times the wall constraint was violated
+
+    NOTE It checks constraint violation only for the end-effector
+    
+    :parameter p_ee: end-effector position
+    :parameter wall_params: a dictionary containing wall parameters
+    """
+    w, b = wall_params
+    wall_constr_violated = np.full((p_ee.shape[0],), False)
+    for k, pee_k in enumerate(p_ee):
+        wall_constr_violated[k] = np.dot(w, pee_k - b) < 0.
+    return np.sum(wall_constr_violated)
+
+
+def _ground_constraint_violation(p_ee: np.ndarray) -> np.ndarray:
+    """ Computes the number of times the ground constraint was violated
+
+    NOTE It checks constraint violation only for the end-effector
+
+    :parameter p_ee: end-effector position
+    """
+    ground_constr_violated = np.full((p_ee.shape[0],), False)
+    for k, pee_k in enumerate(p_ee):
+        ground_constr_violated[k] = pee_k[2] < 0.
+    return np.sum(ground_constr_violated)    
 
 
 def _constraint_violation(traj, n_seg: int = 3):
     # Parse trajectory
     u = traj.acts
-    q, dq, pee, pee_goal = _parse_observation(traj.obs, n_seg)
+    q, dq, pee, pee_goal, wall_params = _parse_observation(traj.obs, n_seg)
 
     # Instantiate a model
     robot = SymbolicFlexibleArm3DOF(n_seg)
@@ -141,43 +173,11 @@ def _constraint_violation(traj, n_seg: int = 3):
     # Compute constraint violation
     u_constr_violated = _input_constraint_violation(u, u_range)
     dqa_constr_violated = _joint_velocity_constraint_violation(dqa, dqa_range)
-    return u_constr_violated, dqa_constr_violated
+    wall_constr_violated = _wall_constraint_violation(pee, wall_params)
+    ground_constr_violated = _ground_constraint_violation(pee)
+    return u_constr_violated, dqa_constr_violated, wall_constr_violated, ground_constr_violated
 
 
-
-def constraint_violation(q: np.ndarray, dq: np.ndarray, u: np.ndarray,
-                         model: SymbolicFlexibleArm3DOF, 
-                         wall_params: dict = None):
-    ns_q = q.shape[0]
-    u_constr_violated = np.full_like(u, False)
-    dqa_constr_violated = np.full((ns_q, 3), False)
-
-    # Input constraint violation 
-    for k, uk in enumerate(u):
-        u_constr_violated[k,:] = np.logical_or(uk > model.tau_max, 
-                                               uk < -model.tau_max) 
-
-    # Joint velocity constraint violation
-    for k, dqak in enumerate(dq[:,model.qa_idx]) :
-        dqa_constr_violated[k,:] = np.logical_or(dqak > model.dqa_max,
-                                                 dqak < -model.dqa_max)
-
-    # Wall constraint violation
-    if wall_params is not None:
-        try:
-            wa_ = wall_params['wall_axis']
-            wv_ = wall_params['wall_value']
-            wall_constr_violated = np.full((ns_q,), False)
-            for k, qk in enumerate(q):
-                pee_k = np.array(model.p_ee(qk))
-                if wall_params['wall_pos_side']:
-                    wall_constr_violated[k] = pee_k[wa_] > wv_
-                else:
-                    wall_constr_violated[k] = pee_k[wa_] < wv_
-        except KeyError:
-            print("Some of the wall parameters are missing!")
-    else:
-        wall_constr_violated = None
-
-    return (np.sum(u_constr_violated, axis=0), np.sum(dqa_constr_violated, axis=0),
-            np.sum(wall_constr_violated))
+def constraint_violation(trajs) -> tuple[np.ndarray]:
+    cnstr_violation = [ _constraint_violation(traj) for traj in trajs]
+    return cnstr_violation

@@ -22,9 +22,9 @@ from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
 from kpi import (
-    time2reach_goal,
+    steps2reach_goal,
     path_length,
-    _constraint_violation
+    constraint_violation
 )
 
 # Get hydra config
@@ -161,17 +161,14 @@ else:
     ppo_rollouts = serialize.load(f"{DEMO_DIR}/ppo.pkl")
 
 
-print(time2reach_goal(bc_rollouts, 0.1))
-# print(path_length(bc_rollouts))
-print(_constraint_violation(bc_rollouts[0]))
-# print(bc_rollouts[0].acts)
+print('Steps to reach goal: ')
+print(steps2reach_goal(dagger_rollouts, 0.1))
+print('Path length: ')
+print(path_length(bc_rollouts))
+print('Constraint violation: ')
+print(constraint_violation(dagger_rollouts))
 
-acts = bc_rollouts[0].acts
-_, axs = plt.subplots(3, 1, figsize=(10, 5))
-axs[0].plot(acts[:, 0])
-axs[1].plot(acts[:, 1])
-axs[2].plot(acts[:, 2])
-# plt.show()
+
 
 # Measure KPIs
 # TODO: MEASURE KPIs FOR EACH ALGORITHM
