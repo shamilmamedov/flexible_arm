@@ -54,7 +54,7 @@ class SafetyFilter3dofOptions(Updatable):
         self.w1_slack_wall: float = 1e5
 
         # slacks for speed limitation in wall direction
-        self.w2_slack_speed_wall: float = 1e2
+        self.w2_slack_speed_wall: float = 1e6
         self.w1_slack_speed_wall: float = 1e1
 
         # slacks for angular speed constraints of active joints
@@ -370,9 +370,6 @@ class SafetyFilter3Dof:
 
         q = self.x_hat[:self.x_hat.shape[0] // 2]
         dq = self.x_hat[self.x_hat.shape[0] // 2:]
-
-        v_ee = self.fa_model.v_ee(q, dq)
-        v_elbow = self.fa_model.v_elbow(q, dq)
 
         # set initial state
         start_time = time.time()

@@ -324,7 +324,7 @@ class SymbolicFlexibleArm3DOF:
         dist_elbow_ground = ground_par_w.T @ (self.p_elbow(q) - ground_par_b)
 
         # speed contraint close to wall
-        alpha = 3  # velocity < dist * alpha
+        alpha = 6  # velocity < dist * alpha
         v_contraint_ee_wall = v_ee_wall + dist_ee_wall * alpha
         v_contraint_elbow_wall = v_elbow_wall + dist_elbow_wall * alpha
 
