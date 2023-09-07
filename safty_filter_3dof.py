@@ -54,7 +54,7 @@ class SafetyFilter3dofOptions(Updatable):
         self.w1_slack_wall: float = 1e5
 
         # slacks for speed limitation in wall direction
-        self.w2_slack_speed_wall: float = 1e6
+        self.w2_slack_speed_wall: float = 3e5
         self.w1_slack_speed_wall: float = 1e1
 
         # slacks for angular speed constraints of active joints
@@ -99,6 +99,7 @@ class SafetyFilter3Dof:
         self.inter_t2dq = None
         self.inter_pee = None
         self.u_pre_safe = None
+        self.last_U = None
 
         # set up simulator for initial state
         integrator = "RK45"
@@ -395,15 +396,24 @@ class SafetyFilter3Dof:
 
         # Check for errors in acados
         if status != 0:
-            raise Exception(
-                "acados returned status {} in time step {}. Exiting.".format(
-                    status, self.iteration_counter
-                )
+            print("acados returned status {} in time step {}".format(
+                status, self.iteration_counter)
             )
         self.iteration_counter += 1
 
         # Retrieve control u
-        u_output = self.acados_ocp_solver.get(0, "u")
+        if status == 0:
+            u_output = self.acados_ocp_solver.get(0, "u")
+            self.last_U = np.zeros((self.nu, self.options.n - 1))
+            for i in range(self.options.n - 1):
+                self.last_U[:, i] = self.acados_ocp_solver.get(i, "u")
+        else:
+            self.acados_ocp_solver.reset()
+            if self.last_U is not None:
+                u_output = self.last_U[:, 1]
+                self.last_U[:, :-1] = self.last_U[:, 1:]
+            else:
+                u_output = np.zeros((self.nu,))
 
         self.debug_total_timings.append(time.time() - start_time)
         self.u_pre_safe = u_output
