@@ -15,10 +15,16 @@ from imitation.data import rollout, serialize
 from stable_baselines3 import SAC
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+import matplotlib.pyplot as plt
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
+)
+from kpi import (
+    steps2reach_goal,
+    path_length,
+    constraint_violation
 )
 
 # Get hydra config
@@ -34,7 +40,9 @@ seed_everything(SEED)
 
 if cfg.kpi.collect_demos:
     env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-        create_controller=False, add_wall_obstacle=True, create_safety_filter=False
+        create_controller=False, 
+        add_wall_obstacle=True, 
+        create_safety_filter=False
     )
     venv = DummyVecEnv([lambda: env])
 
@@ -151,6 +159,15 @@ else:
     density_rollouts = serialize.load(f"{DEMO_DIR}/density.pkl")
     sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
     ppo_rollouts = serialize.load(f"{DEMO_DIR}/ppo.pkl")
+
+
+print('Steps to reach goal: ')
+print(steps2reach_goal(dagger_rollouts, 0.1))
+print('Path length: ')
+print(path_length(bc_rollouts))
+print('Constraint violation: ')
+print(constraint_violation(dagger_rollouts))
+
 
 
 # Measure KPIs
