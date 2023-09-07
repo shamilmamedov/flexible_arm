@@ -54,8 +54,8 @@ class SafetyFilter3dofOptions(Updatable):
         self.w1_slack_wall: float = 1e5
 
         # slacks for speed limitation in wall direction
-        self.w2_slack_speed_wall: float = 3e5
-        self.w1_slack_speed_wall: float = 1e1
+        self.w2_slack_speed_wall: float = 1e6
+        self.w1_slack_speed_wall: float = 1e2
 
         # slacks for angular speed constraints of active joints
         self.w2_slack_angular_speed: float = 0
