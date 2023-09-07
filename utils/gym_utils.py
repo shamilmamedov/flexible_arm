@@ -73,8 +73,11 @@ class CallableMPCExpert(policies.BasePolicy):
         B, D = observation.shape
         if self.observation_includes_goal:
             observation, goal_coords, obstacle = self._parse_observation(observation)
-
-            self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
+            # reset the goal if it has changed
+            if self.controller.p_ee_ref is None or not np.allclose(
+                self.controller.p_ee_ref, goal_coords.reshape(-1, B)
+            ):
+                self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
             if obstacle is not None:
                 self.controller.set_wall_parameters(w=obstacle.w, b=obstacle.b)
         observation = observation.reshape(-1, B)
@@ -147,8 +150,14 @@ class SafetyWrapper(policies.BasePolicy):
         B, D = observation.shape
         if self.observation_includes_goal:
             observation, goal_coords, obstacle = self._parse_observation(observation)
+            # reset the goal if it has changed
+            if self.safety_filter.p_ee_ref is None or not np.allclose(
+                self.safety_filter.p_ee_ref, goal_coords.reshape(-1, B)
+            ):
+                self.safety_filter.set_reference_point(
+                    p_ee_ref=goal_coords.reshape(-1, B)
+                )
 
-            # self.safety_filter.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
             if obstacle is not None:
                 self.safety_filter.set_wall_parameters(w=obstacle.w, b=obstacle.b)
 
@@ -166,8 +175,12 @@ class SafetyWrapper(policies.BasePolicy):
         dqa = observation[0, dqa_idx]
         p_ee = observation[0, -3:]
         y = np.hstack((qa, dqa, p_ee))
-        safe_action = self.safety_filter.filter(u0=proposed_action, y=y)
-        # print(np.max((safe_action-proposed_action)))
+        try:
+            safe_action = self.safety_filter.filter(u0=proposed_action, y=y)
+        except Exception as e:
+            logging.warning(f"Exception in safety filter: {e}")
+            logging.warning("Setting safe action back to proposed action")
+            safe_action = proposed_action
         safe_action = torch.from_numpy(safe_action)
         return safe_action
 

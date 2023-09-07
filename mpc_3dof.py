@@ -34,7 +34,9 @@ class Mpc3dofOptions(Updatable):
         self.n_seg: int = n_seg  # n_seg corresponds to (1 + 2 * (n_seg + 1))*2 states
         self.n: int = n  # number of discretization points
         self.tf: float = tf  # time horizon
-        self.nlp_iter: int = 50  # number of iterations of the nonlinear solver, only used if NOT RTI
+        self.nlp_iter: int = (
+            50  # number of iterations of the nonlinear solver, only used if NOT RTI
+        )
         self.condensing_relative: float = 1  # relative factor of condensing [0-1]
         self.wall_constraint_on: bool = (
             True  # choose whether we activate the wall constraint
@@ -91,11 +93,11 @@ class Mpc3Dof(BaseController):
     """
 
     def __init__(
-            self,
-            model: "SymbolicFlexibleArm3DOF",
-            x0: np.ndarray = None,
-            pee_0: np.ndarray = None,
-            options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
+        self,
+        model: "SymbolicFlexibleArm3DOF",
+        x0: np.ndarray = None,
+        pee_0: np.ndarray = None,
+        options: Mpc3dofOptions = Mpc3dofOptions(n_seg=1),
     ):
         """
         :parameter x0: initial state vector
@@ -117,6 +119,7 @@ class Mpc3Dof(BaseController):
         self.inter_t2q = None
         self.inter_t2dq = None
         self.inter_pee = None
+        self.p_ee_ref = None
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
@@ -160,11 +163,11 @@ class Mpc3Dof(BaseController):
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx: nx + nu, :] = np.eye(nu)
+        Vu[nx : nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu:, :] = np.eye(nz)
+        Vz[nx + nu :, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -223,9 +226,9 @@ class Mpc3Dof(BaseController):
             nsh = n_wall_constraints  # self.n_constraints
             self.current_slacks = np.zeros((ns,))
             ocp.cost.zl = np.array(
-                [options.w1_slack_speed] * ns_angular_velocity +
-                [options.w1_slack_wall] * n_wall_pos_constraints +
-                [options.w1_slack_speed_wall] * n_wall_speed_constraints
+                [options.w1_slack_speed] * ns_angular_velocity
+                + [options.w1_slack_wall] * n_wall_pos_constraints
+                + [options.w1_slack_speed_wall] * n_wall_speed_constraints
             )
             ocp.cost.Zl = np.array(
                 [options.w2_slack_speed] * ns_angular_velocity
@@ -321,6 +324,8 @@ class Mpc3Dof(BaseController):
         @param p_ee_ref: Endefector Cartesian Endefector reference position
         @param u_ref: Torques at endeffector position. Can be set to zero.
         """
+
+        self.p_ee_ref = p_ee_ref
         # get reference states in generalized coordinates from ee position
         x_ref = self._get_x_ref(p_ee_ref)
 

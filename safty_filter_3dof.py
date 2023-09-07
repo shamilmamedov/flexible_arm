@@ -13,7 +13,12 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from estimator import ExtendedKalmanFilter
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from simulation import Simulator
-from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF, get_rest_configuration
+from envs.flexible_arm_3dof import (
+    SymbolicFlexibleArm3DOF,
+    get_rest_configuration,
+    inverse_kinematics_rb,
+)
+
 from utils.utils import Updatable
 
 # Avoid circular imports with type checking
@@ -75,10 +80,10 @@ class SafetyFilter3Dof:
     """
 
     def __init__(
-            self,
-            x0: np.ndarray = None,
-            x0_ee: np.ndarray = None,
-            options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(),
+        self,
+        x0: np.ndarray = None,
+        x0_ee: np.ndarray = None,
+        options: SafetyFilter3dofOptions = SafetyFilter3dofOptions(),
     ):
         if x0 is None:
             x0 = np.zeros((2 * (1 + 2 * (1 + options.n_seg)), 1))
@@ -99,6 +104,7 @@ class SafetyFilter3Dof:
         self.inter_t2dq = None
         self.inter_pee = None
         self.u_pre_safe = None
+        self.p_ee_ref = None
 
         # set up simulator for initial state
         integrator = "RK45"
@@ -136,10 +142,10 @@ class SafetyFilter3Dof:
         # setting state weights
         q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
         q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
-        q_diag[0: int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2):] = options.w_reg_dq
-        q_e_diag[0: int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2):] = options.w_reg_dq_terminal
+        q_diag[0 : int(len(q_diag) / 2)] = 0
+        q_diag[int(len(q_diag) / 2) :] = options.w_reg_dq
+        q_e_diag[0 : int(len(q_e_diag) / 2)] = 0
+        q_e_diag[int(len(q_e_diag) / 2) :] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
@@ -179,9 +185,9 @@ class SafetyFilter3Dof:
 
             # L1 slack weights
             ocp.cost.zl = np.array(
-                [options.w1_slack_angular_speed] * ns_angular_velocity +
-                [options.w1_slack_wall] * n_wall_pos_constraints +
-                [options.w1_slack_speed_wall] * n_wall_speed_constraints
+                [options.w1_slack_angular_speed] * ns_angular_velocity
+                + [options.w1_slack_wall] * n_wall_pos_constraints
+                + [options.w1_slack_speed_wall] * n_wall_speed_constraints
             )
 
             # L2 slack weights
@@ -203,8 +209,12 @@ class SafetyFilter3Dof:
             ocp.constraints.idxsh = np.array(range(n_wall_constraints))
             ocp.constraints.idxsh_e = np.array(range(n_wall_constraints))
         else:
-            ocp.cost.zl = np.array([options.w1_slack_angular_speed] * ns_angular_velocity)
-            ocp.cost.Zl = np.array([options.w2_slack_angular_speed] * ns_angular_velocity)
+            ocp.cost.zl = np.array(
+                [options.w1_slack_angular_speed] * ns_angular_velocity
+            )
+            ocp.cost.Zl = np.array(
+                [options.w2_slack_angular_speed] * ns_angular_velocity
+            )
             ocp.cost.zu = ocp.cost.zl
             ocp.cost.Zu = ocp.cost.Zl
 
@@ -220,11 +230,11 @@ class SafetyFilter3Dof:
         ocp.cost.Vx[:nx, :nx] = np.eye(nx)
 
         Vu = np.zeros((ny, nu))
-        Vu[nx: nx + nu, :] = np.eye(nu)
+        Vu[nx : nx + nu, :] = np.eye(nu)
         ocp.cost.Vu = Vu
 
         Vz = np.zeros((ny, nz))
-        Vz[nx + nu:, :] = np.eye(nz)
+        Vz[nx + nu :, :] = np.eye(nz)
         ocp.cost.Vz = Vz
 
         ocp.cost.Vx_e = np.zeros((ny_e, nx))
@@ -327,9 +337,7 @@ class SafetyFilter3Dof:
         for ii in range(self.options.n):
             self.acados_ocp_solver.set(ii, "p", p)
 
-    def set_reference_point(
-            self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
-    ):
+    def set_reference_point(self, p_ee_ref: np.ndarray):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
@@ -337,6 +345,12 @@ class SafetyFilter3Dof:
         @param p_ee_ref: Endefector reference position
         @param u_ref: Torques at endeffector position. Can be set to zero.
         """
+        self.p_ee_ref = p_ee_ref
+        # get reference states in generalized coordinates from ee position
+        x_ref = self._get_x_ref(p_ee_ref)
+
+        # set reference torques to zero
+        u_ref = np.array([[0.0], [0.0], [0.0]])
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
         if len(x_ref.shape) < 2:
@@ -350,6 +364,26 @@ class SafetyFilter3Dof:
         for stage in range(self.options.n):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
         self.acados_ocp_solver.cost_set(self.options.n, "yref", yref_e)
+
+    def _get_x_ref(self, p_ee_ref: np.ndarray):
+        """
+        Compute reference states genaralized coordinates (angles q, angular velocities dq)
+        related to MPC model out of endeffetor states.
+        @param p_ee_ref: Endefector Cartesian reference position
+        """
+
+        qa_t0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
+        q_t0_guess = get_rest_configuration(qa_t0, self.options.n_seg)
+
+        qa_guess = q_t0_guess[self.fa_model.qa_idx]
+
+        qa_guess = inverse_kinematics_rb(p_ee_ref, q_guess=qa_guess)
+        qa_0 = qa_guess.flatten()
+        q_0 = get_rest_configuration(qa_0, self.fa_model.n_seg).T
+
+        dq_0 = np.zeros_like(q_0)
+        x_0 = np.hstack((q_0, dq_0))
+        return x_0.T
 
     def reset(self):
         self.debug_timings = []
@@ -368,8 +402,8 @@ class SafetyFilter3Dof:
         else:
             self.x_hat = self.E.estimate(y, self.u_pre_safe).flatten()
 
-        q = self.x_hat[:self.x_hat.shape[0] // 2]
-        dq = self.x_hat[self.x_hat.shape[0] // 2:]
+        q = self.x_hat[: self.x_hat.shape[0] // 2]
+        dq = self.x_hat[self.x_hat.shape[0] // 2 :]
 
         # set initial state
         start_time = time.time()
@@ -441,7 +475,7 @@ def get_safe_controller_class(base_controller_class, safety_filter: SafetyFilter
             self.u_pre_safe = None
 
         def set_reference_point(
-                self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
+            self, x_ref: np.ndarray, p_ee_ref: np.ndarray, u_ref: np.array
         ):
             safety_filter.set_reference_point(x_ref, p_ee_ref, u_ref)
 
