@@ -120,6 +120,7 @@ class Mpc3Dof(BaseController):
         self.inter_t2dq = None
         self.inter_pee = None
         self.p_ee_ref = None
+        self.last_U = None
 
         # create ocp object to formulate the OCP
         ocp = AcadosOcp()
@@ -395,16 +396,27 @@ class Mpc3Dof(BaseController):
         self.debug_timings.append(self.acados_ocp_solver.get_stats("time_tot"))
 
         # Check for errors in acados
-        if status != 0 and status != 2:
-            raise Exception(
-                "acados returned status {} in time step {}. Exiting.".format(
+        if status != 0:
+            print(
+                "acados returned status {} in time step {}".format(
                     status, self.iteration_counter
                 )
             )
         self.iteration_counter += 1
 
         # Retrieve control u
-        u_output = self.acados_ocp_solver.get(0, "u")
+        if status == 0:
+            u_output = self.acados_ocp_solver.get(0, "u")
+            self.last_U = np.zeros((self.nu, self.options.n - 1))
+            for i in range(self.options.n - 1):
+                self.last_U[:, i] = self.acados_ocp_solver.get(i, "u")
+        else:
+            self.acados_ocp_solver.reset()
+            if self.last_U is not None:
+                u_output = self.last_U[:, 1]
+                self.last_U[:, :-1] = self.last_U[:, 1:]
+            else:
+                u_output = np.zeros((self.nu,))
         return u_output
 
     def get_timing_statistics(self) -> Tuple[float, float, float, float]:
