@@ -10,6 +10,8 @@ import torch
 import numpy as np
 from hydra import compose, initialize
 
+import matplotlib.pyplot as plt
+
 from imitation.data import rollout, serialize
 
 from stable_baselines3 import SAC
@@ -21,11 +23,7 @@ from utils.utils import seed_everything
 from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
 )
-from kpi import (
-    steps2reach_goal,
-    path_length,
-    constraint_violation
-)
+from kpi import steps2reach_goal, path_length, constraint_violation, trajectory_reward
 
 # Get hydra config
 initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
@@ -40,9 +38,7 @@ seed_everything(SEED)
 
 if cfg.kpi.collect_demos:
     env, _, _ = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-        create_controller=False, 
-        add_wall_obstacle=True, 
-        create_safety_filter=False
+        create_controller=False, add_wall_obstacle=True, create_safety_filter=False
     )
     venv = DummyVecEnv([lambda: env])
 
@@ -161,15 +157,56 @@ else:
     ppo_rollouts = serialize.load(f"{DEMO_DIR}/ppo.pkl")
 
 
-print('Steps to reach goal: ')
-print(steps2reach_goal(dagger_rollouts, 0.1))
-print('Path length: ')
-print(path_length(bc_rollouts))
-print('Constraint violation: ')
-print(constraint_violation(dagger_rollouts))
-
+def mean_kpis(rollouts):
+    kpis = dict()
+    # kpis["steps2reach_goal"] = np.mean(steps2reach_goal(rollouts, 0.1)) # TODO: hwo to deal with None values?
+    kpis["path_length"] = np.mean(path_length(rollouts))
+    kpis["constraint_violation"] = np.mean(constraint_violation(rollouts))
+    kpis["trajectory_reward"] = np.mean(trajectory_reward(rollouts))
+    return kpis
 
 
 # Measure KPIs
-# TODO: MEASURE KPIs FOR EACH ALGORITHM
-# TODO: PLOT NECESSARY GRAPHS
+sac_kpis = mean_kpis(sac_rollouts)
+ppo_kpis = mean_kpis(ppo_rollouts)
+bc_kpis = mean_kpis(bc_rollouts)
+dagger_kpis = mean_kpis(dagger_rollouts)
+gail_kpis = mean_kpis(gail_rollouts)
+airl_kpis = mean_kpis(airl_rollouts)
+density_kpis = mean_kpis(density_rollouts)
+
+print("SAC KPIs: ", sac_kpis)
+print("PPO KPIs: ", ppo_kpis)
+print("BC KPIs: ", bc_kpis)
+print("DAGGER KPIs: ", dagger_kpis)
+print("GAIL KPIs: ", gail_kpis)
+print("AIRL KPIs: ", airl_kpis)
+print("Density KPIs: ", density_kpis)
+
+
+# --- box plot of rewards ---
+sac_rewards = trajectory_reward(sac_rollouts)
+ppo_rewards = trajectory_reward(ppo_rollouts)
+bc_rewards = trajectory_reward(bc_rollouts)
+dagger_rewards = trajectory_reward(dagger_rollouts)
+gail_rewards = trajectory_reward(gail_rollouts)
+airl_rewards = trajectory_reward(airl_rollouts)
+density_rewards = trajectory_reward(density_rollouts)
+
+fig, ax = plt.subplots()
+ax.boxplot(
+    [
+        dagger_rewards,
+        sac_rewards,
+        airl_rewards,
+        gail_rewards,
+        density_rewards,
+        ppo_rewards,
+        bc_rewards,
+    ],
+    labels=["DAGGER", "SAC", "AIRL", "GAIL", "DENSITY", "PPO", "BC"],
+)
+ax.set_title("Trajectory Rewards")
+ax.set_ylabel("Reward")
+fig.savefig("kpi_rewards.png")
+plt.show()

@@ -126,10 +126,6 @@ class FlexibleArmEnv(gym.Env):
 
         # self.render_mode needs to exist because of gymnasium
         self.render_mode = options.render_mode
-        # if self.render_mode in ["human", "rgb_array"]:
-        #     self.renderer = Panda3dRenderer(self.model_sym.urdf_path)
-        # else:
-        #     self.renderer = None
 
     def _create_estimator(
         self, n_seg_estimator: int, dt: float
