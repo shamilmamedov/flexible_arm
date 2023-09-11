@@ -566,7 +566,9 @@ def get_rest_configuration(qa: np.ndarray, n_seg: int) -> np.ndarray:
     f = cs.Function('f', [qp], [g_expr_p + K @ qp])
 
     # Create a root finder
-    F = cs.rootfinder('F', 'newton', f)
+    # casadi root finder options: set the tolerance for the root finder to 1e-3
+    opts = {'abstol': 1e-3}
+    F = cs.rootfinder('F', 'newton', f, opts)
     qp_num = np.array(F(np.zeros(2 * n_seg))).squeeze()
 
     # Form a vector of joint angles
