@@ -351,7 +351,7 @@ class SafetyFilter3Dof:
         x_ref = self._get_x_ref(p_ee_ref)
 
         # set reference torques to zero
-        u_ref = np.array([[0.0], [0.0], [0.0]])
+        u_ref = self._get_u_ref(x_ref)
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
         if len(x_ref.shape) < 2:
@@ -385,6 +385,10 @@ class SafetyFilter3Dof:
         dq_0 = np.zeros_like(q_0)
         x_0 = np.hstack((q_0, dq_0))
         return x_0.T
+    
+    def _get_u_ref(self,  x_ref: np.ndarray):
+        q_ref, dq_ref = np.split(x_ref, 2)
+        return self.fa_model.gravity_torque(q_ref)
 
     def reset(self):
         self.debug_timings = []
