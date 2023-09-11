@@ -10,7 +10,7 @@ from envs.flexible_arm_env import (
 from utils.utils import StateType
 
 
-def _create_env():
+def _create_env(sample_close_to_wall: bool = False):
     # --- Create FlexibleArm environment ---
     # --- data env ---
     n_seg_data = 10
@@ -19,8 +19,12 @@ def _create_env():
 
     # Create initial state data env
     # base-rotation, base-bend, elbow-bend
-    qa_range_start = np.array([-np.pi / 2, 0.0, -np.pi + 0.05])
-    qa_range_end = np.array([3 * np.pi / 2, np.pi, np.pi - 0.05])
+    if sample_close_to_wall:
+        qa_range_start = np.array([-np.pi / 12, 0.0, -np.pi + 0.2])
+        qa_range_end = np.array([-np.pi / 12, np.pi/2, 0.0])
+    else:
+        qa_range_start = np.array([-np.pi / 2, 0.0, -np.pi + 0.05])
+        qa_range_end = np.array([3 * np.pi / 2, np.pi, np.pi - 0.05])
 
     # create data environment
     R_Q = [3e-6] * 3
@@ -40,8 +44,8 @@ def _create_env():
     return FlexibleArmEnv(env_options)
 
 
-def main():
-    env = _create_env()
+def main(sample_close_to_wall: bool = False):
+    env = _create_env(sample_close_to_wall)
     for _ in range(50):
         env.reset()
         env.render()
@@ -52,9 +56,9 @@ def collision_with_wall():
     env = _create_env()
     env.reset()
     env._state = np.zeros_like(env._state)
-    env._state[0] = np.pi / 2
-    env._state[1] = 0.75 * np.pi
-    env._state[11] = -0.75 * np.pi
+    env._state[0] = -np.pi / 12
+    env._state[1] = np.pi/2 # 0.75 * np.pi
+    env._state[11] = -np.pi/8. # -0.75 * np.pi
     q = np.split(env._state, 2)[0]
     print(env.model_sym.p_elbow(q))
 
@@ -64,5 +68,5 @@ def collision_with_wall():
 
 
 if __name__ == "__main__":
-    main()
+    main(sample_close_to_wall=True)
     # collision_with_wall()
