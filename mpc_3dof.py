@@ -306,6 +306,10 @@ class Mpc3Dof(BaseController):
         dq_0 = np.zeros_like(q_0)
         x_0 = np.hstack((q_0, dq_0))
         return x_0.T
+    
+    def _get_u_ref(self,  x_ref: np.ndarray):
+        q_ref, dq_ref = np.split(x_ref, 2)
+        return self.fa_model.gravity_torque(q_ref)
 
     def set_wall_parameters(self, w: np.ndarray, b: np.ndarray):
         """
@@ -331,7 +335,7 @@ class Mpc3Dof(BaseController):
         x_ref = self._get_x_ref(p_ee_ref)
 
         # set reference torques to zero
-        u_ref = np.array([[0.0], [0.0], [0.0]])
+        u_ref = self._get_u_ref(x_ref)
 
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
@@ -356,7 +360,6 @@ class Mpc3Dof(BaseController):
         @param t: current time (related to reference specification)
         @return: torques tau
         """
-
         # set initial state
         xcurrent = np.vstack((q, dq))
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
@@ -417,6 +420,7 @@ class Mpc3Dof(BaseController):
                 self.last_U[:, :-1] = self.last_U[:, 1:]
             else:
                 u_output = np.zeros((self.nu,))
+
         return u_output
 
     def get_timing_statistics(self) -> Tuple[float, float, float, float]:
