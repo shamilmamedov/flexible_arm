@@ -9,7 +9,11 @@ from controller import BaseController
 from typing import TYPE_CHECKING, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
-from envs.flexible_arm_3dof import get_rest_configuration, inverse_kinematics_rb
+from envs.flexible_arm_3dof import (
+    get_rest_configuration, 
+    inverse_kinematics_rb,
+    compute_reference_state_and_input
+)
 from utils.utils import Updatable
 
 # Avoid circular imports with type checking
@@ -287,30 +291,6 @@ class Mpc3Dof(BaseController):
         self.debug_timings = []
         self.iteration_counter = 0
 
-    def _get_x_ref(self, p_ee_ref: np.ndarray):
-        """
-        Compute reference states genaralized coordinates (angles q, angular velocities dq)
-        related to MPC model out of endeffetor states.
-        @param p_ee_ref: Endefector Cartesian reference position
-        """
-
-        qa_t0 = np.array([np.pi / 2, np.pi / 10, -np.pi / 8])
-        q_t0_guess = get_rest_configuration(qa_t0, self.options.n_seg)
-
-        qa_guess = q_t0_guess[self.fa_model.qa_idx]
-
-        qa_guess = inverse_kinematics_rb(p_ee_ref, q_guess=qa_guess)
-        qa_0 = qa_guess.flatten()
-        q_0 = get_rest_configuration(qa_0, self.fa_model.n_seg).T
-
-        dq_0 = np.zeros_like(q_0)
-        x_0 = np.hstack((q_0, dq_0))
-        return x_0.T
-    
-    def _get_u_ref(self,  x_ref: np.ndarray):
-        q_ref, dq_ref = np.split(x_ref, 2)
-        return self.fa_model.gravity_torque(q_ref)
-
     def set_wall_parameters(self, w: np.ndarray, b: np.ndarray):
         """
         Set wall parameters such that w.T @ (x_ee @ b) >= 0
@@ -321,21 +301,18 @@ class Mpc3Dof(BaseController):
         for ii in range(self.options.n):
             self.acados_ocp_solver.set(ii, "p", p)
 
-    def set_reference_point(self, p_ee_ref: np.ndarray):
+    def set_reference_point(self, q: np.ndarray, p_ee_ref: np.ndarray):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
-        @param x_ref: States q and dq of the reference position
+        @param q: Current estimated/measured joint positions
         @param p_ee_ref: Endefector Cartesian Endefector reference position
-        @param u_ref: Torques at endeffector position. Can be set to zero.
         """
 
         self.p_ee_ref = p_ee_ref
-        # get reference states in generalized coordinates from ee position
-        x_ref = self._get_x_ref(p_ee_ref)
-
-        # set reference torques to zero
-        u_ref = self._get_u_ref(x_ref)
+        x_ref, u_ref = compute_reference_state_and_input(
+            self.fa_model, q, p_ee_ref
+        )
 
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
