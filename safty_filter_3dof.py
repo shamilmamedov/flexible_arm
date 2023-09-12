@@ -328,6 +328,7 @@ class SafetyFilter3Dof:
         x0_est = np.vstack((q0_est, dq0_est))
 
         self.E = ExtendedKalmanFilter(est_model, x0_est, P0, Q, R)
+        self.x_hat = x0_est.flatten()
 
     def set_wall_parameters(self, w: np.ndarray, b: np.ndarray):
         """
@@ -339,7 +340,7 @@ class SafetyFilter3Dof:
         for ii in range(self.options.n):
             self.acados_ocp_solver.set(ii, "p", p)
 
-    def set_reference_point(self, q: np.ndarray, p_ee_ref: np.ndarray):
+    def set_reference_point(self, p_ee_ref: np.ndarray):
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
@@ -348,6 +349,7 @@ class SafetyFilter3Dof:
         @param u_ref: Torques at endeffector position. Can be set to zero.
         """
         self.p_ee_ref = p_ee_ref
+        q = self.x_hat[: self.nx // 2]
         x_ref, u_ref = compute_reference_state_and_input(
             self.fa_model, q, p_ee_ref
         )
