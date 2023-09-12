@@ -21,7 +21,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from imitation.data import serialize
 from imitation.util.networks import RunningNorm
 from imitation.algorithms.adversarial.airl import AIRL
-from imitation.rewards.reward_nets import BasicRewardNet
+from imitation.rewards.reward_nets import BasicShapedRewardNet
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
@@ -83,16 +83,16 @@ if TRAIN_MODEL:
         reset_num_timesteps=True,
         tb_log_name=learner.__class__.__name__,
     )
-    reward_net = BasicRewardNet(
+    reward_net = BasicShapedRewardNet(
         observation_space=env.observation_space,
         action_space=env.action_space,
         normalize_input_layer=RunningNorm,
     )
     airl_trainer = AIRL(
         demonstrations=rollouts,
-        demo_batch_size=1024,
-        gen_replay_buffer_capacity=2048,
-        n_disc_updates_per_round=8,
+        demo_batch_size=128,
+        gen_replay_buffer_capacity=512,
+        n_disc_updates_per_round=1,
         venv=venv,
         gen_algo=learner,
         gen_train_timesteps=1,
