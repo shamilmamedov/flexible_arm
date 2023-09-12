@@ -579,7 +579,7 @@ def get_rest_configuration(qa: np.ndarray, n_seg: int) -> np.ndarray:
     return q.reshape(-1, 1)
 
 
-def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
+def inverse_kinematics_rb(p_ee: np.ndarray, q_guess: np.ndarray = None):
     """ Numerically computes the inverse kineamtics for the
     zero segment model i.e. for the rigid body approximation
 
@@ -592,7 +592,7 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
     # Create symbolic variables for joint angles and
     # create a function for solving ik
     q = cs.SX.sym('q', 3)
-    f = cs.Function('f', [q], [fkp(q) - pee])
+    f = cs.Function('f', [q], [fkp(q) - p_ee])
 
     # Create a root finder
     F = cs.rootfinder('F', 'newton', f)
@@ -603,6 +603,107 @@ def inverse_kinematics_rb(pee: np.ndarray, q_guess: np.ndarray = None):
 
     q_num = F(q_guess)
     return (np.array(q_num) + np.pi) % (2 * np.pi) - np.pi
+
+
+def analytical_inverse_kinematics_rb(p_ee: np.ndarray):
+    # Kinematics parameters of the robot can be obtained 
+    # from the urdf file but for now we hardcode them
+    l1 = 0.15
+    l2 = 0.5
+    l3 = 0.5
+
+    # Compute the first angle
+    q1_1 = np.arctan2(p_ee[1], p_ee[0]).item()
+    q1_2 = np.arctan2(-p_ee[1], -p_ee[0]).item()
+
+    # To find the second and third angles remove the offset 
+    # of the first link
+    p_offset = np.array([[0., 0., l1]]).T
+    p_ee = p_ee - p_offset
+
+    # Compute the third angle using the law of cosines
+    l_p_ee = np.linalg.norm(p_ee)
+    cos_q3 = (l_p_ee ** 2 - l2 ** 2 - l3 ** 2) / (2 * l2 * l3)
+    sin_q3 = np.sqrt(1 - cos_q3 ** 2)
+    q3_1 = np.arctan2(sin_q3, cos_q3).item()
+    q3_2 = -q3_1
+
+    # Compute the second angle using the law of sines
+    l_p_ee_XY = np.sqrt(p_ee[0]**2 + p_ee[1]**2)
+    cos_q2_1 = (l_p_ee_XY*(l2 + l3*cos_q3) + p_ee[2]*l3*sin_q3) / l_p_ee
+    cos_q2_2 = (-l_p_ee_XY*(l2 + l3*cos_q3) + p_ee[2]*l3*sin_q3) / l_p_ee
+    sin_q2_1 = (p_ee[2]*(l2 + l3*cos_q3) - l_p_ee_XY*l3*sin_q3) / l_p_ee
+    sin_q2_2 = (p_ee[2]*(l2 + l3*cos_q3) + l_p_ee_XY*l3*sin_q3) / l_p_ee
+
+    q2_1 = np.arctan2(sin_q2_1, cos_q2_1).item()
+    q2_2 = np.arctan2(sin_q2_2, cos_q2_2).item()
+    q2_3 = np.arctan2(sin_q2_2, -cos_q2_2).item()
+    q2_4 = np.arctan2(sin_q2_1, -cos_q2_1).item()
+
+    # Assemble the solution
+    q = np.zeros((4,3,1))
+    q[0] = np.array([[q1_1, q2_1, q3_1]]).T
+    q[1] = np.array([[q1_1, q2_3, q3_2]]).T
+    q[2] = np.array([[q1_2, q2_2, q3_1]]).T
+    q[3] = np.array([[q1_2, q2_4, q3_2]]).T
+
+    return q
+
+
+def compute_reference_state_and_input(robot, q: np.ndarray, p_ee_ref: np.ndarray):
+    """
+    Compute reference states genaralized coordinates (angles q, angular velocities dq)
+    related to MPC model out of endeffetor states.
+
+    @param robot: Robot model
+    @param q: current configuration of the robot
+    @param p_ee_ref: Endefector Cartesian reference position
+
+    @return: reference states x = (q, dq) and input u
+    """
+    def _filter_ik_solutions(q_ik):
+        safe_solutions = []
+        for k, q in enumerate(q_ik):
+            p_elbow = np.array(robot.p_elbow(q))
+            if p_elbow[2] > 0 and p_elbow[1] > -0.15:
+                safe_solutions.append(k)
+        return q_ik[safe_solutions]
+
+    # Solve inverse kinematics analytically and get all the solutions
+    q_ik_all = analytical_inverse_kinematics_rb(p_ee_ref)
+    # Compute the rest configuration for each solution
+    q_all = np.array([get_rest_configuration(q_ik, robot.n_seg) for q_ik in q_ik_all])
+    # Filter out the solutions that are not safe 
+    q_safe = _filter_ik_solutions(q_all)
+
+    # Chose among the safe solutions the one that is closest to the current configuration
+    if len(q_safe) > 1:
+        q_diff = np.linalg.norm(q_safe - q.reshape(1,-1,1), axis=1)
+        q = q_safe[np.argmin(q_diff)]
+    elif len(q_safe) == 0:
+        q = q_all[0]
+    else:
+        q = q_safe[0]
+
+    # Refine the solution takign into account the flexibility of the arm
+    # Compute stateic error due to flexiblity
+    p_ee = np.array(robot.p_ee(q))
+    delta_p_ee = p_ee_ref - p_ee
+
+    # Try to find a solution for the augmented endeffector position
+    if np.linalg.norm(delta_p_ee) > 1.5e-2:
+        try:
+            qa_aug = inverse_kinematics_rb(
+                p_ee_ref + delta_p_ee, q_guess=q[robot.qa_idx]
+            ).ravel()
+            q = get_rest_configuration(qa_aug, robot.n_seg)
+        except RuntimeError:
+            pass
+
+    dq = np.zeros_like(q)
+    x_ref = np.vstack((q, dq))
+    u_ref = robot.gravity_torque(q)
+    return x_ref, u_ref
 
 
 def main(n_seg: int = 3):
