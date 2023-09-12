@@ -76,8 +76,10 @@ class CallableMPCExpert(policies.BasePolicy):
             # reset the goal if it has changed
             if self.controller.p_ee_ref is None or not np.allclose(
                 self.controller.p_ee_ref, goal_coords.reshape(-1, B)
-            ):
-                self.controller.set_reference_point(p_ee_ref=goal_coords.reshape(-1, B))
+            ):  
+                nq = (observation.shape[1] - 3) // 2
+                q = observation[:, :nq]
+                self.controller.set_reference_point(q, p_ee_ref=goal_coords.reshape(-1, B))
             if obstacle is not None:
                 self.controller.set_wall_parameters(w=obstacle.w, b=obstacle.b)
         observation = observation.reshape(-1, B)
@@ -154,8 +156,10 @@ class SafetyWrapper(policies.BasePolicy):
             if self.safety_filter.p_ee_ref is None or not np.allclose(
                 self.safety_filter.p_ee_ref, goal_coords.reshape(-1, B)
             ):
+                nq = (observation.shape[1] - 3) // 2
+                q = observation[:, :nq]
                 self.safety_filter.set_reference_point(
-                    p_ee_ref=goal_coords.reshape(-1, B)
+                    q, p_ee_ref=goal_coords.reshape(-1, B)
                 )
 
             if obstacle is not None:
