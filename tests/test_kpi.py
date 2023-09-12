@@ -3,6 +3,7 @@ Collects trajectories from each algorithm and saves them to a file.
 Then uses those trajectories to measure various KPIs.
 RUN COMMAND: python -m tests.test_kpi
 """
+import os
 import sys
 import logging
 
@@ -34,11 +35,13 @@ print(OmegaConf.to_yaml(cfg))
 
 logging.basicConfig(level=logging.INFO)
 DEMO_DIR = cfg.kpi.demo_dir
+PLOT_DIR = cfg.kpi.plot_dir
 SEED = cfg.kpi.seed
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
 if cfg.kpi.random_goal:
+    DEMO_DIR = f"{DEMO_DIR}/random_goal"
     env_options_override = None
 else:
     DEMO_DIR = f"{DEMO_DIR}/near_wall_goal"
@@ -46,7 +49,8 @@ else:
         "qa_goal_start": np.array([-np.pi / 12, 0.0, -np.pi + 0.2]),
         "qa_goal_end": np.array([-np.pi / 12, np.pi / 2, 0.0]),
     }
-
+os.makedirs(DEMO_DIR, exist_ok=True)
+os.makedirs(PLOT_DIR, exist_ok=True)
 
 if cfg.kpi.collect_demos:
     (
@@ -249,19 +253,26 @@ if cfg.kpi.reward_box_plot:
     ax.boxplot(
         [
             dagger_rewards,
+            bc_rewards,
             sac_rewards,
+            ppo_rewards,
             airl_rewards,
             gail_rewards,
-            bc_rewards,
             density_rewards,
-            ppo_rewards,
         ],
-        labels=["DAGGER", "SAC", "AIRL", "GAIL", "BC", "DENSITY", "PPO"],
+        labels=["DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
+        zorder=3,
+        notch=True,
+        patch_artist=True,
+        boxprops=dict(facecolor="blueviolet"),
     )
-    ax.set_title("Trajectory Rewards")
-    ax.set_ylabel("Reward")
-    fig.savefig("kpi_rewards.png")
-    fig.savefig("kpi_rewards.pdf")
+    ax.set_facecolor("ghostwhite")
+    ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
+    ax.set_title("Trajectory Rewards", fontdict={"fontsize": 16})
+    ax.set_ylabel("Reward", fontdict={"fontsize": 14})
+    ax.xaxis.set_tick_params(labelsize=12)
+    fig.savefig(f"{PLOT_DIR}/kpi_rewards.png")
+    fig.savefig(f"{PLOT_DIR}/kpi_rewards.pdf")
     plt.show()
 
 if cfg.kpi.reward_constraint_scatter_plot:
@@ -293,17 +304,26 @@ if cfg.kpi.reward_constraint_scatter_plot:
         dagger_sf_kpis["constraint_violation"],
         mpc_kpis["constraint_violation"],
     ]
-    ax.scatter(violations, rewards)
+    ax.scatter(violations, rewards, zorder=3, c="blueviolet", s=100)
+    ax.set_facecolor("ghostwhite")
+    ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
 
     # Annotate points
-    for i, txt in enumerate(["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"]):
-        ax.annotate(txt, (violations[i], rewards[i]))
+    for i, (txt, offset) in enumerate(
+        zip(
+            ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
+            [(-15, -30), (-25, 15), (-30, -30), (-20, -30), (-15, -30)],
+        )
+    ):
+        ax.annotate(
+            txt, (violations[i], rewards[i]), textcoords="offset pixels", xytext=offset
+        )
 
-    ax.set_title("Reward vs Constraint Violation")
-    ax.set_xlabel("Constraint Violation")
-    ax.set_ylabel("Reward")
-    fig.savefig("kpi_reward_constraint_scatter.png")
-    fig.savefig("kpi_reward_constraint_scatter.pdf")
+    ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
+    ax.set_xlabel("Constraint Violation", fontdict={"fontsize": 14})
+    ax.set_ylabel("Reward", fontdict={"fontsize": 14})
+    fig.savefig(f"{PLOT_DIR}/kpi_reward_constraint_scatter.png")
+    fig.savefig(f"{PLOT_DIR}/kpi_reward_constraint_scatter.pdf")
     plt.show()
 
 if cfg.kpi.time_constraint_scatter_plot:
@@ -338,15 +358,24 @@ if cfg.kpi.time_constraint_scatter_plot:
     timings = [*timings.values()]
 
     fig, ax = plt.subplots()
-    ax.scatter(violations, timings)
+    ax.scatter(violations, timings, zorder=3, c="blueviolet", s=100)
+    ax.set_facecolor("ghostwhite")
+    ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
 
     # Annotate points
-    for i, txt in enumerate([f"SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"]):
-        ax.annotate(txt, (violations[i], timings[i]))
+    for i, (txt, offset) in enumerate(
+        zip(
+            ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
+            [(-15, 10), (-25, 10), (-25, 10), (-20, -25), (-15, -20)],
+        )
+    ):
+        ax.annotate(
+            txt, (violations[i], timings[i]), textcoords="offset pixels", xytext=offset
+        )
 
-    ax.set_title("Inference Time vs Constraint Violation")
-    ax.set_xlabel("Constraint Violation")
-    ax.set_ylabel("Inference Time (ms)")
-    fig.savefig("kpi_time_constraint_scatter.png")
-    fig.savefig("kpi_time_constraint_scatter.pdf")
+    ax.set_title("Inference Time vs Constraint Violation", fontdict={"fontsize": 16})
+    ax.set_xlabel("Constraint Violation", fontdict={"fontsize": 14})
+    ax.set_ylabel("Inference Time (ms)", fontdict={"fontsize": 14})
+    fig.savefig(f"{PLOT_DIR}/kpi_time_constraint_scatter.png")
+    fig.savefig(f"{PLOT_DIR}/kpi_time_constraint_scatter.pdf")
     plt.show()

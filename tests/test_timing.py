@@ -160,37 +160,47 @@ ax.bar(
     sac_mean,
     yerr=sac_std,
     align="center",
-    alpha=0.5,
+    alpha=0.9,
     ecolor="black",
-    capsize=10,
+    capsize=14,
     label="NeuralNet",
+    color="blueviolet",
+    zorder=3,
 )
 ax.bar(
     1,
     sac_safe_mean,
     yerr=sac_safe_std,
     align="center",
-    alpha=0.5,
+    alpha=0.9,
     ecolor="black",
-    capsize=10,
+    capsize=14,
     label="NeuralNet + Safety Filter",
+    color="blueviolet",
+    zorder=3,
 )
 ax.bar(
     2,
     mpc_mean,
     yerr=mpc_std,
     align="center",
-    alpha=0.5,
+    alpha=0.9,
     ecolor="black",
-    capsize=10,
+    capsize=14,
     label="MPC",
+    color="blueviolet",
+    zorder=3,
 )
-ax.set_ylabel("Inference Time (ms)")
+ax.set_facecolor("ghostwhite")
+ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
+
+ax.set_ylabel("Inference Time (ms)", fontdict={"fontsize": 14})
+ax.set_title("Inference Time Comparison", fontdict={"fontsize": 16})
 ax.set_xticks([0, 1, 2])
-ax.set_xticklabels(["SAC", "SAC+SF", "MPC"])
-ax.set_title("Inference Time Comparison")
-ax.yaxis.grid(True)
+ax.set_xticklabels(["NN", "NN+SF", "MPC"])
+ax.xaxis.set_tick_params(labelsize=12)
+
 fig.tight_layout()
-fig.savefig("inference_time_comparison.png")
-fig.savefig("inference_time_comparison.pdf")
+fig.savefig("plots/inference_time_comparison.png")
+fig.savefig("plots/inference_time_comparison.pdf")
 plt.show()
