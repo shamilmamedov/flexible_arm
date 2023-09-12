@@ -248,6 +248,7 @@ if cfg.kpi.reward_box_plot:
     density_rollouts = serialize.load(f"{DEMO_DIR}/density.pkl")
     sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
     ppo_rollouts = serialize.load(f"{DEMO_DIR}/ppo.pkl")
+    mpc_rollouts = serialize.load(f"{DEMO_DIR}/mpc.pkl")
 
     # --- box plot of rewards ---
     sac_rewards = trajectory_reward(sac_rollouts)
@@ -257,10 +258,12 @@ if cfg.kpi.reward_box_plot:
     gail_rewards = trajectory_reward(gail_rollouts)
     airl_rewards = trajectory_reward(airl_rollouts)
     density_rewards = trajectory_reward(density_rollouts)
+    mpc_rewards = trajectory_reward(mpc_rollouts)
 
     fig, ax = plt.subplots()
     ax.boxplot(
         [
+            mpc_rewards,
             dagger_rewards,
             bc_rewards,
             sac_rewards,
@@ -269,7 +272,7 @@ if cfg.kpi.reward_box_plot:
             gail_rewards,
             density_rewards,
         ],
-        labels=["DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
+        labels=["MPC", "DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
         zorder=3,
         notch=True,
         patch_artist=True,
