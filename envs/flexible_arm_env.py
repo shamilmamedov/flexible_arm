@@ -55,6 +55,7 @@ class FlexibleArmEnvOptions(Updatable):
     sim_noise_R: np.ndarray = None
     contr_input_states: StateType = StateType.REAL
     render_mode: Optional[str] = None
+    flex_param_file_path: Optional[str] = None
 
 
 class FlexibleArmEnv(gym.Env):
@@ -70,7 +71,9 @@ class FlexibleArmEnv(gym.Env):
         self, options: FlexibleArmEnvOptions, obstacle: Optional[WallObstacle] = None
     ) -> None:
         self.options = options
-        self.model_sym = SymbolicFlexibleArm3DOF(options.n_seg)
+        self.model_sym = SymbolicFlexibleArm3DOF(
+            options.n_seg, fparams_path=options.flex_param_file_path
+        )
         self.dt = options.dt
         self.obstacle = obstacle
 

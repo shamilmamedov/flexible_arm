@@ -1,10 +1,12 @@
 demo_dir: demos
 plot_dir: plots
+flex_param_file_path: models/three_dof/flexible_link_params_test.yml                # path to the flexible parameter file
 seed: 0
 n_demos: 100                                                                         # number of demos to collect
 render: False                                                                       # render the environment while collecting demos
 collect_demos: False                                                                 # if False, then load from demos
 random_goal: False                                                                  # if True, then goal is sampled randomly, otherwise goal is chosen near the wall
+more_flexible: False
 
 collect_bc: False                                                                    # if False, then load from demos
 bc_model_path: trained_models/IL/BC/2023-09-04_14-44/SEED_0/best_model.pt
@@ -35,6 +37,6 @@ collect_mpc: True                                                               
 
 
 # plots / measures
-reward_box_plot: True                                                                      # plot box plot
-reward_constraint_scatter_plot: False                                                       # plot scatter plot
-time_constraint_scatter_plot: False                                                        # plot scatter plot
+reward_box_plot: False                                                                      # plot box plot
+reward_constraint_scatter_plot: True                                                       # plot scatter plot
+time_constraint_scatter_plot: True                                                         # plot scatter plot

@@ -40,15 +40,24 @@ SEED = cfg.kpi.seed
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
+env_options_override = dict()
 if cfg.kpi.random_goal:
     DEMO_DIR = f"{DEMO_DIR}/random_goal"
-    env_options_override = None
+    PLOT_DIR = f"{PLOT_DIR}/random_goal"
 else:
     DEMO_DIR = f"{DEMO_DIR}/near_wall_goal"
+    PLOT_DIR = f"{PLOT_DIR}/near_wall_goal"
     env_options_override = {
         "qa_goal_start": np.array([-np.pi / 12, 0.0, -np.pi + 0.2]),
         "qa_goal_end": np.array([-np.pi / 12, np.pi / 2, 0.0]),
     }
+
+if cfg.kpi.more_flexible:
+    DEMO_DIR = f"{DEMO_DIR}/more_flexible"
+    PLOT_DIR = f"{PLOT_DIR}/more_flexible"
+    env_options_override["flex_param_file_path"] = cfg.kpi.flex_param_file_path
+
+
 os.makedirs(DEMO_DIR, exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
 
