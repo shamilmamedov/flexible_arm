@@ -46,7 +46,8 @@ class FlexibleArmEnvOptions(Updatable):
     sim_time: float = 3
     qa_range_start: np.ndarray = np.array([-np.pi / 2, 0.0, -np.pi + 0.05])
     qa_range_end: np.ndarray = np.array([3 * np.pi / 2, np.pi, np.pi - 0.05])
-    qa_goal: np.ndarray = None  # set this value, if goal point was considered
+    qa_goal_start: np.ndarray = None
+    qa_goal_end: np.ndarray = None
     render_mode = None
     maximum_torques: np.ndarray = np.array([20, 10, 10])
     goal_dist_euclid: float = 0.01
@@ -188,7 +189,7 @@ class FlexibleArmEnv(gym.Env):
         # Reset state of the robot
         # initial position
         self._state, _ = self.sample_rand_config(
-            use_estimator=False,
+            use_estimator=False, consider_wall=True
         )
 
         # end position
@@ -199,9 +200,9 @@ class FlexibleArmEnv(gym.Env):
         use_estimator = self.options.contr_input_states is StateType.ESTIMATED
         self.x_final, self.xee_final = self.sample_rand_config(
             use_estimator=use_estimator,
-            qa_range_start=self.options.qa_goal,
-            qa_range_end=self.options.qa_goal,
-            consider_wall=True if self.options.qa_goal is None else False,
+            qa_range_start=self.options.qa_goal_start,
+            qa_range_end=self.options.qa_goal_end,
+            consider_wall=True,
         )
 
         self.simulator.reset(x0=self._state)  # also estimates the current state

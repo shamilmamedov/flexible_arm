@@ -1,26 +1,39 @@
 demo_dir: demos
 seed: 0
-n_demos: 10                                                                         # number of demos to collect
+n_demos: 100                                                                         # number of demos to collect
 render: False                                                                       # render the environment while collecting demos
-collect_demos: False                                                                 # if False, then load from demos
+collect_demos: True                                                                 # if False, then load from demos
+random_goal: False                                                                  # if True, then goal is sampled randomly, otherwise goal is chosen near the wall
 
-collect_bc: True                                                                    # if False, then load from demos
+collect_bc: False                                                                    # if False, then load from demos
 bc_model_path: trained_models/IL/BC/2023-09-04_14-44/SEED_0/best_model.pt
 
 collect_dagger: True                                                                # if False, then load from demos
 dagger_model_path: trained_models/IL/DAGGER/2023-09-04_14-44/SEED_0/best_model.pt
 
-collect_gail: True                                                                  # if False, then load from demos
+collect_gail: False                                                                  # if False, then load from demos
 gail_model_path: trained_models/IRL/GAIL/2023-09-04_14-44/SEED_0/best_model.zip
 
-collect_airl: True                                                                  # if False, then load from demos
+collect_airl: False                                                                  # if False, then load from demos
 airl_model_path: trained_models/IRL/AIRL/2023-09-04_14-44/SEED_0/best_model.zip
 
-collect_density: True                                                               # if False, then load from demos
+collect_density: False                                                               # if False, then load from demos
 density_model_path: trained_models/IRL/DENSITY/2023-09-04_14-44/SEED_0/best_model.zip
 
 collect_sac: True                                                                   # if False, then load from demos
 sac_model_path: trained_models/RL/SAC/2023-09-04_14-44/SEED_0/best_model.zip
 
-collect_ppo: True                                                                   # if False, then load from demos
+collect_ppo: False                                                                   # if False, then load from demos
 ppo_model_path: trained_models/RL/PPO/2023-09-05_11-18/SEED_0/best_model.zip
+
+collect_sac_sf: True                                                                # if False, then load from demos
+
+collect_dagger_sf: True                                                             # if False, then load from demos
+
+collect_mpc: True                                                                   # if False, then load from demos
+
+
+# plots / measures
+reward_box_plot: False                                                                      # plot box plot
+reward_constraint_scatter_plot: True                                                       # plot scatter plot
+time_constraint_scatter_plot: True                                                         # plot scatter plot

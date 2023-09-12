@@ -175,8 +175,8 @@ def _constraint_violation(traj, n_seg: int = 3):
     wall_constr_violated = _wall_constraint_violation(pee, wall_params)
     ground_constr_violated = _ground_constraint_violation(pee)
     return (
-        u_constr_violated,
-        dqa_constr_violated,
+        # u_constr_violated,
+        # dqa_constr_violated,
         wall_constr_violated,
         ground_constr_violated,
     )

@@ -24,9 +24,9 @@ device = torch.device("cuda")
 )
 dummy_observations, _ = env.reset()
 dummy_observations = torch.from_numpy(dummy_observations.reshape(1, -1)).to(device)
-reps = 100
+reps = 1000
 
-# --- Neural Network (No Safety Filter)---
+# --- SAC (No Safety Filter)---
 agent = SAC(policy=SACPolicy, env=env, verbose=0, seed=0)
 policy = agent.policy.to(device)
 
@@ -46,12 +46,37 @@ with torch.no_grad():
         torch.cuda.synchronize()
         curr_time = starter.elapsed_time(ender)
         timings[i] = curr_time
-nn_mean = np.mean(timings)
-nn_std = np.std(timings)
-print(f"Mean inference time: {nn_mean} ms")
-print(f"Std inference time: {nn_std} ms")
+sac_mean = np.mean(timings)
+sac_std = np.std(timings)
+print(f"SAC Mean inference time: {sac_mean} ms")
+print(f"SAC Std inference time: {sac_std} ms")
 
-# --- Neural Network (With Safety Filter)---
+# --- DAGGER (No Safety Filter)---
+policy = torch.load("trained_models/IL/DAGGER/2023-09-04_14-44/SEED_0/best_model.pt")
+policy = policy.to(device)
+
+starter = torch.cuda.Event(enable_timing=True)
+ender = torch.cuda.Event(enable_timing=True)
+timings = np.zeros((reps, 1))
+# warmup
+for _ in range(100):
+    _ = policy(dummy_observations)
+# timing
+with torch.no_grad():
+    for i in range(reps):
+        starter.record()
+        _ = policy._predict(dummy_observations)
+        ender.record()
+        # synchronize
+        torch.cuda.synchronize()
+        curr_time = starter.elapsed_time(ender)
+        timings[i] = curr_time
+dagger_mean = np.mean(timings)
+dagger_std = np.std(timings)
+print(f"DAGGER Mean inference time: {dagger_mean} ms")
+print(f"DAGGER Std inference time: {dagger_std} ms")
+
+# --- SAC (With Safety Filter)---
 agent = SAC(policy=SACPolicy, env=env, verbose=0, seed=0)
 policy = agent.policy.to(device)
 safe_policy = SafetyWrapper(policy, safety_filter=safety_filter)
@@ -80,10 +105,43 @@ safety_timings = (
     np.array(safety_filter.debug_timings).reshape(-1, 1) * 1000
 )  # convert to ms
 total_time = timings + safety_timings
-nn_safe_mean = np.mean(total_time)
-nn_safe_std = np.std(total_time)
-print(f"Mean inference time (safe): {nn_safe_mean} ms")
-print(f"Std inference time (safe): {nn_safe_std} ms")
+sac_safe_mean = np.mean(total_time)
+sac_safe_std = np.std(total_time)
+print(f"SAC+SF Mean inference time (safe): {sac_safe_mean} ms")
+print(f"SAC+SF Std inference time (safe): {sac_safe_std} ms")
+
+# --- DAGGER (With Safety Filter)---
+policy = torch.load("trained_models/IL/DAGGER/2023-09-04_14-44/SEED_0/best_model.pt")
+safe_policy = SafetyWrapper(policy, safety_filter=safety_filter)
+safety_filter.reset()
+
+starter = torch.cuda.Event(enable_timing=True)
+ender = torch.cuda.Event(enable_timing=True)
+timings = np.zeros((reps, 1))
+# warmup
+for _ in range(100):
+    _ = policy(dummy_observations)
+# timing
+with torch.no_grad():
+    for i in range(reps):
+        starter.record()
+        unsafe_action = policy._predict(dummy_observations, deterministic=True)
+        ender.record()
+        # synchronize
+        torch.cuda.synchronize()
+        curr_time = starter.elapsed_time(ender)
+        timings[i] = curr_time
+        # apply safety filter
+        _ = safe_policy._apply_safety(unsafe_action, dummy_observations)
+
+safety_timings = (
+    np.array(safety_filter.debug_timings).reshape(-1, 1) * 1000
+)  # convert to ms
+total_time = timings + safety_timings
+dagger_safe_mean = np.mean(total_time)
+dagger_safe_std = np.std(total_time)
+print(f"DAGGER+SF Mean inference time (safe): {dagger_safe_mean} ms")
+print(f"DAGGER+SF Std inference time (safe): {dagger_safe_std} ms")
 
 # --- MPC ---
 for _ in range(reps):
@@ -99,8 +157,8 @@ print(f"Std MPC time: {mpc_std} ms")
 fig, ax = plt.subplots()
 ax.bar(
     0,
-    nn_mean,
-    yerr=nn_std,
+    sac_mean,
+    yerr=sac_std,
     align="center",
     alpha=0.5,
     ecolor="black",
@@ -109,8 +167,8 @@ ax.bar(
 )
 ax.bar(
     1,
-    nn_safe_mean,
-    yerr=nn_safe_std,
+    sac_safe_mean,
+    yerr=sac_safe_std,
     align="center",
     alpha=0.5,
     ecolor="black",
@@ -129,9 +187,10 @@ ax.bar(
 )
 ax.set_ylabel("Inference Time (ms)")
 ax.set_xticks([0, 1, 2])
-ax.set_xticklabels(["NeuralNet", "NeuralNet + SafetyFilter", "MPC"])
+ax.set_xticklabels(["SAC", "SAC+SF", "MPC"])
 ax.set_title("Inference Time Comparison")
 ax.yaxis.grid(True)
 fig.tight_layout()
 fig.savefig("inference_time_comparison.png")
+fig.savefig("inference_time_comparison.pdf")
 plt.show()
