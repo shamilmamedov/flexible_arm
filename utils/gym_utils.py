@@ -156,10 +156,8 @@ class SafetyWrapper(policies.BasePolicy):
             if self.safety_filter.p_ee_ref is None or not np.allclose(
                 self.safety_filter.p_ee_ref, goal_coords.reshape(-1, B)
             ):
-                nq = (observation.shape[1] - 3) // 2
-                q = observation[:, :nq]
                 self.safety_filter.set_reference_point(
-                    q, p_ee_ref=goal_coords.reshape(-1, B)
+                    p_ee_ref=goal_coords.reshape(-1, B)
                 )
 
             if obstacle is not None:
