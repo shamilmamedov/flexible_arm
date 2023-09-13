@@ -298,7 +298,7 @@ if cfg.kpi.distance_box_plot:
         patch_artist=True,
         boxprops=dict(facecolor="blueviolet"),
     )
-    ax.set_facecolor("ghostwhite")
+    ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
     ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 14})
     fig.savefig(f"{PLOT_DIR}/kpi_distance_box.png")
@@ -349,14 +349,16 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     graph = ax.scatter(violations, rewards, zorder=3, s=200, c=timings, cmap="cool")
     graph_cbar = fig.colorbar(mappable=graph, ax=ax)
     graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 14})
-    ax.set_facecolor("ghostwhite")
+    ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
+    ax.set_xlim(0.0, 40)
+    ax.set_ylim(0.0, 100)
 
     # Annotate points
     for i, (txt, offset) in enumerate(
         zip(
             ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
-            [(-15, -30), (-25, -30), (-25, 20), (-10, 20), (-10, 20)],
+            [(-10, -25), (-20, -25), (-25, 15), (-5, 15), (-8, 15)],
         )
     ):
         ax.annotate(
