@@ -20,13 +20,19 @@ from stable_baselines3 import SAC
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 import matplotlib.pyplot as plt
+import matplotlib
 
 from utils.utils import seed_everything
 from utils.gym_utils import (
     create_unified_flexiblearmenv_and_controller_and_safety_filter,
     SafetyWrapper,
 )
-from kpi import steps2reach_goal, path_length, constraint_violation, trajectory_reward
+from kpi import (
+    steps2reach_goal,
+    path_length,
+    constraint_violation,
+    trajectory_final_distance,
+)
 
 # Get hydra config
 initialize(version_base=None, config_path="../conf", job_name="FlexibleArm")
@@ -235,11 +241,25 @@ def mean_kpis(rollouts):
     # kpis["steps2reach_goal"] = np.mean(steps2reach_goal(rollouts, 0.1)) # TODO: hwo to deal with None values?
     kpis["path_length"] = np.mean(path_length(rollouts))
     kpis["constraint_violation"] = np.mean(constraint_violation(rollouts))
-    kpis["trajectory_reward"] = np.mean(trajectory_reward(rollouts))
+    kpis["trajectory_final_reward"] = np.mean(trajectory_final_distance(rollouts))
     return kpis
 
 
-if cfg.kpi.reward_box_plot:
+# --- plot settings ---
+params = {  #'backend': 'ps',
+    "text.latex.preamble": r"\usepackage{gensymb} \usepackage{amsmath}",
+    "axes.labelsize": 8,  # fontsize for x and y labels (was 10)
+    "axes.titlesize": 8,
+    "legend.fontsize": 6,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 12,
+    "text.usetex": True,
+    "font.family": "serif",
+}
+matplotlib.rcParams.update(params)
+
+
+if cfg.kpi.distance_box_plot:
     # uses random goals
     bc_rollouts = serialize.load(f"{DEMO_DIR}/bc.pkl")
     dagger_rollouts = serialize.load(f"{DEMO_DIR}/dagger.pkl")
@@ -251,16 +271,16 @@ if cfg.kpi.reward_box_plot:
     mpc_rollouts = serialize.load(f"{DEMO_DIR}/mpc.pkl")
 
     # --- box plot of rewards ---
-    sac_rewards = trajectory_reward(sac_rollouts)
-    ppo_rewards = trajectory_reward(ppo_rollouts)
-    bc_rewards = trajectory_reward(bc_rollouts)
-    dagger_rewards = trajectory_reward(dagger_rollouts)
-    gail_rewards = trajectory_reward(gail_rollouts)
-    airl_rewards = trajectory_reward(airl_rollouts)
-    density_rewards = trajectory_reward(density_rollouts)
-    mpc_rewards = trajectory_reward(mpc_rollouts)
+    sac_rewards = trajectory_final_distance(sac_rollouts)
+    ppo_rewards = trajectory_final_distance(ppo_rollouts)
+    bc_rewards = trajectory_final_distance(bc_rollouts)
+    dagger_rewards = trajectory_final_distance(dagger_rollouts)
+    gail_rewards = trajectory_final_distance(gail_rollouts)
+    airl_rewards = trajectory_final_distance(airl_rollouts)
+    density_rewards = trajectory_final_distance(density_rollouts)
+    mpc_rewards = trajectory_final_distance(mpc_rollouts)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 2.5))
     ax.boxplot(
         [
             mpc_rewards,
@@ -274,20 +294,20 @@ if cfg.kpi.reward_box_plot:
         ],
         labels=["MPC", "DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
         zorder=3,
-        notch=True,
+        notch=False,
         patch_artist=True,
         boxprops=dict(facecolor="blueviolet"),
     )
     ax.set_facecolor("ghostwhite")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
-    ax.set_title("Trajectory Rewards", fontdict={"fontsize": 16})
-    ax.set_ylabel("Reward", fontdict={"fontsize": 14})
-    ax.xaxis.set_tick_params(labelsize=12)
-    fig.savefig(f"{PLOT_DIR}/kpi_rewards.png")
-    fig.savefig(f"{PLOT_DIR}/kpi_rewards.pdf")
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 14})
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_box.png")
+    fig.savefig(
+        f"{PLOT_DIR}/kpi_distance_box.pdf", format="pdf", dpi=600, bbox_inches="tight"
+    )
     plt.show()
 
-if cfg.kpi.reward_constraint_scatter_plot:
+if cfg.kpi.distance_constraint_time_scatter_plot:
     # uses the goals near the wall
     sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
     dagger_rollouts = serialize.load(f"{DEMO_DIR}/dagger.pkl")
@@ -301,65 +321,7 @@ if cfg.kpi.reward_constraint_scatter_plot:
     dagger_sf_kpis = mean_kpis(dagger_sf_rollouts)
     mpc_kpis = mean_kpis(mpc_rollouts)
 
-    fig, ax = plt.subplots()
-    rewards = [
-        sac_kpis["trajectory_reward"],
-        sac_sf_kpis["trajectory_reward"],
-        dagger_kpis["trajectory_reward"],
-        dagger_sf_kpis["trajectory_reward"],
-        mpc_kpis["trajectory_reward"],
-    ]
-    violations = [
-        sac_kpis["constraint_violation"],
-        sac_sf_kpis["constraint_violation"],
-        dagger_kpis["constraint_violation"],
-        dagger_sf_kpis["constraint_violation"],
-        mpc_kpis["constraint_violation"],
-    ]
-    ax.scatter(violations, rewards, zorder=3, c="blueviolet", s=100)
-    ax.set_facecolor("ghostwhite")
-    ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
-
-    # Annotate points
-    for i, (txt, offset) in enumerate(
-        zip(
-            ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
-            [(-15, -30), (-25, 15), (-30, -30), (-20, -30), (-15, -30)],
-        )
-    ):
-        ax.annotate(
-            txt, (violations[i], rewards[i]), textcoords="offset pixels", xytext=offset
-        )
-
-    ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
-    ax.set_xlabel("Constraint Violation", fontdict={"fontsize": 14})
-    ax.set_ylabel("Reward", fontdict={"fontsize": 14})
-    fig.savefig(f"{PLOT_DIR}/kpi_reward_constraint_scatter.png")
-    fig.savefig(f"{PLOT_DIR}/kpi_reward_constraint_scatter.pdf")
-    plt.show()
-
-if cfg.kpi.time_constraint_scatter_plot:
-    sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
-    dagger_rollouts = serialize.load(f"{DEMO_DIR}/dagger.pkl")
-    sac_sf_rollouts = serialize.load(f"{DEMO_DIR}/sac_sf.pkl")
-    dagger_sf_rollouts = serialize.load(f"{DEMO_DIR}/dagger_sf.pkl")
-    mpc_rollouts = serialize.load(f"{DEMO_DIR}/mpc.pkl")
-
-    sac_kpis = mean_kpis(sac_rollouts)
-    sac_sf_kpis = mean_kpis(sac_sf_rollouts)
-    dagger_kpis = mean_kpis(dagger_rollouts)
-    dagger_sf_kpis = mean_kpis(dagger_sf_rollouts)
-    mpc_kpis = mean_kpis(mpc_rollouts)
-
-    violations = [
-        sac_kpis["constraint_violation"],
-        sac_sf_kpis["constraint_violation"],
-        dagger_kpis["constraint_violation"],
-        dagger_sf_kpis["constraint_violation"],
-        mpc_kpis["constraint_violation"],
-    ]
-
-    # from test_timing.py
+    # from test_timing.py in (ms)
     timings = {
         "SAC": 0.25,
         "SAC+SF": 22.1,
@@ -370,7 +332,23 @@ if cfg.kpi.time_constraint_scatter_plot:
     timings = [*timings.values()]
 
     fig, ax = plt.subplots()
-    ax.scatter(violations, timings, zorder=3, c="blueviolet", s=100)
+    rewards = [
+        sac_kpis["trajectory_final_reward"],
+        sac_sf_kpis["trajectory_final_reward"],
+        dagger_kpis["trajectory_final_reward"],
+        dagger_sf_kpis["trajectory_final_reward"],
+        mpc_kpis["trajectory_final_reward"],
+    ]
+    violations = [
+        sac_kpis["constraint_violation"],
+        sac_sf_kpis["constraint_violation"],
+        dagger_kpis["constraint_violation"],
+        dagger_sf_kpis["constraint_violation"],
+        mpc_kpis["constraint_violation"],
+    ]
+    graph = ax.scatter(violations, rewards, zorder=3, s=200, c=timings, cmap="cool")
+    graph_cbar = fig.colorbar(mappable=graph, ax=ax)
+    graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 14})
     ax.set_facecolor("ghostwhite")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
 
@@ -378,16 +356,16 @@ if cfg.kpi.time_constraint_scatter_plot:
     for i, (txt, offset) in enumerate(
         zip(
             ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
-            [(-15, 10), (-25, 10), (-25, 10), (-20, -25), (-15, -20)],
+            [(-15, -30), (-25, -30), (-25, 20), (-10, 20), (-10, 20)],
         )
     ):
         ax.annotate(
-            txt, (violations[i], timings[i]), textcoords="offset pixels", xytext=offset
+            txt, (violations[i], rewards[i]), textcoords="offset pixels", xytext=offset
         )
 
-    ax.set_title("Inference Time vs Constraint Violation", fontdict={"fontsize": 16})
-    ax.set_xlabel("Constraint Violation", fontdict={"fontsize": 14})
-    ax.set_ylabel("Inference Time (ms)", fontdict={"fontsize": 14})
-    fig.savefig(f"{PLOT_DIR}/kpi_time_constraint_scatter.png")
-    fig.savefig(f"{PLOT_DIR}/kpi_time_constraint_scatter.pdf")
+    # ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
+    ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 14})
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 14})
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter.png")
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter.pdf")
     plt.show()

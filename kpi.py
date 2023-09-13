@@ -188,4 +188,17 @@ def constraint_violation(trajs) -> tuple[np.ndarray]:
 
 
 def trajectory_reward(trajs) -> List[float]:
+    """
+    Computes the total reward of the trajectory
+    :param trajs: list of trajectories
+    """
     return [traj.rews.sum() for traj in trajs]
+
+
+def trajectory_final_distance(trajs, dt=0.004) -> List[float]:
+    """
+    Computes the final distance to the goal
+    :param trajs: list of trajectories
+    :param dt: time step of the simulation
+    """
+    return [100 * (-traj.rews[-1] / dt) for traj in trajs]
