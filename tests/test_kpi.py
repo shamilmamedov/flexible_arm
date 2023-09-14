@@ -375,6 +375,9 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
         s=200,
         c=timings,
         cmap="cool",
+        marker="o",
+        edgecolors="darkslategrey",
+        linewidths=1,
         alpha=0.9,
     )
     # --- flexible ---
@@ -399,9 +402,10 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
         s=200,
         c=timings,
         cmap="cool",
-        edgecolors="darkolivegreen",
-        linewidths=3,
+        edgecolors="darkslategrey",
+        linewidths=1,
         alpha=0.9,
+        marker="X",
     )
 
     graph_cbar = fig.colorbar(mappable=graph, ax=ax)
@@ -411,10 +415,10 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     ax.set_xlim(0.0, 40)
     ax.set_ylim(0.0, 100)
     ax.legend(
-        ["Flexible", "More Flexible"],
+        ["Low Flexibility", "High Flexibility"],
         loc="upper right",
         fontsize=12,
-        facecolor="lemonchiffon",
+        facecolor="thistle",
     )
 
     # Annotate points
@@ -431,6 +435,7 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     # ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
     ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 12})
     ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 12})
+    fig.tight_layout()
     fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.png")
     fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.pdf")
     plt.show()
