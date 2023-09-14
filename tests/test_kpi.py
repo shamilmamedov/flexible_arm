@@ -6,6 +6,7 @@ RUN COMMAND: python -m tests.test_kpi
 import os
 import sys
 import logging
+from pathlib import Path
 
 import torch
 import numpy as np
@@ -40,27 +41,27 @@ cfg = compose(config_name="config", overrides=sys.argv[1:])
 print(OmegaConf.to_yaml(cfg))
 
 logging.basicConfig(level=logging.INFO)
-DEMO_DIR = cfg.kpi.demo_dir
-PLOT_DIR = cfg.kpi.plot_dir
+DEMO_DIR = Path(cfg.kpi.demo_dir)
+PLOT_DIR = Path(cfg.kpi.plot_dir)
 SEED = cfg.kpi.seed
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
 env_options_override = dict()
 if cfg.kpi.random_goal:
-    DEMO_DIR = f"{DEMO_DIR}/random_goal"
-    PLOT_DIR = f"{PLOT_DIR}/random_goal"
+    DEMO_DIR = DEMO_DIR / "random_goal"
+    PLOT_DIR = PLOT_DIR / "random_goal"
 else:
-    DEMO_DIR = f"{DEMO_DIR}/near_wall_goal"
-    PLOT_DIR = f"{PLOT_DIR}/near_wall_goal"
+    DEMO_DIR = DEMO_DIR / "near_wall_goal"
+    PLOT_DIR = PLOT_DIR / "near_wall_goal"
     env_options_override = {
         "qa_goal_start": np.array([-np.pi / 12, 0.0, -np.pi + 0.2]),
         "qa_goal_end": np.array([-np.pi / 12, np.pi / 2, 0.0]),
     }
 
 if cfg.kpi.more_flexible:
-    DEMO_DIR = f"{DEMO_DIR}/more_flexible"
-    PLOT_DIR = f"{PLOT_DIR}/more_flexible"
+    DEMO_DIR = DEMO_DIR / "more_flexible"
+    PLOT_DIR = PLOT_DIR / "more_flexible"
     env_options_override["flex_param_file_path"] = cfg.kpi.flex_param_file_path
 
 
@@ -300,7 +301,7 @@ if cfg.kpi.distance_box_plot:
     )
     ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
-    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 14})
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 12})
     fig.savefig(f"{PLOT_DIR}/kpi_distance_box.png")
     fig.savefig(
         f"{PLOT_DIR}/kpi_distance_box.pdf", format="pdf", dpi=600, bbox_inches="tight"
@@ -308,18 +309,38 @@ if cfg.kpi.distance_box_plot:
     plt.show()
 
 if cfg.kpi.distance_constraint_time_scatter_plot:
-    # uses the goals near the wall
-    sac_rollouts = serialize.load(f"{DEMO_DIR}/sac.pkl")
-    dagger_rollouts = serialize.load(f"{DEMO_DIR}/dagger.pkl")
-    sac_sf_rollouts = serialize.load(f"{DEMO_DIR}/sac_sf.pkl")
-    dagger_sf_rollouts = serialize.load(f"{DEMO_DIR}/dagger_sf.pkl")
-    mpc_rollouts = serialize.load(f"{DEMO_DIR}/mpc.pkl")
+    # uses the goals near the wall (both normal and flexible)
+    if DEMO_DIR.name == "more_flexible":
+        flex_dir = DEMO_DIR
+        normal_dir = DEMO_DIR.parent
+    else:
+        flex_dir = DEMO_DIR / "more_flexible"
+        normal_dir = DEMO_DIR
+    # --- normal ---
+    sac_rollouts = serialize.load(normal_dir / "sac.pkl")
+    dagger_rollouts = serialize.load(normal_dir / "dagger.pkl")
+    sac_sf_rollouts = serialize.load(normal_dir / "sac_sf.pkl")
+    dagger_sf_rollouts = serialize.load(normal_dir / "dagger_sf.pkl")
+    mpc_rollouts = serialize.load(normal_dir / "mpc.pkl")
+    # --- flexible ---
+    flex_sac_rollouts = serialize.load(flex_dir / "sac.pkl")
+    flex_dagger_rollouts = serialize.load(flex_dir / "dagger.pkl")
+    flex_sac_sf_rollouts = serialize.load(flex_dir / "sac_sf.pkl")
+    flex_dagger_sf_rollouts = serialize.load(flex_dir / "dagger_sf.pkl")
+    flex_mpc_rollouts = serialize.load(flex_dir / "mpc.pkl")
 
+    # --- normal kpi ---
     sac_kpis = mean_kpis(sac_rollouts)
     sac_sf_kpis = mean_kpis(sac_sf_rollouts)
     dagger_kpis = mean_kpis(dagger_rollouts)
     dagger_sf_kpis = mean_kpis(dagger_sf_rollouts)
     mpc_kpis = mean_kpis(mpc_rollouts)
+    # --- flexible kpi ---
+    flex_sac_kpis = mean_kpis(flex_sac_rollouts)
+    flex_sac_sf_kpis = mean_kpis(flex_sac_sf_rollouts)
+    flex_dagger_kpis = mean_kpis(flex_dagger_rollouts)
+    flex_dagger_sf_kpis = mean_kpis(flex_dagger_sf_rollouts)
+    flex_mpc_kpis = mean_kpis(flex_mpc_rollouts)
 
     # from test_timing.py in (ms)
     timings = {
@@ -331,7 +352,8 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     }
     timings = [*timings.values()]
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 3))
+    # --- normal ---
     rewards = [
         sac_kpis["trajectory_final_reward"],
         sac_sf_kpis["trajectory_final_reward"],
@@ -346,19 +368,60 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
         dagger_sf_kpis["constraint_violation"],
         mpc_kpis["constraint_violation"],
     ]
-    graph = ax.scatter(violations, rewards, zorder=3, s=200, c=timings, cmap="cool")
+    graph = ax.scatter(
+        violations,
+        rewards,
+        zorder=3,
+        s=200,
+        c=timings,
+        cmap="cool",
+        alpha=0.9,
+    )
+    # --- flexible ---
+    flex_rewards = [
+        flex_sac_kpis["trajectory_final_reward"],
+        flex_sac_sf_kpis["trajectory_final_reward"],
+        flex_dagger_kpis["trajectory_final_reward"],
+        flex_dagger_sf_kpis["trajectory_final_reward"],
+        flex_mpc_kpis["trajectory_final_reward"],
+    ]
+    flex_violations = [
+        flex_sac_kpis["constraint_violation"],
+        flex_sac_sf_kpis["constraint_violation"],
+        flex_dagger_kpis["constraint_violation"],
+        flex_dagger_sf_kpis["constraint_violation"],
+        flex_mpc_kpis["constraint_violation"],
+    ]
+    graph = ax.scatter(
+        flex_violations,
+        flex_rewards,
+        zorder=3,
+        s=200,
+        c=timings,
+        cmap="cool",
+        edgecolors="darkolivegreen",
+        linewidths=3,
+        alpha=0.9,
+    )
+
     graph_cbar = fig.colorbar(mappable=graph, ax=ax)
-    graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 14})
+    graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 12})
     ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
     ax.set_xlim(0.0, 40)
     ax.set_ylim(0.0, 100)
+    ax.legend(
+        ["Flexible", "More Flexible"],
+        loc="upper right",
+        fontsize=12,
+        facecolor="lemonchiffon",
+    )
 
     # Annotate points
     for i, (txt, offset) in enumerate(
         zip(
             ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
-            [(-10, -25), (-20, -25), (-25, 15), (-5, 15), (-8, 15)],
+            [(5, -25), (0, -25), (15, 15), (-5, 15), (0, 15)],
         )
     ):
         ax.annotate(
@@ -366,8 +429,8 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
         )
 
     # ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
-    ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 14})
-    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 14})
-    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter.png")
-    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter.pdf")
+    ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 12})
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 12})
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.png")
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.pdf")
     plt.show()

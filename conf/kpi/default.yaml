@@ -15,10 +15,10 @@ collect_dagger: False                                                           
 dagger_model_path: trained_models/IL/DAGGER/2023-09-04_14-44/SEED_0/best_model.pt
 
 collect_gail: False                                                                  # if False, then load from demos
-gail_model_path: trained_models/IRL/GAIL/2023-09-04_14-44/SEED_0/best_model.zip
+gail_model_path: trained_models/IRL/GAIL/2023-09-12_16-48/SEED_0/best_model.zip
 
 collect_airl: False                                                                  # if False, then load from demos
-airl_model_path: trained_models/IRL/AIRL/2023-09-04_14-44/SEED_0/best_model.zip
+airl_model_path: trained_models/IRL/AIRL/2023-09-12_16-49/SEED_0/best_model.zip
 
 collect_density: False                                                               # if False, then load from demos
 density_model_path: trained_models/IRL/DENSITY/2023-09-04_14-44/SEED_0/best_model.zip
@@ -37,5 +37,5 @@ collect_mpc: False                                                              
 
 
 # plots / measures
-distance_box_plot: True                                                                      # plot box plot
-distance_constraint_time_scatter_plot: False                                                   # plot scatter plot
+distance_box_plot: False                                                                      # plot box plot
+distance_constraint_time_scatter_plot: True                                                   # plot scatter plot

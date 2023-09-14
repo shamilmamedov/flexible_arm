@@ -60,6 +60,7 @@ if TRAIN_MODEL:
         seed=SEED,
         tensorboard_log=LOG_DIR,
         device=f"cuda:{DEVICE}",
+        policy_kwargs=dict(net_arch=[dict(pi=[256, 256], vf=[256, 256])]),
     )
 
     # evaluate the policy before training
