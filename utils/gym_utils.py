@@ -76,10 +76,12 @@ class CallableMPCExpert(policies.BasePolicy):
             # reset the goal if it has changed
             if self.controller.p_ee_ref is None or not np.allclose(
                 self.controller.p_ee_ref, goal_coords.reshape(-1, B)
-            ):  
+            ):
                 nq = (observation.shape[1] - 3) // 2
                 q = observation[:, :nq]
-                self.controller.set_reference_point(q, p_ee_ref=goal_coords.reshape(-1, B))
+                self.controller.set_reference_point(
+                    q, p_ee_ref=goal_coords.reshape(-1, B)
+                )
             if obstacle is not None:
                 self.controller.set_wall_parameters(w=obstacle.w, b=obstacle.b)
         observation = observation.reshape(-1, B)
@@ -242,13 +244,13 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     # -------------------------------------
     if create_controller:
         # --- Create MPC controller ---
-        fa_sym_mpc = SymbolicFlexibleArm3DOF(n_seg_mpc)
         mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
 
         # set other options of the controller, wich are passed as dictionary
         if cntrl_opts:
             mpc_options.update(cntrl_opts)
 
+        fa_sym_mpc = SymbolicFlexibleArm3DOF(mpc_options.n_seg)
         controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
 
         # create MPC expert

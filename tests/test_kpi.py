@@ -47,6 +47,11 @@ SEED = cfg.kpi.seed
 rng = np.random.default_rng(SEED)
 seed_everything(SEED)
 
+controller_options_override = dict()
+controller_options_override["n_seg" : cfg.kpi.mpc_n_seg]
+controller_options_override["n" : cfg.kpi.mpc_n]
+controller_options_override["tf" : cfg.kpi.mpc_tf]
+
 env_options_override = dict()
 if cfg.kpi.random_goal:
     DEMO_DIR = DEMO_DIR / "random_goal"
@@ -78,6 +83,7 @@ if cfg.kpi.collect_demos:
         add_wall_obstacle=True,
         create_safety_filter=True,
         env_opts=env_options_override,
+        controller_opts=controller_options_override,
     )
     venv = DummyVecEnv([lambda: env])
 
@@ -234,7 +240,10 @@ if cfg.kpi.collect_demos:
             verbose=True,
             render=cfg.kpi.render,
         )
-        serialize.save(f"{DEMO_DIR}/mpc.pkl", mpc_rollouts)
+        serialize.save(
+            f"{DEMO_DIR}/mpc_nseg{controller_options_override['n_seg']}_h{controller_options_override['tf']/controller_options_override['n']}.pkl",
+            mpc_rollouts,
+        )
 
 
 def mean_kpis(rollouts):
