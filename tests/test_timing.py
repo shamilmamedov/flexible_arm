@@ -13,6 +13,7 @@ from utils.gym_utils import (
     SafetyWrapper,
 )
 import matplotlib.pyplot as plt
+import matplotlib
 
 device = torch.device("cuda")
 (
@@ -46,6 +47,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
         curr_time = starter.elapsed_time(ender)
         timings[i] = curr_time
+sac_timings = timings.copy().flatten()
 sac_mean = np.mean(timings)
 sac_std = np.std(timings)
 print(f"SAC Mean inference time: {sac_mean} ms")
@@ -71,6 +73,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
         curr_time = starter.elapsed_time(ender)
         timings[i] = curr_time
+dagger_timings = timings.copy().flatten()
 dagger_mean = np.mean(timings)
 dagger_std = np.std(timings)
 print(f"DAGGER Mean inference time: {dagger_mean} ms")
@@ -105,6 +108,7 @@ safety_timings = (
     np.array(safety_filter.debug_timings).reshape(-1, 1) * 1000
 )  # convert to ms
 total_time = timings + safety_timings
+SAC_SF_timings = total_time.copy().flatten()
 sac_safe_mean = np.mean(total_time)
 sac_safe_std = np.std(total_time)
 print(f"SAC+SF Mean inference time (safe): {sac_safe_mean} ms")
@@ -138,6 +142,7 @@ safety_timings = (
     np.array(safety_filter.debug_timings).reshape(-1, 1) * 1000
 )  # convert to ms
 total_time = timings + safety_timings
+DAGGER_SF_timings = total_time.copy().flatten()
 dagger_safe_mean = np.mean(total_time)
 dagger_safe_std = np.std(total_time)
 print(f"DAGGER+SF Mean inference time (safe): {dagger_safe_mean} ms")
@@ -147,6 +152,7 @@ print(f"DAGGER+SF Std inference time (safe): {dagger_safe_std} ms")
 for _ in range(reps):
     controller.predict(dummy_observations.cpu())
 mpc_mean, mpc_std, _, _ = controller.controller.get_timing_statistics()
+mpc_timings = np.array(controller.controller.debug_timings).flatten() * 1000
 mpc_mean *= 1000  # convert to ms
 mpc_std *= 1000  # convert to ms
 print(f"Mean MPC time: {mpc_mean} ms")
@@ -203,4 +209,38 @@ ax.xaxis.set_tick_params(labelsize=12)
 fig.tight_layout()
 fig.savefig("plots/inference_time_comparison.png")
 fig.savefig("plots/inference_time_comparison.pdf")
+plt.show()
+
+
+# --- box plot of inference times ---
+# --- plot settings ---
+params = {  #'backend': 'ps',
+    "text.latex.preamble": r"\usepackage{gensymb} \usepackage{amsmath}",
+    "axes.labelsize": 8,  # fontsize for x and y labels (was 10)
+    "axes.titlesize": 8,
+    "legend.fontsize": 6,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 12,
+    "text.usetex": True,
+    "font.family": "serif",
+}
+matplotlib.rcParams.update(params)
+
+
+fig, ax = plt.subplots(figsize=(6, 1.8))
+
+ax.boxplot(
+    [sac_timings, dagger_timings, SAC_SF_timings, DAGGER_SF_timings, mpc_timings],
+    labels=["SAC", "DAGGER", "SAC+SF", "DAGGER+SF", "NMPC"],
+    patch_artist=True,
+    boxprops=dict(facecolor="blueviolet"),
+    zorder=3,
+    vert=False,
+)
+ax.set_facecolor("lavender")
+ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
+ax.set_xlabel("Inference Time (ms)", fontdict={"fontsize": 12})
+fig.tight_layout()
+fig.savefig("plots/inference_time_boxplot.png")
+fig.savefig("plots/inference_time_boxplot.pdf")
 plt.show()
