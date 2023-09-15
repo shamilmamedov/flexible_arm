@@ -38,4 +38,5 @@ collect_mpc: False                                                              
 
 # plots / measures
 distance_box_plot: False                                                                      # plot box plot
-distance_constraint_time_scatter_plot: True                                                   # plot scatter plot
+distance_box_plot_with_safety: False                                                             # plot box plot for near wall
+distance_constraint_time_scatter_plot: True                                                  # plot scatter plot

@@ -293,7 +293,7 @@ if cfg.kpi.distance_box_plot:
             gail_rewards,
             density_rewards,
         ],
-        labels=["MPC", "DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
+        labels=["NMPC", "DAGGER", "BC", "SAC", "PPO", "AIRL", "GAIL", "DENSITY"],
         zorder=3,
         notch=False,
         patch_artist=True,
@@ -305,6 +305,42 @@ if cfg.kpi.distance_box_plot:
     fig.savefig(f"{PLOT_DIR}/kpi_distance_box.png")
     fig.savefig(
         f"{PLOT_DIR}/kpi_distance_box.pdf", format="pdf", dpi=600, bbox_inches="tight"
+    )
+    plt.show()
+
+if cfg.kpi.distance_box_plot_with_safety:
+    # uses random goals
+    sac_rollouts = serialize.load(DEMO_DIR / "sac.pkl")
+    dagger_rollouts = serialize.load(DEMO_DIR / "dagger.pkl")
+    sac_sf_rollouts = serialize.load(DEMO_DIR / "sac_sf.pkl")
+    dagger_sf_rollouts = serialize.load(DEMO_DIR / "dagger_sf.pkl")
+    mpc_rollouts = serialize.load(DEMO_DIR / "mpc.pkl")
+
+    # --- box plot of rewards ---
+    sac_rewards = trajectory_final_distance(sac_rollouts)
+    dagger_rewards = trajectory_final_distance(dagger_rollouts)
+    sac_sf_rewards = trajectory_final_distance(sac_sf_rollouts)
+    dagger_sf_rewards = trajectory_final_distance(dagger_sf_rollouts)
+    mpc_rewards = trajectory_final_distance(mpc_rollouts)
+
+    fig, ax = plt.subplots(figsize=(6, 2.5))
+    ax.boxplot(
+        [mpc_rewards, dagger_rewards, dagger_sf_rewards, sac_rewards, sac_sf_rewards],
+        labels=["NMPC", "DAGGER", "DAGGER+SF", "SAC", "SAC+SF"],
+        zorder=3,
+        notch=False,
+        patch_artist=True,
+        boxprops=dict(facecolor="blueviolet"),
+    )
+    ax.set_facecolor("lavender")
+    ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 12})
+    fig.savefig(f"{PLOT_DIR}/kpi_distance_box_with_safety.png")
+    fig.savefig(
+        f"{PLOT_DIR}/kpi_distance_box_with_safety.pdf",
+        format="pdf",
+        dpi=600,
+        bbox_inches="tight",
     )
     plt.show()
 
@@ -409,7 +445,7 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     )
 
     graph_cbar = fig.colorbar(mappable=graph, ax=ax)
-    graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 12})
+    graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 13})
     ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
     ax.set_xlim(0.0, 40)
@@ -424,8 +460,8 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     # Annotate points
     for i, (txt, offset) in enumerate(
         zip(
-            ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "MPC"],
-            [(5, -25), (0, -25), (15, 15), (-5, 15), (0, 15)],
+            ["SAC", "SAC+SF", "DAGGER", "DAGGER+SF", "NMPC"],
+            [(5, -25), (0, -20), (15, 15), (-5, 15), (0, 10)],
         )
     ):
         ax.annotate(
@@ -433,8 +469,8 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
         )
 
     # ax.set_title("Reward vs Constraint Violation", fontdict={"fontsize": 16})
-    ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 12})
-    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 12})
+    ax.set_xlabel("Constraint Violations", fontdict={"fontsize": 13})
+    ax.set_ylabel("Final Distance to Goal (cm)", fontdict={"fontsize": 13})
     fig.tight_layout()
     fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.png")
     fig.savefig(f"{PLOT_DIR}/kpi_distance_constraint_time_scatter_with_flex.pdf")
