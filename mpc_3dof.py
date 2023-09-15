@@ -6,13 +6,13 @@ import scipy
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d, CubicSpline
 from controller import BaseController
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from poly5_planner import initial_guess_for_active_joints, get_reference_for_all_joints
 from envs.flexible_arm_3dof import (
-    get_rest_configuration, 
+    get_rest_configuration,
     inverse_kinematics_rb,
-    compute_reference_state_and_input
+    compute_reference_state_and_input,
 )
 from utils.utils import Updatable
 
@@ -45,7 +45,13 @@ class Mpc3dofOptions(Updatable):
         self.wall_constraint_on: bool = (
             True  # choose whether we activate the wall constraint
         )
+        self._calcluate_derived_parameters()
 
+    def update(self, new: Dict):
+        super().update(new)
+        self._calcluate_derived_parameters()
+
+    def _calcluate_derived_parameters(self):
         # States are ordered for each link
         self.q_diag: np.ndarray = np.array(
             [Q_QA] * (2)
@@ -67,7 +73,6 @@ class Mpc3dofOptions(Updatable):
             + [Q_DQA_E] * (1)  # dqp 1st link
             + [Q_DQP] * (self.n_seg)  # dqa3
         )  # dqp 2nd link
-
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
         self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
@@ -310,9 +315,7 @@ class Mpc3Dof(BaseController):
         """
 
         self.p_ee_ref = p_ee_ref
-        x_ref, u_ref = compute_reference_state_and_input(
-            self.fa_model, q, p_ee_ref
-        )
+        x_ref, u_ref = compute_reference_state_and_input(self.fa_model, q, p_ee_ref)
 
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)

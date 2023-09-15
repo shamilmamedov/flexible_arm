@@ -40,12 +40,12 @@ class SafetyFilter3dofOptions(Updatable):
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([1.0] * 3) * 0.  # 1e1
-        self.z_e_diag: np.ndarray = np.array([1.0] * 3) * 0.  # 1e3
+        self.z_diag: np.ndarray = np.array([1.0] * 3) * 0.0  # 1e1
+        self.z_e_diag: np.ndarray = np.array([1.0] * 3) * 0.0  # 1e3
 
         # weight related to first control command. Most important in safety filter.
         # the higher this weight, the more it will stick to the proposed input action
-        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 20
+        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 100
 
         # rollout weight needed for regularization. keeps inputs small along the horizon.
         # we dont want extreme solutions
