@@ -7,6 +7,9 @@ render: False                                                                   
 collect_demos: False                                                                 # if False, then load from demos
 random_goal: False                                                                  # if True, then goal is sampled randomly, otherwise goal is chosen near the wall
 more_flexible: False
+mpc_n: 125
+mpc_tf: 0.5
+mpc_n_seg: 3
 
 collect_bc: False                                                                    # if False, then load from demos
 bc_model_path: trained_models/IL/BC/2023-09-04_14-44/SEED_0/best_model.pt
