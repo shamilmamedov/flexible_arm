@@ -35,25 +35,25 @@ class SafetyFilter3dofOptions(Updatable):
 
     def __init__(self):
         self.n_seg: int = 1  # n_links corresponds to (n+1)*2 states
-        self.n: int = 100  # number of discretization points
-        self.tf: float = 1.0  # time horizon
+        self.n: int = 25  # number of discretization points
+        self.tf: float = 0.25  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([1.] * 3) * .1 # 1e1
-        self.z_e_diag: np.ndarray = np.array([1.] * 3) * 1.  # 1e3
+        self.z_diag: np.ndarray = np.array([1.] * 3) * 1. # 1e1
+        self.z_e_diag: np.ndarray = np.array([1.] * 3) * 10.  # 1e3
 
         # weight related to first control command. Most important in safety filter.
         # the higher this weight, the more it will stick to the proposed input action
-        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1
+        self.r_diag: np.ndarray = np.array([1.0, 1.0, 1.0]) * 5
 
         # rollout weight needed for regularization. keeps inputs small along the horizon.
         # we dont want extreme solutions
         self.r_diag_rollout: np.ndarray = np.array([1.0, 1.0, 1.0]) * 1e-5
 
         # weight for regularizing the joint speeds. They should be kept small. Needed for convergence
-        self.w_reg_dq: float = 1e-1 * 1e-1
-        self.w_reg_dq_terminal: float = 1e1 * 1e-1
+        self.w_reg_dq: float = 1e-2 
+        self.w_reg_dq_terminal: float = 1.
 
         # slacks for position and wall penetration
         self.w2_slack_wall: float = 1e6
@@ -142,12 +142,39 @@ class SafetyFilter3Dof:
         ocp.cost.cost_type_e = "LINEAR_LS"
 
         # setting state weights
-        q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
-        q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
-        q_diag[0 : int(len(q_diag) / 2)] = 0
-        q_diag[int(len(q_diag) / 2) :] = options.w_reg_dq
-        q_e_diag[0 : int(len(q_e_diag) / 2)] = 0
-        q_e_diag[int(len(q_e_diag) / 2) :] = options.w_reg_dq_terminal
+        Q_QA = 0.1  # penalty on active joints positions # 0.1, 1
+        Q_QP = 0.1  # penalty on passive joints positions # 0.1, 0.001
+        Q_DQA = 0.01  # penalty on active joints velocities # 10., 1., 0.1,
+        Q_DQP = 0.02  # penalty on passive joints velocities # 0.001, 0.1
+        Q_DQA_E = 1.0  # penalty on terminal active joints velocities
+        Q_QA_E = 0.1  
+        q_diag: np.ndarray = np.array(
+            [Q_QA] * (2)
+            + [Q_QP] * (options.n_seg)  # qa1 and qa2
+            + [Q_QA] * (1)  # qp 1st link
+            + [Q_QP] * (options.n_seg)  # qa3
+            + [Q_DQA] * (2)  # qp 2nd link
+            + [Q_DQP] * (options.n_seg)  # dqa1 and dqa2
+            + [Q_DQA] * (1)  # dqp 1st link
+            + [Q_DQP] * (options.n_seg)  # dqa3
+        )  # dqp 2nd link
+        q_e_diag: np.ndarray = np.array(
+            [Q_QA_E] * (2)
+            + [Q_QP] * (options.n_seg)  # qa1 and qa2
+            + [Q_QA_E] * (1)  # qp 1st link
+            + [Q_QP] * (options.n_seg)  # qa3
+            + [Q_DQA_E] * (2)  # qp 2nd link
+            + [Q_DQP] * (options.n_seg)  # dqa1 and dqa2
+            + [Q_DQA_E] * (1)  # dqp 1st link
+            + [Q_DQP] * (options.n_seg)  # dqa3
+        )  # dqp 2nd link
+
+        # q_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
+        # q_e_diag = np.zeros((2 + 4 * (options.n_seg + 1),))
+        # q_diag[0 : int(len(q_diag) / 2)] = 0
+        # q_diag[int(len(q_diag) / 2) :] = options.w_reg_dq
+        # q_e_diag[0 : int(len(q_e_diag) / 2)] = 0
+        # q_e_diag[int(len(q_e_diag) / 2) :] = options.w_reg_dq_terminal
         Q = np.diagflat(q_diag)
         Q_e = np.diagflat(q_e_diag)
 
@@ -398,7 +425,8 @@ class SafetyFilter3Dof:
             u0 = np.expand_dims(u0.transpose(), 1)
         else:
             u0 = u0.transpose()
-        yref = np.vstack((np.zeros((self.nx, 1)), u0, np.zeros((self.nz, 1)))).flatten()
+        p_ee_ref = self.p_ee_ref.reshape(-1,1)
+        yref = np.vstack((np.zeros((self.nx, 1)), u0, p_ee_ref)).flatten()
         self.acados_ocp_solver.cost_set(stage, "yref", yref)
 
         # acados solve NLP
