@@ -40,8 +40,8 @@ class SafetyFilter3dofOptions(Updatable):
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([0] * 3) * 0  # 1e1
-        self.z_e_diag: np.ndarray = np.array([0] * 3) * 0  # 1e3
+        self.z_diag: np.ndarray = np.array([1.] * 3) * .1 # 1e1
+        self.z_e_diag: np.ndarray = np.array([1.] * 3) * 1.  # 1e3
 
         # weight related to first control command. Most important in safety filter.
         # the higher this weight, the more it will stick to the proposed input action
@@ -344,9 +344,7 @@ class SafetyFilter3Dof:
         """
         Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
 
-        @param x_ref: States q and dq of the reference position
         @param p_ee_ref: Endefector reference position
-        @param u_ref: Torques at endeffector position. Can be set to zero.
         """
         self.p_ee_ref = p_ee_ref
         q = self.x_hat[: self.nx // 2]
