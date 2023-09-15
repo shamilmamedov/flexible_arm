@@ -17,7 +17,7 @@ from envs.flexible_arm_3dof import (
     SymbolicFlexibleArm3DOF,
     get_rest_configuration,
     inverse_kinematics_rb,
-    compute_reference_state_and_input
+    compute_reference_state_and_input,
 )
 
 from utils.utils import Updatable
@@ -35,13 +35,13 @@ class SafetyFilter3dofOptions(Updatable):
 
     def __init__(self):
         self.n_seg: int = 1  # n_links corresponds to (n+1)*2 states
-        self.n: int = 100  # number of discretization points
-        self.tf: float = 1.0  # time horizon
+        self.n: int = 25  # number of discretization points
+        self.tf: float = 0.25  # time horizon
         self.nlp_iter: int = 100  # number of iterations of the nonlinear solver
 
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([1.] * 3) * .1 # 1e1
-        self.z_e_diag: np.ndarray = np.array([1.] * 3) * 1.  # 1e3
+        self.z_diag: np.ndarray = np.array([1.0] * 3) * 0.1  # 1e1
+        self.z_e_diag: np.ndarray = np.array([1.0] * 3) * 1.0  # 1e3
 
         # weight related to first control command. Most important in safety filter.
         # the higher this weight, the more it will stick to the proposed input action
@@ -348,9 +348,7 @@ class SafetyFilter3Dof:
         """
         self.p_ee_ref = p_ee_ref
         q = self.x_hat[: self.nx // 2]
-        x_ref, u_ref = compute_reference_state_and_input(
-            self.fa_model, q, p_ee_ref
-        )
+        x_ref, u_ref = compute_reference_state_and_input(self.fa_model, q, p_ee_ref)
         if len(p_ee_ref.shape) < 2:
             p_ee_ref = np.expand_dims(p_ee_ref, 1)
         if len(x_ref.shape) < 2:

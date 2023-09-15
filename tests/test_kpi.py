@@ -381,9 +381,9 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     # from test_timing.py in (ms)
     timings = {
         "SAC": 0.25,
-        "SAC+SF": 22.1,
+        "SAC+SF": 5.1,
         "DAGGER": 0.21,
-        "DAGGER+SF": 21.9,
+        "DAGGER+SF": 5.2,
         "MPC": 44.7,
     }
     timings = [*timings.values()]
@@ -451,7 +451,7 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     ax.set_xlim(0.0, 40)
     ax.set_ylim(0.0, 100)
     ax.legend(
-        ["Low Flexibility", "High Flexibility"],
+        ["Nominal Model", "High Flexibility Model"],
         loc="upper right",
         fontsize=12,
         facecolor="thistle",
