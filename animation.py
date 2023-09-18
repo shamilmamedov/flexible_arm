@@ -32,7 +32,7 @@ class Panda3dAnimator:
         # Instantiate panda3visualizer
         self.viz = Panda3dVisualizer(m, cm, vm)
         self.viewer = Viewer(config=PANDA3D_CONFIG)
-        self.viewer.set_background_color((255,255,255))
+        self.viewer.set_background_color((255, 255, 255))
         # self.viewer.reset_camera()
         # self.viz = RVizVisualizer(m, cm, vm)
 
@@ -41,7 +41,7 @@ class Panda3dAnimator:
         :parameter k: number of times to play the trajectory
         """
         self.viz.initViewer(viewer=self.viewer)
-        self.viz.loadViewerModel(group_name='flexible_arm')
+        self.viz.loadViewerModel(group_name="flexible_arm")
 
         for _ in range(k):
             self.viz.display(self.q[0, :])
@@ -54,7 +54,7 @@ class Panda3dAnimator:
 
 class FlexibleArmVisualizer:
     def __init__(self, urdf_path: str, dt: float) -> None:
-        """ 
+        """
         :param urdf_path: path to a urdf file of a robot
         :param dt: simulation step size
         """
@@ -64,10 +64,7 @@ class FlexibleArmVisualizer:
         self.m, self.cm, self.vm = pin.buildModelsFromUrdf(urdf_path)
 
     def visualize_trajectory(
-        self, 
-        q_traj: np.ndarray, 
-        p_goal: np.ndarray = None,
-        n_replays: int = 3
+        self, q_traj: np.ndarray, p_goal: np.ndarray = None, n_replays: int = 3
     ):
         n_repeats = q_traj.shape[0]
         q_goal = self._process_goal_position(p_goal)
@@ -80,13 +77,9 @@ class FlexibleArmVisualizer:
         viz = self._start_visualizer()
         self._play(viz, q_all, n_replays)
 
-    def visualize_configuration(
-        self,
-        q: np.ndarray,
-        p_goal: np.ndarray = None
-    ):
+    def visualize_configuration(self, q: np.ndarray, p_goal: np.ndarray = None):
         t_viz = 5
-        n_repeats = int(t_viz/self.dt)
+        n_repeats = int(t_viz / self.dt)
         n_replays = 1
 
         q_goal = self._process_goal_position(p_goal)
@@ -96,7 +89,7 @@ class FlexibleArmVisualizer:
 
         # Play static trajectory
         viz = self._start_visualizer()
-        self._play(viz, q_all, n_replays)        
+        self._play(viz, q_all, n_replays)
 
     @staticmethod
     def _process_goal_position(p_goal):
@@ -106,14 +99,14 @@ class FlexibleArmVisualizer:
         # If the goal position is not given set it to z = -2m, so that
         # it gets out of enivorment
         if p_goal is None:
-            q_goal = np.array([[0., 0., -2., 0., 0., 0., 0.]]).T
+            q_goal = np.array([[0.0, 0.0, -2.0, 0.0, 0.0, 0.0, 0.0]]).T
         else:
             # Since the goal is connected to the world through floating joint
             # need to specify position and the quaterion
-            quat_goal = np.zeros((4,1))
+            quat_goal = np.zeros((4, 1))
             q_goal = np.vstack((p_goal, quat_goal))
         return q_goal
-    
+
     def _start_visualizer(self):
         viewer = Viewer(config=PANDA3D_CONFIG)
         viewer.set_background_color(((255, 255, 255)))
@@ -122,7 +115,7 @@ class FlexibleArmVisualizer:
         # Instantiate panda3visualizer
         viz = Panda3dVisualizer(self.m, self.cm, self.vm)
         viz.initViewer(viewer=viewer)
-        viz.loadViewerModel(group_name=f'flexible_arm')
+        viz.loadViewerModel(group_name=f"flexible_arm")
         return viz
 
     def _play(self, viz, q, n_replays):
@@ -132,8 +125,8 @@ class FlexibleArmVisualizer:
             viz.play(q[1:, :], self.dt)
             time.sleep(1)
         viz.viewer.stop()
-    
-    
+
+
 class Panda3dRenderer:
     def __init__(self, urdf_path: str) -> None:
         # Let pinocchio to build model, collision and visual models from URDF
@@ -142,7 +135,7 @@ class Panda3dRenderer:
         # Instantiate panda3visualizer
         viewer = Viewer(config=PANDA3D_CONFIG)
         viewer.set_background_color(((255, 255, 255)))
-        viewer.reset_camera((4., 1.5, 1.5), look_at=(0.,0.,0))
+        viewer.reset_camera((4.0, 1.5, 1.5), look_at=(0.0, 0.0, 0))
         self.viz = Panda3dVisualizer(m, cm, vm)
         self.viz.initViewer(viewer=viewer)
         self.viz.loadViewerModel(group_name="flexible_arm")
@@ -170,3 +163,7 @@ class Panda3dRenderer:
         self.viz.display(q)
         img = self.viz.viewer.get_screenshot()
         return img
+
+    def close(self):
+        self.viz.viewer.stop()
+        self.viz.viewer.destroy()

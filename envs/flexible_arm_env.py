@@ -185,28 +185,36 @@ class FlexibleArmEnv(gym.Env):
         return x[:, 0], p_ee
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[dict] = None
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[dict] = None,
     ) -> Tuple[np.ndarray, dict]:
         super().reset(seed=seed)
-
         # Reset state of the robot
-        # initial position
-        self._state, _ = self.sample_rand_config(
-            use_estimator=False, consider_wall=True
-        )
+        if options is not None and "state" in options:
+            self._state = options["state"]
+        else:
+            # initial position
+            self._state, _ = self.sample_rand_config(
+                use_estimator=False, consider_wall=True
+            )
 
-        # end position
-        # NOTE: If the estimator is availabe we use the dimention of the estimator
-        # otherwise we need to use the dimention of the model and then estimate the goal using the estimator.
-        # Estimating the goal seems unecessary since we are the ones deciding where to go.
-        # the goal position is either sampled randomly within the range or at a specific point
-        use_estimator = self.options.contr_input_states is StateType.ESTIMATED
-        self.x_final, self.xee_final = self.sample_rand_config(
-            use_estimator=use_estimator,
-            qa_range_start=self.options.qa_goal_start,
-            qa_range_end=self.options.qa_goal_end,
-            consider_wall=True,
-        )
+        if options is not None and "goal_pos" in options:
+            self.xee_final = options["goal_pos"]
+        else:
+            # end position
+            # NOTE: If the estimator is availabe we use the dimention of the estimator
+            # otherwise we need to use the dimention of the model and then estimate the goal using the estimator.
+            # Estimating the goal seems unecessary since we are the ones deciding where to go.
+            # the goal position is either sampled randomly within the range or at a specific point
+            use_estimator = self.options.contr_input_states is StateType.ESTIMATED
+            _, self.xee_final = self.sample_rand_config(
+                use_estimator=use_estimator,
+                qa_range_start=self.options.qa_goal_start,
+                qa_range_end=self.options.qa_goal_end,
+                consider_wall=True,
+            )
 
         self.simulator.reset(x0=self._state)  # also estimates the current state
 
@@ -243,7 +251,7 @@ class FlexibleArmEnv(gym.Env):
             observation = np.hstack(
                 (observation, x_ee.flatten(), self.xee_final.flatten())
             )
-        return observation, {}
+        return observation, {"state": self._state, "goal_pos": self.xee_final}
 
     def step(
         self, action: np.ndarray
