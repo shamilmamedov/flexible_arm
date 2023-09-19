@@ -69,12 +69,26 @@ def run_rollouts_frames(model, reset_states) -> list[np.array]:
 
 
 logging.info("Creating the environment")
+env_options_override = {}
+# NOTE:uncomment for near wall goals
+env_options_override.update(
+    {
+        "qa_goal_start": np.array([-np.pi / 12, 0.0, -np.pi + 0.2]),
+        "qa_goal_end": np.array([-np.pi / 12, np.pi / 2, 0.0]),
+    }
+)
+
+# NOTE:uncomment for more flexible arm
+env_options_override.update({"flex_param_file_path": cfg.kpi.flex_param_file_path})
 (
     env,
     expert,
     safety_filter,
 ) = create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=True, add_wall_obstacle=True, create_safety_filter=True
+    create_controller=True,
+    add_wall_obstacle=True,
+    create_safety_filter=True,
+    env_opts=env_options_override,
 )
 
 # --- collecting reset states ---
