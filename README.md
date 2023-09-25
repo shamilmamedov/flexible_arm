@@ -3,6 +3,13 @@
 
 <img src="https://github.com/shamilmamedov/flexible_arm/assets/59015432/cfe07419-77ac-4b5c-a711-15e4d1eba2cd" alt="Image Description" width="800">
 
+## Nonlinear MPC performance
+
+
+https://github.com/shamilmamedov/flexible_arm/assets/59015432/d1e1a90e-e378-4fa5-a520-d8d2ca81f6c2
+
+
+
 ## Installation of acados:
 Installation of acados according to the following instructions:
 https://docs.acados.org/python_interface/index.html
