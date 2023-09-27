@@ -9,6 +9,14 @@
 https://github.com/shamilmamedov/flexible_arm/assets/59015432/d1e1a90e-e378-4fa5-a520-d8d2ca81f6c2
 
 
+## The proposed method vs NMPC
+
+
+
+https://github.com/shamilmamedov/flexible_arm/assets/59015432/b3b2f49b-bc46-4bc9-8e92-94a316daca1a
+
+
+
 
 ## Installation of acados:
 Installation of acados according to the following instructions:
