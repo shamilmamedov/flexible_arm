@@ -233,7 +233,7 @@ class FlexibleArmEnv(gym.Env):
             observation = self._state
 
         # compute current end-effector position
-        x_ee = np.array(self.model_sym.p_ee(self._state[: int(self.model_sym.nq)]))
+        p_ee = np.array(self.model_sym.p_ee(self._state[: int(self.model_sym.nq)]))
 
         # Add goal position to observation
 
@@ -241,7 +241,7 @@ class FlexibleArmEnv(gym.Env):
             observation = np.hstack(
                 (
                     observation,
-                    x_ee.flatten(),
+                    p_ee.flatten(),
                     self.xee_final.flatten(),
                     self.obstacle.w,
                     self.obstacle.b,
@@ -249,7 +249,7 @@ class FlexibleArmEnv(gym.Env):
             )
         else:
             observation = np.hstack(
-                (observation, x_ee.flatten(), self.xee_final.flatten())
+                (observation, p_ee.flatten(), self.xee_final.flatten())
             )
         return observation, {"state": self._state, "goal_pos": self.xee_final}
 
@@ -274,9 +274,28 @@ class FlexibleArmEnv(gym.Env):
         self.no_intg_steps += 1
 
         # define reward as Euclidian distance to goal
-        x_ee = np.array(self.model_sym.p_ee(self._state[: int(self.model_sym.nq)]))
-        dist = np.linalg.norm(x_ee - self.xee_final, 2)
+        p_ee = np.array(self.model_sym.p_ee(self._state[: int(self.model_sym.nq)]))
+        p_elb = np.array(self.model_sym.p_elbow(self._state[: int(self.model_sym.nq)]))
+        dist = np.linalg.norm(p_ee - self.xee_final, 2)
         reward = -dist * self.options.dt
+        
+        # Add penalty if the end effector is inside the wall
+        if self.obstacle is not None:
+            dist_ee2wall = np.dot(self.obstacle.w, p_ee.ravel() - self.obstacle.b)
+            dist_elb2wall = np.dot(self.obstacle.w, p_elb.ravel() - self.obstacle.b)
+            if dist_ee2wall < 0 or dist_elb2wall < 0:
+                reward += -10
+
+        # Add penalty if the end effector is below the ground
+        dist_ee2ground = p_ee[2]
+        dist_elb2ground = p_elb[2]
+        if dist_ee2ground < 0 or dist_elb2ground < 0:
+            reward += -10
+
+        # Add penalty if the joint velocities are too high
+        qa = self._state[self.model_sym.qa_idx]
+        if np.any(np.abs(qa) > self.model_sym.dqa_max):
+            reward += -5
 
         # Check if the state is terminal
         terminated = self._terminal(dist)
@@ -297,7 +316,7 @@ class FlexibleArmEnv(gym.Env):
             observation = np.hstack(
                 (
                     observation,
-                    x_ee.flatten(),
+                    p_ee.flatten(),
                     self.xee_final.flatten(),
                     self.obstacle.w,
                     self.obstacle.b,
@@ -305,7 +324,7 @@ class FlexibleArmEnv(gym.Env):
             )
         else:
             observation = np.hstack(
-                (observation, x_ee.flatten(), self.xee_final.flatten())
+                (observation, p_ee.flatten(), self.xee_final.flatten())
             )
         return observation, reward, terminated, truncated, info
 
