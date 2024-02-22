@@ -1,3 +1,4 @@
 seed: 0
 device: 0                           # GPU device ID
 train: True                         # train or test
+train_steps: 4000000                 # number of training steps

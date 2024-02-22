@@ -1,6 +1,7 @@
 """
 This demo trains an SAC agent on the flexible arm environment.
 """
+
 import os
 import sys
 import logging
@@ -26,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = cfg.training.train
 SEED = cfg.training.seed
 DEVICE = cfg.training.device
+TRAIN_STEPS = cfg.training.train_steps
 
 now = datetime.now()
 LOG_DIR = f"logs/RL/SAC/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
@@ -75,7 +77,7 @@ if TRAIN_MODEL:
     logging.info(f"Reward before training: {reward_before}")
 
     # train the agent
-    agent.learn(total_timesteps=2000000, callback=eval_callback)
+    agent.learn(total_timesteps=TRAIN_STEPS, callback=eval_callback)
 
     # save the trained policy
     agent.save(f"{MODEL_DIR}/policy_sac_last")

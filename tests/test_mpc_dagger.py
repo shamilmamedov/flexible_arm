@@ -2,6 +2,7 @@
 This demo loads MPC rollouts as the expert and uses DAGGER for imitation learning.
 RUN COMMAND: python -m tests.test_mpc_dagger
 """
+
 import os
 import sys
 import logging
@@ -35,6 +36,7 @@ logging.basicConfig(level=logging.INFO)
 TRAIN_MODEL = cfg.training.train
 SEED = cfg.training.seed
 DEVICE = cfg.training.device
+TRAIN_STEPS = cfg.training.train_steps
 
 now = datetime.now()
 LOG_DIR = f"logs/IL/DAGGER/{now.strftime('%Y-%m-%d_%H-%M')}/SEED_{SEED}"
@@ -111,7 +113,7 @@ if TRAIN_MODEL:
 
         logging.info("Training a policy using Dagger")
         dagger_trainer.train(
-            total_timesteps=2000000,
+            total_timesteps=TRAIN_STEPS,
             rollout_round_min_episodes=5,
             bc_train_kwargs={
                 "on_batch_end": eval_callback,

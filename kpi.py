@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Union, List
+from typing import Union, List, Tuple
 
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 
@@ -182,7 +182,7 @@ def _constraint_violation(traj, n_seg: int = 3):
     )
 
 
-def constraint_violation(trajs) -> tuple[np.ndarray]:
+def constraint_violation(trajs) -> Tuple[np.ndarray]:
     cnstr_violation = [_constraint_violation(traj) for traj in trajs]
     return cnstr_violation
 
