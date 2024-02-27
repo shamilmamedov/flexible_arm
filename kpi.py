@@ -201,4 +201,8 @@ def trajectory_final_distance(trajs, dt=0.004) -> List[float]:
     :param trajs: list of trajectories
     :param dt: time step of the simulation
     """
-    return [100 * (-traj.rews[-1] / dt) for traj in trajs]
+
+    return [
+        100 * (np.linalg.norm(traj.obs[-1][18:21] - traj.obs[-1][21:24]))
+        for traj in trajs
+    ]

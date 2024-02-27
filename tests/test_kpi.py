@@ -3,6 +3,7 @@ Collects trajectories from each algorithm and saves them to a file.
 Then uses those trajectories to measure various KPIs.
 RUN COMMAND: python -m tests.test_kpi
 """
+
 import os
 import sys
 import logging
@@ -244,6 +245,11 @@ if cfg.kpi.collect_demos:
             f"{DEMO_DIR}/mpc_nseg{controller_options_override['n_seg']}_h{controller_options_override['tf']/controller_options_override['n']}.pkl",
             mpc_rollouts,
         )
+        # default MPC demos
+        serialize.save(
+            f"{DEMO_DIR}/mpc.pkl",
+            mpc_rollouts,
+        )
 
 
 def mean_kpis(rollouts):
@@ -457,8 +463,8 @@ if cfg.kpi.distance_constraint_time_scatter_plot:
     graph_cbar.set_label("Inference Time (ms)", fontdict={"fontsize": 13})
     ax.set_facecolor("lavender")
     ax.grid(color="white", linestyle="-", linewidth=1, zorder=0)
-    ax.set_xlim(0.0, 40)
-    ax.set_ylim(0.0, 100)
+    # ax.set_xlim(0.0, 40)
+    # ax.set_ylim(0.0, 100)
     ax.legend(
         ["Nominal Model", "High Flexibility Model"],
         loc="upper right",
