@@ -9,6 +9,7 @@ import torch
 from envs.flexible_arm_3dof import SymbolicFlexibleArm3DOF
 from envs.flexible_arm_env import FlexibleArmEnv, FlexibleArmEnvOptions, WallObstacle
 from mpc_3dof import Mpc3dofOptions, Mpc3Dof
+from mpc_3dof_phases import Mpc3dofPhasesOptions, Mpc3DofPhases
 from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 from utils.utils import StateType
 
@@ -19,12 +20,12 @@ class CallableMPCExpert(policies.BasePolicy):
     """a callable expert is needed for sb3 which involves the mpc controler"""
 
     def __init__(
-        self,
-        controller,
-        observation_space,
-        action_space,
-        observation_includes_goal: bool,
-        observation_includes_obstacle: bool = False,
+            self,
+            controller,
+            observation_space,
+            action_space,
+            observation_includes_goal: bool,
+            observation_includes_obstacle: bool = False,
     ):
         super().__init__(observation_space, action_space)
         self.observation_includes_goal = observation_includes_goal
@@ -75,7 +76,7 @@ class CallableMPCExpert(policies.BasePolicy):
             observation, goal_coords, obstacle = self._parse_observation(observation)
             # reset the goal if it has changed
             if self.controller.p_ee_ref is None or not np.allclose(
-                self.controller.p_ee_ref, goal_coords.reshape(-1, B)
+                    self.controller.p_ee_ref, goal_coords.reshape(-1, B)
             ):
                 nq = (observation.shape[1] - 3) // 2
                 q = observation[:, :nq]
@@ -88,14 +89,17 @@ class CallableMPCExpert(policies.BasePolicy):
 
         # observation entries: [states_q, states_dq, p_ee]
         n_q = (observation.shape[0] - 3) // 2
-        try:
-            torques = self.controller.compute_torques(
-                q=observation[0:n_q, :], dq=observation[n_q : 2 * n_q, :]
-            )
-        except Exception as e:
-            logging.warning(f"Exception in MPC controller: {e}")
-            logging.warning("Setting torques to zero")
-            torques = np.zeros(self.action_space.shape)
+        torques = self.controller.compute_torques(
+            q=observation[0:n_q, :], dq=observation[n_q: 2 * n_q, :]
+        )
+        # try:
+        #     torques = self.controller.compute_torques(
+        #         q=observation[0:n_q, :], dq=observation[n_q: 2 * n_q, :]
+        #     )
+        # except Exception as e:
+        #     logging.warning(f"Exception in MPC controller: {e}")
+        #     logging.warning("Setting torques to zero")
+        #     torques = np.zeros(self.action_space.shape)
         return torques
 
     def __call__(self, observation):
@@ -136,7 +140,7 @@ class SafetyWrapper(policies.BasePolicy):
         return self._predict(observation, deterministic)
 
     def _predict(
-        self, observation: torch.Tensor, deterministic: bool = False
+            self, observation: torch.Tensor, deterministic: bool = False
     ) -> torch.Tensor:
         with torch.no_grad():
             proposed_action = self.policy._predict(observation, deterministic)
@@ -156,7 +160,7 @@ class SafetyWrapper(policies.BasePolicy):
             observation, goal_coords, obstacle = self._parse_observation(observation)
             # reset the goal if it has changed
             if self.safety_filter.p_ee_ref is None or not np.allclose(
-                self.safety_filter.p_ee_ref, goal_coords.reshape(-1, B)
+                    self.safety_filter.p_ee_ref, goal_coords.reshape(-1, B)
             ):
                 self.safety_filter.set_reference_point(
                     p_ee_ref=goal_coords.reshape(-1, B)
@@ -190,12 +194,14 @@ class SafetyWrapper(policies.BasePolicy):
 
 
 def create_unified_flexiblearmenv_and_controller_and_safety_filter(
-    create_controller=False,
-    create_safety_filter=False,
-    add_wall_obstacle=False,
-    env_opts: Dict = None,
-    cntrl_opts: Dict = None,
-    safety_fltr_opts: Dict = None,
+        create_controller=False,
+        controller_type="mpc",
+        create_safety_filter=False,
+        add_wall_obstacle=False,
+        env_opts: Dict = None,
+        cntrl_opts: Dict = None,
+        safety_fltr_opts: Dict = None,
+        n_seg_mpc: int = 3,
 ):
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
@@ -205,7 +211,6 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     """
     # --- Create FlexibleArm environment ---
     n_seg = 10
-    n_seg_mpc = 3
 
     # Environment options
     R_Q = [3e-6] * 3
@@ -244,14 +249,28 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     # -------------------------------------
     if create_controller:
         # --- Create MPC controller ---
-        mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
+        if controller_type == "mpc":
+            mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
+        elif controller_type == "mpc_phases":
+            mpc_options = Mpc3dofPhasesOptions(n_seg_p1=3, n_seg_p2=1, tf=0.5,
+                                               t_trans=0.5 / 3, n_trans=int(125 / 3), n=125)
+        else:
+            Exception("Controller type not supported")
 
         # set other options of the controller, wich are passed as dictionary
         if cntrl_opts:
             mpc_options.update(cntrl_opts)
 
-        fa_sym_mpc = SymbolicFlexibleArm3DOF(mpc_options.n_seg)
-        controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
+        if controller_type == "mpc":
+            fa_sym_mpc = SymbolicFlexibleArm3DOF(mpc_options.n_seg)
+            controller = Mpc3Dof(model=fa_sym_mpc, x0=None, pee_0=None, options=mpc_options)
+        elif controller_type == "mpc_phases":
+            fa_sym_mpc_p1 = SymbolicFlexibleArm3DOF(mpc_options.n_seg_p1)
+            fa_sym_mpc_p2 = SymbolicFlexibleArm3DOF(mpc_options.n_seg_p2)
+            controller = Mpc3DofPhases(model_p1=fa_sym_mpc_p1, model_p2=fa_sym_mpc_p2,
+                                       x0=None, pee_0=None, options=mpc_options)
+        else:
+            Exception("Controller type not supported")
 
         # create MPC expert
         expert = CallableMPCExpert(

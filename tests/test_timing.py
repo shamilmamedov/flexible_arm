@@ -15,7 +15,8 @@ from utils.gym_utils import (
 import matplotlib.pyplot as plt
 import matplotlib
 
-device = torch.device("cuda")
+#device = torch.device("cuda")
+device = torch.device("cpu")
 (
     env,
     controller,

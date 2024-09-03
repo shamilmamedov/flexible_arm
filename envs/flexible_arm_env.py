@@ -326,6 +326,7 @@ class FlexibleArmEnv(gym.Env):
             observation = np.hstack(
                 (observation, p_ee.flatten(), self.xee_final.flatten())
             )
+
         return observation, reward, terminated, truncated, info
 
     def _terminal(self, dist: float):

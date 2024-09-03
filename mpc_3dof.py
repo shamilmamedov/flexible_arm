@@ -46,6 +46,7 @@ class Mpc3dofOptions(Updatable):
             True  # choose whether we activate the wall constraint
         )
         self._calcluate_derived_parameters()
+        self.print_timings: bool = True
 
     def update(self, new: Dict):
         super().update(new)

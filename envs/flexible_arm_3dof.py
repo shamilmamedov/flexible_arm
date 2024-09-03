@@ -670,15 +670,15 @@ def compute_reference_state_and_input(robot, q: np.ndarray, p_ee_ref: np.ndarray
         return q_ik[safe_solutions]
 
     # Solve inverse kinematics analytically and get all the solutions
-    q_ik_all = analytical_inverse_kinematics_rb(p_ee_ref)
+    q_ik_all = analytical_inverse_kinematics_rb(p_ee_ref)#4.3.1, p_ee_ref 3.1
     # Compute the rest configuration for each solution
-    q_all = np.array([get_rest_configuration(q_ik, robot.n_seg) for q_ik in q_ik_all])
+    q_all = np.array([get_rest_configuration(q_ik, robot.n_seg) for q_ik in q_ik_all])#4.9.1
     # Filter out the solutions that are not safe 
     q_safe = _filter_ik_solutions(q_all)
 
     # Chose among the safe solutions the one that is closest to the current configuration
     if len(q_safe) > 1:
-        q_diff = np.linalg.norm(q_safe - q.reshape(1,-1,1), axis=1)
+        q_diff = np.linalg.norm(q_safe - q.reshape(1,-1,1), axis=1)#1.9
         q = q_safe[np.argmin(q_diff)]
     elif len(q_safe) == 0:
         q = q_all[0]
