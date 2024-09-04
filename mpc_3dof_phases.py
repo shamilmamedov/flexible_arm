@@ -25,9 +25,9 @@ if TYPE_CHECKING:
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
 Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001
 Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,
-Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
-Q_DQA_E = 1.0  # penalty on terminal active joints velocities
-Q_QA_E = 0.1  # penalty on terminal active joints velocities
+Q_DQP = 1  # penalty on passive joints velocities # 0.001, 0.1
+Q_DQA_E = 0.1  # penalty on terminal active joints velocities
+Q_QA_E = 0.01  # penalty on terminal active joints velocities
 
 
 def translate_config(q_in: np.ndarray, n_seg_in: int, n_seg_out: int):
@@ -51,9 +51,9 @@ def get_transition_model(n_in: int, n_out: int) -> AcadosModel:
     x_in = ca.SX.sym('x_in', n_in)
 
     q_sum_beam_1 = ca.sum1(x_in[2:2 + n_seg_1])
-    q_sum_beam_2 = ca.sum1(x_in[n_seg_1 + 1:n_seg_1 + 1 + n_seg_1])
+    q_sum_beam_2 = ca.sum1(x_in[n_seg_1 + 2+1:nq_1])
     dq_sum_beam_1 = ca.sum1(x_in[nq_1 + 2:nq_1 + 2 + n_seg_1])
-    dq_sum_beam_2 = ca.sum1(x_in[nq_1 + n_seg_1 + 1:nq_1 + n_seg_1 + 1 + n_seg_1])
+    dq_sum_beam_2 = ca.sum1(x_in[nq_1 + n_seg_1 + 2+1:])
 
     vec_q_beam_1_out = n_seg_2 * [q_sum_beam_1 / n_seg_2]
     vec_q_beam_2_out = n_seg_2 * [q_sum_beam_2 / n_seg_2]
@@ -63,11 +63,11 @@ def get_transition_model(n_in: int, n_out: int) -> AcadosModel:
     x_out = ca.vertcat(
         x_in[0:2],
         *vec_q_beam_1_out,
-        x_in[n_seg_1 + 1],
+        x_in[n_seg_1 + 2],
         *vec_q_beam_2_out,
         x_in[nq_1:nq_1 + 2],
         *vec_dq_beam_1_out,
-        x_in[nq_1 + n_seg_1 + 1],
+        x_in[nq_1 + n_seg_1 + 2],
         *vec_dq_beam_2_out,
     )
     # set up model
@@ -151,7 +151,7 @@ class Mpc3dofPhasesOptions(Updatable):
         )  # dqp 2nd link
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
-        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
+        self.z_e_diag: np.ndarray = np.array([1] * 3) * 3e3
 
         # weights on control
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
@@ -378,17 +378,17 @@ class Mpc3DofPhases(BaseController):
             ocp.solver_options.qp_solver = (
                 "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
             )
-            ocp.solver_options.qp_solver_cond_N = int(
-                options.n_trans * options.condensing_relative
-            )
+            #ocp.solver_options.qp_solver_cond_N = int(
+            #    options.n_trans * options.condensing_relative
+            #)
             ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
             ocp.solver_options.integrator_type = "IRK"
             ocp.solver_options.nlp_solver_type = "SQP_RTI"  # SQP_RTI, SQP
-            ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
+            #ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
-            ocp.solver_options.sim_method_num_stages = 2
-            ocp.solver_options.sim_method_num_steps = 2
-            ocp.solver_options.qp_solver_cond_N = n_hor[phase_idx]
+            #ocp.solver_options.sim_method_num_stages = 2
+            #ocp.solver_options.sim_method_num_steps = 2
+            #ocp.solver_options.qp_solver_cond_N = n_hor[phase_idx]
 
             # set parameter values
             p_wall_outside = np.array([0, 1, 0, 0, -1e3, 0])
@@ -419,12 +419,16 @@ class Mpc3DofPhases(BaseController):
 
         # Set options
         multi_phase_ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # 'FULL_CONDENSING_QPOASES'
-        multi_phase_ocp.solver_options.qp_solver_cond_N = options.n
+        #multi_phase_ocp.solver_options.qp_solver_cond_N = int(
+        #        options.n * options.condensing_relative
+        #    )
         multi_phase_ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         multi_phase_ocp.solver_options.nlp_solver_type = 'SQP_RTI'
         multi_phase_ocp.solver_options.tf = options.tf
-        multi_phase_ocp.solver_options.nlp_solver_tol_eq = 1e-4
-        multi_phase_ocp.solver_options.nlp_solver_tol_ineq = 1e-4
+        #multi_phase_ocp.solver_options.nlp_solver_tol_eq = 1e-4
+        #multi_phase_ocp.solver_options.nlp_solver_tol_ineq = 1e-4
+        #multi_phase_ocp.solver_options.sim_method_num_stages = 2
+        #multi_phase_ocp.solver_options.sim_method_num_steps = 2
         multi_phase_ocp.mocp_opts.integrator_type = ['IRK', 'DISCRETE', 'IRK']
 
         self.acados_ocp_solver = AcadosOcpSolver(multi_phase_ocp, json_file="acados_ocp_mpc_phases.json")
@@ -440,12 +444,15 @@ class Mpc3DofPhases(BaseController):
         @param b: distance to a point on the wall
         """
         p = np.hstack((w, b))
-        for ii in range(self.options.n):
+        for ii in range(self.options.n_trans):
+            self.acados_ocp_solver.set(ii, "p", p)
+
+        for ii in range(self.options.n_trans+1,self.options.n):
             self.acados_ocp_solver.set(ii, "p", p)
 
     def set_reference_point(self, q: np.ndarray, p_ee_ref: np.ndarray):
         """
-        Sets a reference point which the mehtod "compute_torque" will then track and stabilize.
+        Sets a reference point which the method "compute_torque" will then track and stabilize.
 
         @param q: Current estimated/measured joint positions
         @param p_ee_ref: Endefector Cartesian Endefector reference position

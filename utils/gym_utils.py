@@ -13,7 +13,7 @@ from mpc_3dof_phases import Mpc3dofPhasesOptions, Mpc3DofPhases
 from safty_filter_3dof import SafetyFilter3dofOptions, SafetyFilter3Dof
 from utils.utils import StateType
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename="py_log.log",filemode="w")
 
 
 class CallableMPCExpert(policies.BasePolicy):
@@ -202,7 +202,12 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
         cntrl_opts: Dict = None,
         safety_fltr_opts: Dict = None,
         n_seg_mpc: int = 3,
+        n_seg_phases=None,
+        n_seg_ratio_p1: float = 0.5
 ):
+    if n_seg_phases is None:
+        n_seg_phases = (n_seg_mpc, 1)
+    assert n_seg_mpc == n_seg_phases[0]
     """
     This is to make sure that all algorithms are trained and evaluated on the same environment settings.
     @env_opts: dict valued environment options are overwritten
@@ -249,15 +254,21 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     # -------------------------------------
     if create_controller:
         # --- Create MPC controller ---
+        tf = 0.5
+        n_hor = 125
         if controller_type == "mpc":
-            mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=0.5, n=125)
+            mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=tf, n=n_hor)
         elif controller_type == "mpc_phases":
-            mpc_options = Mpc3dofPhasesOptions(n_seg_p1=3, n_seg_p2=1, tf=0.5,
-                                               t_trans=0.5 / 3, n_trans=int(125 / 3), n=125)
+            mpc_options = Mpc3dofPhasesOptions(n_seg_p1=n_seg_phases[0],
+                                               n_seg_p2=n_seg_phases[1],
+                                               tf=tf,
+                                               t_trans=tf * n_seg_ratio_p1,
+                                               n_trans=int(n_hor * n_seg_ratio_p1),
+                                               n=n_hor)
         else:
             Exception("Controller type not supported")
 
-        # set other options of the controller, wich are passed as dictionary
+        # set other options of the controller, which are passed as dictionary
         if cntrl_opts:
             mpc_options.update(cntrl_opts)
 

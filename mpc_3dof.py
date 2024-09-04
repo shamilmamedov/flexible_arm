@@ -23,9 +23,9 @@ if TYPE_CHECKING:
 Q_QA = 0.01  # penalty on active joints positions # 0.1, 1
 Q_QP = 0.01  # penalty on passive joints positions # 0.1, 0.001
 Q_DQA = 0.1  # penalty on active joints velocities # 10., 1., 0.1,
-Q_DQP = 10  # penalty on passive joints velocities # 0.001, 0.1
-Q_DQA_E = 1.0  # penalty on terminal active joints velocities
-Q_QA_E = 0.1  # penalty on terminal active joints velocities
+Q_DQP = 1  # penalty on passive joints velocities # 0.001, 0.1
+Q_DQA_E = 0.1  # penalty on terminal active joints velocities
+Q_QA_E = 0.01  # penalty on terminal active joints velocities
 
 
 @dataclass
@@ -76,7 +76,7 @@ class Mpc3dofOptions(Updatable):
         )  # dqp 2nd link
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
         self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
-        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
+        self.z_e_diag: np.ndarray = np.array([1] * 3) * 3e3
 
         # weights on control
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
@@ -271,17 +271,17 @@ class Mpc3Dof(BaseController):
         ocp.solver_options.qp_solver = (
             "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
         )
-        ocp.solver_options.qp_solver_cond_N = int(
-            options.n * options.condensing_relative
-        )
+        #ocp.solver_options.qp_solver_cond_N = int(
+        #    options.n * options.condensing_relative
+        #)
         ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
         ocp.solver_options.integrator_type = "IRK"
         ocp.solver_options.nlp_solver_type = "SQP_RTI"  # SQP_RTI, SQP
         ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
-        ocp.solver_options.sim_method_num_stages = 2
-        ocp.solver_options.sim_method_num_steps = 2
-        ocp.solver_options.qp_solver_cond_N = options.n
+        #ocp.solver_options.sim_method_num_stages = 2
+        #ocp.solver_options.sim_method_num_steps = 2
+        #ocp.solver_options.qp_solver_cond_N = options.n
 
         # set parameter values
         p_wall_outside = np.array([0, 1, 0, 0, -1e3, 0])

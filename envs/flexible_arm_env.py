@@ -76,6 +76,7 @@ class FlexibleArmEnv(gym.Env):
         )
         self.dt = options.dt
         self.obstacle = obstacle
+        self.rand_seed = 0
 
         # counter for integfration steps and max integration steps
         self.no_intg_steps = 0
