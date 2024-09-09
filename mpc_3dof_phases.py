@@ -1,3 +1,4 @@
+import tempfile
 from copy import copy
 from dataclasses import dataclass
 from tempfile import mkdtemp
@@ -32,14 +33,14 @@ Q_QA_E = 0.01  # penalty on terminal active joints velocities
 
 def translate_config(q_in: np.ndarray, n_seg_in: int, n_seg_out: int):
     assert q_in.shape[1] == 1 + 2 * (n_seg_in + 1)
-    q_out = np.zeros((1,1 + 2 * (n_seg_out + 1)))
-    q_out[0,0] = q_in[0,0]
-    q_out[0,1] = q_in[0,1]
-    q_out[0,1 + n_seg_out + 1] = q_in[0,1 + n_seg_in + 1]
-    q_sum_beam_1 = np.sum(q_in[0,2:2 + n_seg_in])
-    q_sum_beam_2 = np.sum(q_in[0,2 + n_seg_in + 1:])
-    q_out[0,2:2 + n_seg_out] = q_sum_beam_1 / n_seg_out
-    q_out[0,2 + n_seg_out+1:] = q_sum_beam_2 / n_seg_out
+    q_out = np.zeros((1, 1 + 2 * (n_seg_out + 1)))
+    q_out[0, 0] = q_in[0, 0]
+    q_out[0, 1] = q_in[0, 1]
+    q_out[0, 1 + n_seg_out + 1] = q_in[0, 1 + n_seg_in + 1]
+    q_sum_beam_1 = np.sum(q_in[0, 2:2 + n_seg_in])
+    q_sum_beam_2 = np.sum(q_in[0, 2 + n_seg_in + 1:])
+    q_out[0, 2:2 + n_seg_out] = q_sum_beam_1 / n_seg_out
+    q_out[0, 2 + n_seg_out + 1:] = q_sum_beam_2 / n_seg_out
     return q_out
 
 
@@ -51,9 +52,9 @@ def get_transition_model(n_in: int, n_out: int) -> AcadosModel:
     x_in = ca.SX.sym('x_in', n_in)
 
     q_sum_beam_1 = ca.sum1(x_in[2:2 + n_seg_1])
-    q_sum_beam_2 = ca.sum1(x_in[n_seg_1 + 2+1:nq_1])
+    q_sum_beam_2 = ca.sum1(x_in[n_seg_1 + 2 + 1:nq_1])
     dq_sum_beam_1 = ca.sum1(x_in[nq_1 + 2:nq_1 + 2 + n_seg_1])
-    dq_sum_beam_2 = ca.sum1(x_in[nq_1 + n_seg_1 + 2+1:])
+    dq_sum_beam_2 = ca.sum1(x_in[nq_1 + n_seg_1 + 2 + 1:])
 
     vec_q_beam_1_out = n_seg_2 * [q_sum_beam_1 / n_seg_2]
     vec_q_beam_2_out = n_seg_2 * [q_sum_beam_2 / n_seg_2]
@@ -150,8 +151,8 @@ class Mpc3dofPhasesOptions(Updatable):
             + [Q_DQP] * (self.n_seg_p2)  # dqa3
         )  # dqp 2nd link
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
-        self.z_e_diag: np.ndarray = np.array([1] * 3) * 3e3
+        self.z_diag: np.ndarray = np.array([1] * 3) * 1e4
+        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
 
         # weights on control
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
@@ -198,6 +199,8 @@ class Mpc3DofPhases(BaseController):
         x0_p2[0] = x0[0]
         x0_p2[1] = x0[1]
         x0_p2[1 + 1 + options.n_seg_p2] = copy(x0[1 + 1 + options.n_seg_p1])
+
+        self.acados_tmp_dir = tempfile.mkdtemp()
 
         self.u_max = model_p1.tau_max  # [Nm]
         self.dq_active_max = model_p1.dqa_max  # [rad/s]
@@ -253,12 +256,12 @@ class Mpc3DofPhases(BaseController):
             # assert nu == options.r_diag.shape[0]
             # assert nz == options.z_diag.shape[0] == options.z_e_diag.shape[0]
 
-            ocp.model.name = (
-                    "mpc_p" + str(phase_idx) + "n_" +
-                    str(n_hor[phase_idx]) + "_seg" +
-                    str(n_seg[phase_idx])
-            )
-            ocp.code_export_directory = mkdtemp()
+            # ocp.model.name = (
+            #         "mpc_p" + str(phase_idx) + "n_" +
+            #         str(n_hor[phase_idx]) + "_seg" +
+            #         str(n_seg[phase_idx])
+            # )
+            # ocp.code_export_directory = mkdtemp()
 
             # set dimensions
             ocp.dims.N = n_hor[phase_idx]
@@ -378,17 +381,17 @@ class Mpc3DofPhases(BaseController):
             ocp.solver_options.qp_solver = (
                 "PARTIAL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
             )
-            #ocp.solver_options.qp_solver_cond_N = int(
+            # ocp.solver_options.qp_solver_cond_N = int(
             #    options.n_trans * options.condensing_relative
-            #)
+            # )
             ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
             ocp.solver_options.integrator_type = "IRK"
             ocp.solver_options.nlp_solver_type = "SQP_RTI"  # SQP_RTI, SQP
-            #ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
+            # ocp.solver_options.nlp_solver_max_iter = options.nlp_iter
 
-            #ocp.solver_options.sim_method_num_stages = 2
-            #ocp.solver_options.sim_method_num_steps = 2
-            #ocp.solver_options.qp_solver_cond_N = n_hor[phase_idx]
+            # ocp.solver_options.sim_method_num_stages = 2
+            # ocp.solver_options.sim_method_num_steps = 2
+            # ocp.solver_options.qp_solver_cond_N = n_hor[phase_idx]
 
             # set parameter values
             p_wall_outside = np.array([0, 1, 0, 0, -1e3, 0])
@@ -396,7 +399,7 @@ class Mpc3DofPhases(BaseController):
 
             # set prediction horizon
             ocp.solver_options.tf = t_hor[phase_idx]
-            ocp.code_export_directory = "c_generated_code_mpc"
+            #ocp.code_export_directory = self.acados_tmp_dir
 
             multi_phase_ocp.set_phase(ocp, phase_idx * 2)  # leave space for transition models -> multiply with 2
 
@@ -419,19 +422,22 @@ class Mpc3DofPhases(BaseController):
 
         # Set options
         multi_phase_ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'  # 'FULL_CONDENSING_QPOASES'
-        #multi_phase_ocp.solver_options.qp_solver_cond_N = int(
+        # multi_phase_ocp.solver_options.qp_solver_cond_N = int(
         #        options.n * options.condensing_relative
         #    )
         multi_phase_ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         multi_phase_ocp.solver_options.nlp_solver_type = 'SQP_RTI'
         multi_phase_ocp.solver_options.tf = options.tf
-        #multi_phase_ocp.solver_options.nlp_solver_tol_eq = 1e-4
-        #multi_phase_ocp.solver_options.nlp_solver_tol_ineq = 1e-4
-        #multi_phase_ocp.solver_options.sim_method_num_stages = 2
-        #multi_phase_ocp.solver_options.sim_method_num_steps = 2
+        # multi_phase_ocp.solver_options.nlp_solver_tol_eq = 1e-4
+        # multi_phase_ocp.solver_options.nlp_solver_tol_ineq = 1e-4
+        # multi_phase_ocp.solver_options.sim_method_num_stages = 2
+        # multi_phase_ocp.solver_options.sim_method_num_steps = 2
         multi_phase_ocp.mocp_opts.integrator_type = ['IRK', 'DISCRETE', 'IRK']
+       # multi_phase_ocp.code_export_directory = self.acados_tmp_dir
 
-        self.acados_ocp_solver = AcadosOcpSolver(multi_phase_ocp, json_file="acados_ocp_mpc_phases.json")
+        self.acados_ocp_solver = (
+            AcadosOcpSolver(multi_phase_ocp,
+                            json_file="acados_ocp_mpc_phases.json"))
 
     def reset(self):
         self.debug_timings = []
@@ -447,7 +453,7 @@ class Mpc3DofPhases(BaseController):
         for ii in range(self.options.n_trans):
             self.acados_ocp_solver.set(ii, "p", p)
 
-        for ii in range(self.options.n_trans+1,self.options.n):
+        for ii in range(self.options.n_trans + 1, self.options.n):
             self.acados_ocp_solver.set(ii, "p", p)
 
     def set_reference_point(self, q: np.ndarray, p_ee_ref: np.ndarray):
@@ -488,10 +494,10 @@ class Mpc3DofPhases(BaseController):
         yref = np.vstack((x_ref, u_ref, p_ee_ref)).flatten()
         yref_e = np.vstack((x_ref, p_ee_ref)).flatten()
 
-        for stage in range(self.options.n_trans+1, self.options.n+1):
+        for stage in range(self.options.n_trans + 1, self.options.n + 1):
             self.acados_ocp_solver.cost_set(stage, "yref", yref)
 
-        self.acados_ocp_solver.cost_set(self.options.n+1, "yref", yref_e)
+        self.acados_ocp_solver.cost_set(self.options.n + 1, "yref", yref_e)
 
     def compute_torques(self, q: np.ndarray, dq: np.ndarray, t: float = None, y=None):
         """

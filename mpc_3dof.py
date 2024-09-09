@@ -75,8 +75,8 @@ class Mpc3dofOptions(Updatable):
             + [Q_DQP] * (self.n_seg)  # dqa3
         )  # dqp 2nd link
         # weights on algebraic variables related to reference p_ee. Not needed in safety filter
-        self.z_diag: np.ndarray = np.array([1] * 3) * 3e3
-        self.z_e_diag: np.ndarray = np.array([1] * 3) * 3e3
+        self.z_diag: np.ndarray = np.array([1] * 3) * 1e4
+        self.z_e_diag: np.ndarray = np.array([1] * 3) * 1e4
 
         # weights on control
         self.r_diag: np.ndarray = np.array([1e0, 10e0, 10e0]) * 1e-1
