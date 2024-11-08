@@ -254,8 +254,9 @@ def create_unified_flexiblearmenv_and_controller_and_safety_filter(
     # -------------------------------------
     if create_controller:
         # --- Create MPC controller ---
-        tf = 0.5
-        n_hor = 125
+
+        n_hor = 125#200
+        tf = n_hor * 0.004
         if controller_type == "mpc":
             mpc_options = Mpc3dofOptions(n_seg=n_seg_mpc, tf=tf, n=n_hor)
         elif controller_type == "mpc_phases":

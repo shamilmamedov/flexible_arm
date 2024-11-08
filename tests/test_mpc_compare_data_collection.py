@@ -27,7 +27,7 @@ logging.info(f"Starting runs: with {N_EPS} episodes...")
 
 n_seg_mpc_1_list = [3]
 n_seg_mpc_2_list = [1]
-n_seg_ratio_list = [.5]
+n_seg_ratio_list = [.3]
 
 for n_seg_mpc_1,n_seg_mpc_2,n_seg_ratio in zip(n_seg_mpc_1_list,n_seg_mpc_2_list,n_seg_ratio_list):
     np.random.seed(SEED)
